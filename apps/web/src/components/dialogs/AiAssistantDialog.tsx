@@ -42,6 +42,7 @@ import {
 import {
   aiTones,
   buildAiAssistantRequest,
+  buildAiRefinementInstruction,
   getDefaultAiAction,
   getDefaultTargetLanguage,
   promptAllowsAppend,
@@ -143,7 +144,10 @@ export const AiAssistantDialog = ({
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentReadIdRef = useRef(0);
   const customInstructionEditedRef = useRef(false);
-  const lastRequestRef = useRef<Parameters<typeof api.streamAiGeneration>[0] | null>(null);
+  const lastRequestRef = useRef<{
+    preserveOutput: boolean;
+    request: Parameters<typeof api.streamAiGeneration>[0];
+  } | null>(null);
   const assignPanelRef = useCallback((node: HTMLElement | null) => {
     panelRef.current = node;
     setPanelElement(node);
@@ -292,22 +296,33 @@ export const AiAssistantDialog = ({
     clearResult();
   };
 
-  const runGeneration = async (request: Parameters<typeof api.streamAiGeneration>[0]) => {
+  const runGeneration = async (
+    request: Parameters<typeof api.streamAiGeneration>[0],
+    { preserveOutput = false }: { preserveOutput?: boolean } = {},
+  ) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
-    lastRequestRef.current = request;
-    setOutput("");
+    lastRequestRef.current = { preserveOutput, request };
+    if (!preserveOutput) setOutput("");
     setError(null);
     setCopied(false);
     setIsGenerating(true);
+    let receivedOutput = false;
     try {
       await api.streamAiGeneration(
         request,
         {
           signal: controller.signal,
           onEvent: (event) => {
-            if (event.type === "text-delta") setOutput((current) => current + event.text);
+            if (event.type === "text-delta") {
+              if (preserveOutput && !receivedOutput) {
+                receivedOutput = true;
+                setOutput(event.text);
+              } else {
+                setOutput((current) => current + event.text);
+              }
+            }
             if (event.type === "error") setError(event.message);
           },
         },
@@ -388,17 +403,33 @@ export const AiAssistantDialog = ({
   const refine = () => {
     const instruction = refinement.trim();
     if (!output || !instruction) return;
-    setRefinement("");
+    const refinementTargetLanguage = promptNeedsTargetLanguage(effectiveParameterKind)
+      ? targetLanguage
+      : undefined;
+    const refinementTone = promptNeedsTone(effectiveParameterKind) ? tone : undefined;
     return runGeneration({
       action: "custom",
-      title,
+      title: "",
       contentMarkdown: output,
-      instruction,
-    });
+      instruction: buildAiRefinementInstruction({
+        originalAction: effectiveActionKey,
+        originalInstruction: selectedPrompt?.instruction
+          ?? (isFreeformCustom ? customInstruction : undefined),
+        refinement: instruction,
+        targetLanguage: refinementTargetLanguage,
+        tone: refinementTone,
+      }),
+      targetLanguage: refinementTargetLanguage,
+      tone: refinementTone,
+    }, { preserveOutput: true });
   };
 
   const retry = () => {
-    if (lastRequestRef.current) return runGeneration(lastRequestRef.current);
+    if (lastRequestRef.current) {
+      return runGeneration(lastRequestRef.current.request, {
+        preserveOutput: lastRequestRef.current.preserveOutput,
+      });
+    }
     return generate();
   };
 
@@ -824,7 +855,7 @@ export const AiAssistantDialog = ({
                     onChange={(event) => setRefinement(event.target.value)}
                     aria-label={t("aiAssistant.refine")}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.nativeEvent.isComposing && refinement.trim()) {
+                      if (event.key === "Enter" && !event.nativeEvent.isComposing && !isGenerating && refinement.trim()) {
                         event.preventDefault();
                         void refine();
                       }
@@ -832,7 +863,7 @@ export const AiAssistantDialog = ({
                     placeholder={t("aiAssistant.refinePlaceholder")}
                     maxLength={2_000}
                   />
-                  <Button type="button" variant="outline" disabled={!refinement.trim()} onClick={() => void refine()}>{t("aiAssistant.refineAction")}</Button>
+                  <Button type="button" variant="outline" disabled={isGenerating || !refinement.trim()} onClick={() => void refine()}>{t("aiAssistant.refineAction")}</Button>
                 </div>
               </div>
             ) : null}

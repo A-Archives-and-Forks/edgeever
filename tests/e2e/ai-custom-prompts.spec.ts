@@ -215,8 +215,23 @@ test.describe("AI custom prompts", () => {
 
     let customRequest: Record<string, unknown> | null = null;
     let translatedRequest: Record<string, unknown> | null = null;
+    let refinedRequest: Record<string, unknown> | null = null;
     await page.route("**/api/v1/ai/generate", async (route) => {
       const body = route.request().postDataJSON() as Record<string, unknown>;
+      if (body.action === "custom" && body.contentMarkdown === "Write a poem.") {
+        refinedRequest = body;
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream; charset=utf-8",
+          body: [
+            `data: ${JSON.stringify({ type: "start" })}`,
+            `data: ${JSON.stringify({ type: "text-delta", text: "Compose a poem." })}`,
+            `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}`,
+            "",
+          ].join("\n\n"),
+        });
+        return;
+      }
       if (body.action === "translate") {
         translatedRequest = body;
         await route.fulfill({
@@ -280,6 +295,22 @@ test.describe("AI custom prompts", () => {
       targetLanguage: "en",
     });
     expect(translatedRequest).not.toHaveProperty("instruction");
+
+    const refinement = assistant.getByRole("textbox", { name: "继续调整" });
+    await refinement.fill("更自然");
+    await assistant.getByRole("button", { name: "调整", exact: true }).click();
+    await expect(result).toHaveText("Compose a poem.");
+    await expect(refinement).toHaveValue("更自然");
+    expect(refinedRequest).toMatchObject({
+      action: "custom",
+      title: "",
+      contentMarkdown: "Write a poem.",
+      targetLanguage: "en",
+    });
+    expect(refinedRequest?.instruction).toContain("Keep the entire revised result in the target language: en.");
+    expect(refinedRequest?.instruction).toContain("Original processing action:\ntranslate");
+    expect(refinedRequest?.instruction).toContain("Original processing instruction:");
+    expect(refinedRequest?.instruction).toContain("Follow-up request:\n更自然");
 
     await assistant.getByRole("button", { name: "清除结果", exact: true }).click();
     await assistant.getByRole("button", { name: "自定义指令", exact: true }).click();
