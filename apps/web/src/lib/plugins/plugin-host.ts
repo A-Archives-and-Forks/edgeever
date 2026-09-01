@@ -7,6 +7,8 @@ import {
   type PluginContext,
   type PluginEventMap,
   type PluginEditorDocument,
+  type PluginEmbedInstance,
+  type PluginEmbedRenderer,
   type PluginManifest,
   type PluginMarkdownEdit,
   type PluginNote,
@@ -14,6 +16,8 @@ import {
   type PluginNoteSummary,
   type PluginPanel,
   type PluginOpenNoteOptions,
+  type PluginPanelCloseDecision,
+  type PluginPanelOpenOptions,
   type PluginPermission,
   type PluginApiErrorCode,
   type PluginResource,
@@ -122,6 +126,12 @@ export interface RegisteredPluginPanel {
   pluginId: string;
   id: string;
   title: string;
+  presentation: "dialog" | "fullscreen";
+}
+
+export interface RegisteredPluginEmbed {
+  pluginId: string;
+  type: string;
 }
 
 export interface RegisteredPluginAction {
@@ -135,6 +145,7 @@ export interface PluginEditorAdapter {
   getSelection(): PluginEditorSelection | null;
   getDocument(): PluginEditorDocument | null;
   replaceDocument(contentMarkdown: string): void;
+  insertEmbed(embed: PluginEmbedInstance): void;
   replaceSelection(contentMarkdown: string): void;
   insertAtCursor(contentMarkdown: string): void;
 }
@@ -144,13 +155,14 @@ export interface PluginNavigationAdapter {
 }
 
 export interface PluginPanelAdapter {
-  openPanel(pluginId: string, panelId: string): void | Promise<void>;
+  openPanel(pluginId: string, panelId: string, options?: PluginPanelOpenOptions): void | Promise<void>;
 }
 
 export interface PluginHostSnapshot {
   extensions: InstalledExtension[];
   commands: RegisteredPluginCommand[];
   panels: RegisteredPluginPanel[];
+  embeds: RegisteredPluginEmbed[];
   recentActions: RegisteredPluginAction[];
   activeThemeId: string | null;
 }
@@ -213,6 +225,7 @@ const toPluginResource = (resource: Awaited<ReturnType<EdgeEverRepository["uploa
   mimeType: resource.mimeType,
   filename: resource.filename,
   byteSize: resource.byteSize,
+  contentHash: resource.sha256,
   width: resource.width,
   height: resource.height,
   createdAt: resource.createdAt,
@@ -322,6 +335,9 @@ const EVENT_PERMISSIONS: Partial<Record<keyof PluginEventMap, PluginPermission>>
   "template.created": "templates:read",
   "template.updated": "templates:read",
   "template.deleted": "templates:read",
+  "resource.created": "resources:read",
+  "resource.updated": "resources:read",
+  "resource.deleted": "resources:read",
 };
 
 const isAllowedNetworkHost = (hostname: string, allowedHosts: string[]) =>
@@ -370,6 +386,20 @@ const validateSettingValue = (field: PluginSettingField, value: PluginSettingVal
   return value;
 };
 
+const normalizePanelState = (state: PluginPanelOpenOptions["state"] | undefined) => {
+  if (state === undefined) return null;
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(state);
+  } catch {
+    throw new Error("Plugin panel state must be JSON-serializable.");
+  }
+  if (serialized === undefined || serialized.length > 64 * 1024) {
+    throw new Error("Plugin panel state must be JSON-serializable and at most 64 KiB.");
+  }
+  return JSON.parse(serialized) as NonNullable<PluginPanelOpenOptions["state"]>;
+};
+
 export class EdgeEverPluginHost {
   private readonly repository: EdgeEverRepository;
   private readonly scope: string;
@@ -382,10 +412,12 @@ export class EdgeEverPluginHost {
   private readonly commands = new Map<string, PluginCommand & { pluginId: string }>();
   private readonly panels = new Map<string, PluginPanel & { pluginId: string }>();
   private readonly mountedPanels = new Map<string, Set<() => void>>();
+  private readonly embeds = new Map<string, PluginEmbedRenderer & { pluginId: string }>();
+  private readonly mountedEmbeds = new Map<string, Set<() => void>>();
   private readonly eventListeners = new Map<keyof PluginEventMap, Set<(payload: never) => void>>();
   private extensions = readInstalledExtensions();
   private activeThemeId = readStorageItem(ACTIVE_THEME_STORAGE_KEY);
-  private snapshot: PluginHostSnapshot = { extensions: [], commands: [], panels: [], recentActions: [], activeThemeId: null };
+  private snapshot: PluginHostSnapshot = { extensions: [], commands: [], panels: [], embeds: [], recentActions: [], activeThemeId: null };
   private recentActions: RegisteredPluginAction[];
   private editorAdapter: PluginEditorAdapter | null = null;
   private navigationAdapter: PluginNavigationAdapter | null = null;
@@ -661,13 +693,24 @@ export class EdgeEverPluginHost {
     this.recordRecentAction({ pluginId, id: commandId, title: command.title, type: "command" });
   }
 
-  async mountPanel(pluginId: string, panelId: string, container: HTMLElement) {
+  async mountPanel(
+    pluginId: string,
+    panelId: string,
+    container: HTMLElement,
+    options?: PluginPanelOpenOptions,
+    onRequestClose?: () => void | Promise<void>,
+  ) {
     const key = `${pluginId}:${panelId}`;
     const panel = this.panels.get(key);
     if (!panel) throw new Error("Plugin panel is not registered.");
     const mounted = this.mountedPanels.get(key) ?? new Set<() => void>();
     this.mountedPanels.set(key, mounted);
-    const pluginDispose = await panel.mount(container);
+    const pluginDispose = await panel.mount(container, {
+      state: normalizePanelState(options?.state),
+      requestClose: async () => {
+        await onRequestClose?.();
+      },
+    });
     if (this.panels.get(key) !== panel) {
       if (typeof pluginDispose === "function") pluginDispose();
       throw new Error("Plugin panel was closed while mounting.");
@@ -682,6 +725,35 @@ export class EdgeEverPluginHost {
     };
     mounted.add(dispose);
     this.recordRecentAction({ pluginId, id: panelId, title: panel.title, type: "panel" });
+    return dispose;
+  }
+
+  async getPanelCloseDecision(pluginId: string, panelId: string): Promise<PluginPanelCloseDecision> {
+    const panel = this.panels.get(`${pluginId}:${panelId}`);
+    if (!panel) return true;
+    return panel.beforeClose ? panel.beforeClose() : true;
+  }
+
+  async mountEmbed(pluginId: string, type: string, container: HTMLElement, embed: PluginEmbedInstance) {
+    const key = `${pluginId}:${type}`;
+    const renderer = this.embeds.get(key);
+    if (!renderer) throw new Error("Plugin embed renderer is not registered.");
+    const mounted = this.mountedEmbeds.get(key) ?? new Set<() => void>();
+    this.mountedEmbeds.set(key, mounted);
+    const pluginDispose = await renderer.mount(container, embed);
+    if (this.embeds.get(key) !== renderer) {
+      if (typeof pluginDispose === "function") pluginDispose();
+      throw new Error("Plugin embed renderer was removed while mounting.");
+    }
+    let active = true;
+    const dispose = () => {
+      if (!active) return;
+      active = false;
+      mounted.delete(dispose);
+      if (mounted.size === 0) this.mountedEmbeds.delete(key);
+      if (typeof pluginDispose === "function") pluginDispose();
+    };
+    mounted.add(dispose);
     return dispose;
   }
 
@@ -721,6 +793,9 @@ export class EdgeEverPluginHost {
     if (event.type === "template.created") return this.emit(event.type, { template: toPluginTemplate(event.template) });
     if (event.type === "template.updated") return this.emit(event.type, { template: toPluginTemplate(event.template) });
     if (event.type === "template.deleted") return this.emit(event.type, { templateId: event.templateId });
+    if (event.type === "resource.created") return this.emit(event.type, { resource: toPluginResource(event.resource) });
+    if (event.type === "resource.updated") return this.emit(event.type, { resource: toPluginResource(event.resource) });
+    if (event.type === "resource.deleted") return this.emit(event.type, { resourceId: event.resourceId });
     this.emit("workspace.synced", { bootstrapped: event.bootstrapped, changed: event.changed });
   };
 
@@ -797,10 +872,19 @@ export class EdgeEverPluginHost {
     for (const key of [...this.panels.keys()]) {
       if (key.startsWith(`${pluginId}:`)) this.panels.delete(key);
     }
+    for (const key of [...this.embeds.keys()]) {
+      if (key.startsWith(`${pluginId}:`)) this.embeds.delete(key);
+    }
     for (const [key, disposers] of [...this.mountedPanels]) {
       if (!key.startsWith(`${pluginId}:`)) continue;
       for (const dispose of [...disposers]) {
         try { dispose(); } catch { /* Panel cleanup must not strand the plugin. */ }
+      }
+    }
+    for (const [key, embedDisposers] of [...this.mountedEmbeds]) {
+      if (!key.startsWith(`${pluginId}:`)) continue;
+      for (const dispose of [...embedDisposers]) {
+        try { dispose(); } catch { /* Embed cleanup must not strand the plugin. */ }
       }
     }
     this.refreshSnapshot();
@@ -1104,6 +1188,49 @@ export class EdgeEverPluginHost {
           if (contentMarkdown !== current.contentMarkdown) this.editorAdapter.replaceDocument(contentMarkdown);
           return { ...current, contentMarkdown, hasUnsavedChanges: contentMarkdown !== current.contentMarkdown || current.hasUnsavedChanges };
         },
+        insertEmbed: async (input) => {
+          assertPermission(manifest, "editor:write");
+          assertPermission(manifest, "ui:embeds");
+          if (!this.editorAdapter) throw new Error("No note editor is currently active.");
+          const type = input?.type?.trim();
+          const resourceId = input?.resourceId?.trim();
+          if (!type || !/^[a-z0-9][a-z0-9._-]*$/i.test(type) || !resourceId) {
+            throw new Error("Plugin embeds require a valid type and resource id.");
+          }
+          if (!this.embeds.has(`${manifest.id}:${type}`)) {
+            throw new Error("Register the plugin embed renderer before inserting an embed.");
+          }
+          const data = normalizePanelState(input.data);
+          const embed: PluginEmbedInstance = {
+            id: `embed_${crypto.randomUUID().replace(/-/g, "")}`,
+            pluginId: manifest.id,
+            type,
+            resourceId,
+            previewResourceId: input.previewResourceId?.trim() ?? "",
+            title: input.title?.trim().slice(0, 500) ?? "",
+            data,
+          };
+          this.editorAdapter.insertEmbed(embed);
+          return embed;
+        },
+        embeds: {
+          register: (renderer) => {
+            assertPermission(manifest, "ui:embeds");
+            const type = renderer.type?.trim();
+            if (!type || !/^[a-z0-9][a-z0-9._-]*$/i.test(type)) throw new Error("Plugin embed type is invalid.");
+            const key = `${manifest.id}:${type}`;
+            if (this.embeds.has(key)) throw new Error(`Plugin embed renderer already exists: ${type}`);
+            this.embeds.set(key, { ...renderer, type, pluginId: manifest.id });
+            this.refreshSnapshot();
+            const dispose = () => {
+              this.embeds.delete(key);
+              for (const mountedDispose of [...(this.mountedEmbeds.get(key) ?? [])]) mountedDispose();
+              this.refreshSnapshot();
+            };
+            disposers.push(dispose);
+            return dispose;
+          },
+        },
         replaceSelection: async (contentMarkdown) => {
           assertPermission(manifest, "editor:write");
           if (!this.editorAdapter) throw new Error("No note editor is currently active.");
@@ -1121,18 +1248,48 @@ export class EdgeEverPluginHost {
           const { resources } = await this.repository.listResources();
           return resources.filter((resource) => !noteId || resource.memoId === noteId).map(toPluginResource);
         },
+        read: async (resourceId) => {
+          assertPermission(manifest, "resources:read");
+          return this.repository.readResource(resourceId);
+        },
         upload: async (noteId, file) => {
           assertPermission(manifest, "resources:write");
-          return toPluginResource((await this.repository.uploadMemoResource(noteId, file)).resource);
+          const resource = toPluginResource((await this.repository.uploadMemoResource(noteId, file)).resource);
+          await this.onWorkspaceChanged?.();
+          return resource;
+        },
+        update: async (resourceId, input) => {
+          assertPermission(manifest, "resources:read");
+          assertPermission(manifest, "resources:write");
+          if (!(input?.file instanceof File) || !input.expectedContentHash?.trim()) {
+            throw new Error("A file and expected resource content hash are required.");
+          }
+          try {
+            const resource = toPluginResource((await this.repository.updateResource(
+              resourceId,
+              input.file,
+              input.expectedContentHash,
+            )).resource);
+            await this.onWorkspaceChanged?.();
+            return resource;
+          } catch (error) {
+            if (error && typeof error === "object" && "code" in error && error.code === "resource_conflict") {
+              throw createPluginApiError("RESOURCE_CONFLICT", "The resource changed after the plugin read it. Reload it before saving.");
+            }
+            throw error;
+          }
         },
         rename: async (resourceId, filename) => {
           assertPermission(manifest, "resources:write");
           assertPermission(manifest, "resources:read");
-          return toPluginResource((await this.repository.renameResource(resourceId, filename)).resource);
+          const resource = toPluginResource((await this.repository.renameResource(resourceId, filename)).resource);
+          await this.onWorkspaceChanged?.();
+          return resource;
         },
         delete: async (resourceId) => {
           assertPermission(manifest, "resources:write");
           await this.repository.deleteResource(resourceId);
+          await this.onWorkspaceChanged?.();
         },
       },
       settings: {
@@ -1175,7 +1332,11 @@ export class EdgeEverPluginHost {
             if (!panel.title.trim()) throw new Error("Plugin panel title is required.");
             const key = `${manifest.id}:${panel.id}`;
             if (this.panels.has(key)) throw new Error(`Plugin panel already exists: ${panel.id}`);
-            this.panels.set(key, { ...panel, pluginId: manifest.id });
+            this.panels.set(key, {
+              ...panel,
+              presentation: panel.presentation === "fullscreen" ? "fullscreen" : "dialog",
+              pluginId: manifest.id,
+            });
             this.refreshSnapshot();
             const dispose = () => {
               this.panels.delete(key);
@@ -1184,11 +1345,13 @@ export class EdgeEverPluginHost {
             disposers.push(dispose);
             return dispose;
           },
-          open: async (panelId) => {
+          open: async (panelId, options) => {
             assertPermission(manifest, "ui:panels");
             if (!this.panels.has(`${manifest.id}:${panelId}`)) throw new Error("Plugin panel is not registered.");
             if (!this.panelAdapter) throw new Error("Plugin panel presentation is unavailable in this host.");
-            await this.panelAdapter.openPanel(manifest.id, panelId);
+            await this.panelAdapter.openPanel(manifest.id, panelId, {
+              state: normalizePanelState(options?.state),
+            });
           },
         },
       },
@@ -1297,7 +1460,13 @@ export class EdgeEverPluginHost {
     this.snapshot = {
       extensions: this.extensions.map((item) => ({ ...item, manifest: { ...item.manifest } })),
       commands: [...this.commands.values()].map(({ pluginId, id, title }) => ({ pluginId, id, title })),
-      panels: [...this.panels.values()].map(({ pluginId, id, title }) => ({ pluginId, id, title })),
+      panels: [...this.panels.values()].map(({ pluginId, id, title, presentation }) => ({
+        pluginId,
+        id,
+        title,
+        presentation: presentation === "fullscreen" ? "fullscreen" : "dialog",
+      })),
+      embeds: [...this.embeds.values()].map(({ pluginId, type }) => ({ pluginId, type })),
       recentActions: this.recentActions.flatMap((action) => {
         const registered = registeredActions.get(`${action.type}:${action.pluginId}:${action.id}`);
         return registered ? [registered] : [];

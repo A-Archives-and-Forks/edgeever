@@ -98,6 +98,7 @@ describe("EdgeEverPluginHost", () => {
       getSelection: () => ({ noteId: "note-1", from: 1, to: 6, empty: false, text: "hello", contentMarkdown: "hello" }),
       getDocument: () => ({ noteId: "note-1", contentMarkdown: "hello", hasUnsavedChanges: false }),
       replaceDocument: () => undefined,
+      insertEmbed: () => undefined,
       replaceSelection: (value) => { replacement = value; },
       insertAtCursor: () => undefined,
     });
@@ -123,7 +124,7 @@ describe("EdgeEverPluginHost", () => {
     await host.runCommand("org.edgeever.test-plugin", "hello");
 
     expect(host.getSnapshot().commands).toHaveLength(7);
-    expect(host.getSnapshot().panels).toHaveLength(1);
+    expect(host.getSnapshot().panels).toEqual([{ pluginId: "org.edgeever.test-plugin", id: "fixture", title: "Fixture panel", presentation: "dialog" }]);
     expect(notices).toEqual(["hello from plugin"]);
     expect(host.getSnapshot().recentActions[0]).toMatchObject({ id: "hello", type: "command" });
     await expect(host.runCommand("org.edgeever.test-plugin", "read-without-permission")).rejects.toThrow("notes:read");
@@ -301,7 +302,7 @@ describe("EdgeEverPluginHost", () => {
       mimeType: "text/plain",
       filename: "hello.txt",
       byteSize: 5,
-      sha256: null,
+      sha256: "resource-hash",
       width: null,
       height: null,
       createdAt: "2026-09-01T00:00:00.000Z",
@@ -362,7 +363,9 @@ describe("EdgeEverPluginHost", () => {
         createdAt: "2026-09-01T00:00:00.000Z",
       }] }),
       listResources: async () => ({ resources: [{ ...resource, memoTitle: "Note", memoExcerpt: "", memoDeleted: false }], summary: {} }),
+      readResource: async () => new Blob(["resource bytes"], { type: "text/plain" }),
       uploadMemoResource: async () => ({ resource }),
+      updateResource: async (_resourceId, file) => ({ resource: { ...resource, filename: file.name, mimeType: file.type, sha256: "updated-resource-hash" } }),
       listTemplates: async () => ({ templates: [template] }),
       createTemplate: async (input) => ({ template: { ...template, name: input.name } }),
       updateTemplate: async (_templateId, input) => ({ template: { ...template, name: input.name ?? template.name } }),
@@ -373,14 +376,16 @@ describe("EdgeEverPluginHost", () => {
     const host = new EdgeEverPluginHost({ repository: repositoryWithCapabilities, scope: "capabilities", packageStorage });
     const opened = [];
     const openedPanels = [];
+    const insertedEmbeds = [];
     let liveDocument = "First note";
     let liveDocumentDirty = false;
     host.setNavigationAdapter({ openNote: (noteId, notebookId, options) => opened.push({ noteId, notebookId, options }) });
-    host.setPanelAdapter({ openPanel: (pluginId, panelId) => openedPanels.push({ pluginId, panelId }) });
+    host.setPanelAdapter({ openPanel: (pluginId, panelId, options) => openedPanels.push({ pluginId, panelId, options }) });
     host.setEditorAdapter({
       getSelection: () => ({ noteId: "note-1", from: 0, to: 0, empty: true, text: "", contentMarkdown: "" }),
       getDocument: () => ({ noteId: "note-1", contentMarkdown: liveDocument, hasUnsavedChanges: liveDocumentDirty }),
       replaceDocument: (contentMarkdown) => { liveDocument = contentMarkdown; liveDocumentDirty = true; },
+      insertEmbed: (embed) => insertedEmbeds.push(embed),
       replaceSelection: () => undefined,
       insertAtCursor: () => undefined,
     });
@@ -395,7 +400,7 @@ describe("EdgeEverPluginHost", () => {
       permissions: [
         "notes:read", "notes:write", "metadata:write", "resources:read", "resources:write",
         "templates:read", "templates:write", "editor:read", "editor:write",
-        "ui:commands", "ui:navigation", "ui:panels",
+        "ui:commands", "ui:navigation", "ui:panels", "ui:embeds",
       ],
       settings: { fields: [{ key: "endpoint", type: "text", label: "Endpoint", default: "https://api.example" }] },
     }, "https://plugins.example/capabilities/manifest.json");
@@ -409,7 +414,9 @@ describe("EdgeEverPluginHost", () => {
       pinned: 1,
       revisions: [{ id: "revision-1", noteId: "note-1", contentMarkdown: "First" }],
       resources: [{ id: "resource-1", noteId: "note-1", filename: "hello.txt" }],
+      resourceText: "resource bytes",
       uploaded: { id: "resource-1", noteId: "note-1" },
+      updatedResource: { id: "resource-1", filename: "drawing.excalidraw", contentHash: "updated-resource-hash" },
       endpoint: "https://api.example",
       note: { id: "note-1", revision: 3, contentHash: "first-hash" },
       edited: { contentMarkdown: "Updated note" },
@@ -420,6 +427,7 @@ describe("EdgeEverPluginHost", () => {
       templatedNote: { id: "templated-note", contentMarkdown: "Template" },
       editorDocument: { noteId: "note-1", contentMarkdown: "First note", hasUnsavedChanges: false },
       editedEditorDocument: { noteId: "note-1", contentMarkdown: "Live note", hasUnsavedChanges: true },
+      insertedEmbed: { pluginId: "org.edgeever.capabilities", type: "drawing", resourceId: "resource-1", data: { mode: "edit" } },
     });
     expect(updateInput).toMatchObject({
       expectedRevision: 3,
@@ -427,13 +435,45 @@ describe("EdgeEverPluginHost", () => {
       contentMarkdown: "Updated note",
     });
     expect(opened).toEqual([{ noteId: "note-1", notebookId: "notebook-1", options: { search: "Updated note" } }]);
-    expect(openedPanels).toEqual([{ pluginId: "org.edgeever.capabilities", panelId: "capability-panel" }]);
+    expect(openedPanels).toEqual([{
+      pluginId: "org.edgeever.capabilities",
+      panelId: "capability-panel",
+      options: { state: { resourceId: "resource-1" } },
+    }]);
+    expect(insertedEmbeds).toHaveLength(1);
+    expect(host.getSnapshot().embeds).toEqual([{ pluginId: "org.edgeever.capabilities", type: "drawing" }]);
+    const embedContainer = { dataset: {} };
+    const disposeEmbed = await host.mountEmbed("org.edgeever.capabilities", "drawing", embedContainer, insertedEmbeds[0]);
+    expect(embedContainer.dataset.embedId).toBe(insertedEmbeds[0].id);
+    disposeEmbed();
+    expect(embedContainer.dataset.embedId).toBeUndefined();
+    expect(host.getSnapshot().panels[0]).toMatchObject({ presentation: "fullscreen" });
+    const panelContainer = {};
+    let requestedPanelClose = false;
+    const disposePanel = await host.mountPanel(
+      "org.edgeever.capabilities",
+      "capability-panel",
+      panelContainer,
+      { state: { resourceId: "resource-1" } },
+      () => { requestedPanelClose = true; },
+    );
+    expect(panelContainer.panelState).toEqual({ resourceId: "resource-1" });
+    await panelContainer.requestPanelClose();
+    expect(requestedPanelClose).toBe(true);
+    disposePanel();
+    expect(panelContainer.panelState).toBeUndefined();
+    await expect(host.getPanelCloseDecision("org.edgeever.capabilities", "capability-panel")).resolves.toEqual({
+      title: "Unsaved drawing",
+      message: "Close without saving?",
+      confirmLabel: "Close drawing",
+    });
     await expect(host.runCommand("org.edgeever.capabilities", "edit-stale-note"))
       .rejects.toMatchObject({ code: "NOTE_CONFLICT" });
     host.setEditorAdapter({
       getSelection: () => ({ noteId: "note-1", from: 0, to: 0, empty: true, text: "", contentMarkdown: "" }),
       getDocument: () => ({ noteId: "note-1", contentMarkdown: "Draft", hasUnsavedChanges: true }),
       replaceDocument: () => undefined,
+      insertEmbed: () => undefined,
       replaceSelection: () => undefined,
       insertAtCursor: () => undefined,
     });
@@ -489,10 +529,26 @@ describe("EdgeEverPluginHost", () => {
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-01T00:00:00.000Z",
     };
+    const updatedResource = {
+      id: "resource-events",
+      memoId: "note-events",
+      originalMemoId: null,
+      kind: "attachment",
+      mimeType: "application/vnd.excalidraw+json",
+      filename: "drawing.excalidraw",
+      byteSize: 5,
+      sha256: "resource-event-hash",
+      width: null,
+      height: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:01:00.000Z",
+      url: "/api/v1/resources/resource-events/blob",
+    };
     const repositoryWithEvents = withRepositoryMutationEvents({
       ...repository,
       updateMemo: async () => ({ memo: updatedMemo, queued: true }),
       createTemplate: async () => ({ template: createdTemplate, queued: true }),
+      updateResource: async () => ({ resource: updatedResource }),
     }, "event-workspace");
     const packageStorage = { get: async () => null, put: async () => undefined, remove: async () => undefined };
     const host = new EdgeEverPluginHost({ repository: repositoryWithEvents, scope: "event-workspace", packageStorage });
@@ -503,13 +559,14 @@ describe("EdgeEverPluginHost", () => {
       version: "1.0.0",
       apiVersion: "1",
       entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
-      permissions: ["notes:read", "templates:read"],
+      permissions: ["notes:read", "templates:read", "resources:read"],
     }, "https://plugins.example/events/manifest.json");
     await host.setEnabled("org.edgeever.events", true);
     await host.activateEnabled();
 
     await repositoryWithEvents.updateMemo(updatedMemo, {});
     await repositoryWithEvents.createTemplate({ name: "Event template" });
+    await repositoryWithEvents.updateResource("resource-events", new File(["scene"], "drawing.excalidraw"), "old-hash");
 
     expect(globalThis.edgeeverPluginObservedNote).toMatchObject({
       id: "note-events",
@@ -519,8 +576,13 @@ describe("EdgeEverPluginHost", () => {
       id: "template-events",
       contentMarkdown: "Template",
     });
+    expect(globalThis.edgeeverPluginObservedResource).toMatchObject({
+      id: "resource-events",
+      contentHash: "resource-event-hash",
+    });
     delete globalThis.edgeeverPluginObservedNote;
     delete globalThis.edgeeverPluginObservedTemplate;
+    delete globalThis.edgeeverPluginObservedResource;
     await host.dispose();
   });
 });

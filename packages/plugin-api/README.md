@@ -31,3 +31,17 @@ await context.ui.openNote(noteId, { search: "New task" }); // requires ui:naviga
 ```
 
 Bulk-indexing plugins can page through `context.notes.queryContent()`. The API also exposes workspace templates, full live-editor reads and range edits, template mutation events, and programmatic opening of a plugin's own registered panels.
+
+Canvas-style plugins can read and conflict-safely replace resource bytes, open full-screen guarded panels with JSON state, and register constrained block embed renderers:
+
+```ts
+const [resource] = await context.resources.list(noteId);
+const scene = await context.resources.read(resource.id);
+await context.resources.update(resource.id, {
+  file: new File([scene], "drawing.excalidraw"),
+  expectedContentHash: resource.contentHash!,
+});
+
+context.editor.embeds.register({ type: "drawing", mount(container, embed) {} });
+await context.editor.insertEmbed({ type: "drawing", resourceId: resource.id, title: "Drawing" });
+```

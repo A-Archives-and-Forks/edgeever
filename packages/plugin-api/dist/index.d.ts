@@ -1,6 +1,6 @@
 export declare const PLUGIN_API_VERSION: "1";
 export declare const THEME_API_VERSION: "1";
-export declare const PLUGIN_PERMISSIONS: readonly ["notes:read", "notes:write", "notes:delete", "metadata:read", "metadata:write", "resources:read", "resources:write", "templates:read", "templates:write", "network", "storage", "secrets", "editor:read", "editor:write", "ui:commands", "ui:navigation", "ui:notices", "ui:panels"];
+export declare const PLUGIN_PERMISSIONS: readonly ["notes:read", "notes:write", "notes:delete", "metadata:read", "metadata:write", "resources:read", "resources:write", "templates:read", "templates:write", "network", "storage", "secrets", "editor:read", "editor:write", "ui:commands", "ui:navigation", "ui:notices", "ui:panels", "ui:embeds"];
 export type PluginPermission = (typeof PLUGIN_PERMISSIONS)[number];
 export type ExtensionPlatform = "web" | "desktop" | "android" | "ios";
 export interface PluginManifest {
@@ -51,7 +51,7 @@ export interface PluginSettingsSchema {
     fields: PluginSettingField[];
 }
 export type PluginSettingValue = string | number | boolean;
-export declare const PLUGIN_API_ERROR_CODES: readonly ["NOTE_CONFLICT", "INVALID_MARKDOWN_EDIT"];
+export declare const PLUGIN_API_ERROR_CODES: readonly ["NOTE_CONFLICT", "RESOURCE_CONFLICT", "INVALID_MARKDOWN_EDIT"];
 export type PluginApiErrorCode = (typeof PLUGIN_API_ERROR_CODES)[number];
 export interface PluginApiError extends Error {
     code: PluginApiErrorCode;
@@ -183,6 +183,7 @@ export interface PluginResource {
     mimeType: string | null;
     filename: string | null;
     byteSize: number;
+    contentHash: string | null;
     width: number | null;
     height: number | null;
     createdAt: string;
@@ -227,6 +228,15 @@ export type PluginEventMap = {
     "template.deleted": {
         templateId: string;
     };
+    "resource.created": {
+        resource: PluginResource;
+    };
+    "resource.updated": {
+        resource: PluginResource;
+    };
+    "resource.deleted": {
+        resourceId: string;
+    };
     "workspace.sync-queue-changed": Record<string, never>;
     "workspace.synced": {
         bootstrapped: boolean;
@@ -255,10 +265,46 @@ export interface PluginOpenNoteOptions {
     /** Opens in-note search and reveals the first exact text match. */
     search?: string;
 }
+export type PluginJsonValue = null | boolean | number | string | PluginJsonValue[] | {
+    [key: string]: PluginJsonValue;
+};
+export type PluginPanelPresentation = "dialog" | "fullscreen";
+export interface PluginPanelOpenOptions {
+    state?: PluginJsonValue;
+}
+export interface PluginPanelMountContext {
+    state: PluginJsonValue | null;
+    requestClose(): Promise<void>;
+}
+export type PluginPanelCloseDecision = boolean | {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+};
+export interface PluginEmbedInput {
+    type: string;
+    resourceId: string;
+    previewResourceId?: string;
+    title?: string;
+    data?: PluginJsonValue;
+}
+export interface PluginEmbedInstance extends PluginEmbedInput {
+    id: string;
+    pluginId: string;
+    previewResourceId: string;
+    title: string;
+    data: PluginJsonValue;
+}
+export interface PluginEmbedRenderer {
+    type: string;
+    mount(container: HTMLElement, embed: PluginEmbedInstance): void | (() => void) | Promise<void | (() => void)>;
+}
 export interface PluginPanel {
     id: string;
     title: string;
-    mount(container: HTMLElement): void | (() => void) | Promise<void | (() => void)>;
+    presentation?: PluginPanelPresentation;
+    mount(container: HTMLElement, context: PluginPanelMountContext): void | (() => void) | Promise<void | (() => void)>;
+    beforeClose?(): PluginPanelCloseDecision | Promise<PluginPanelCloseDecision>;
 }
 export interface PluginContext {
     pluginId: string;
@@ -338,12 +384,21 @@ export interface PluginContext {
         getSelection(): Promise<PluginEditorSelection | null>;
         getDocument(): Promise<PluginEditorDocument | null>;
         editMarkdown(edits: PluginMarkdownEdit[]): Promise<PluginEditorDocument>;
+        insertEmbed(input: PluginEmbedInput): Promise<PluginEmbedInstance>;
+        embeds: {
+            register(renderer: PluginEmbedRenderer): () => void;
+        };
         replaceSelection(contentMarkdown: string): Promise<void>;
         insertAtCursor(contentMarkdown: string): Promise<void>;
     };
     resources: {
         list(noteId?: string): Promise<PluginResource[]>;
+        read(resourceId: string): Promise<Blob>;
         upload(noteId: string, file: File): Promise<PluginResource>;
+        update(resourceId: string, input: {
+            file: File;
+            expectedContentHash: string;
+        }): Promise<PluginResource>;
         rename(resourceId: string, filename: string): Promise<PluginResource>;
         delete(resourceId: string): Promise<void>;
     };
@@ -360,7 +415,7 @@ export interface PluginContext {
         openNote(noteId: string, options?: PluginOpenNoteOptions): Promise<void>;
         panels: {
             register(panel: PluginPanel): () => void;
-            open(panelId: string): Promise<void>;
+            open(panelId: string, options?: PluginPanelOpenOptions): Promise<void>;
         };
     };
 }

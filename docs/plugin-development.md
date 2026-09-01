@@ -1,6 +1,6 @@
 # EdgeEver Plugin Development (P0 Preview)
 
-EdgeEver's P0 extension API supports trusted client plugins and no-code theme packages. Users can install extensions from the verified marketplace, a public GitHub repository, or a manifest URL. Extensions are installed per device and run only while EdgeEver is open. Scheduled/background jobs, webhooks, custom editor blocks, and a hard JavaScript sandbox are not part of this preview.
+EdgeEver's P0 extension API supports trusted client plugins and no-code theme packages. Users can install extensions from the verified marketplace, a public GitHub repository, or a manifest URL. Extensions are installed per device and run only while EdgeEver is open. Scheduled/background jobs, webhooks, unrestricted TipTap extensions, and a hard JavaScript sandbox are not part of this preview.
 
 ## Security model
 
@@ -108,6 +108,7 @@ Supported permissions:
 - `ui:navigation`
 - `ui:notices`
 - `ui:panels`
+- `ui:embeds`
 
 Network access through `context.network.fetch()` also requires a `networkHosts` allowlist in the manifest.
 
@@ -211,14 +212,18 @@ Attachments use their own permissions and still flow through the same Web/Deskto
 
 ```ts
 context.resources.list(noteId); // resources:read
+const blob = await context.resources.read(resourceId); // resources:read
 context.resources.upload(noteId, file); // resources:write
+context.resources.update(resourceId, { file, expectedContentHash });
 context.resources.rename(resourceId, filename);
 context.resources.delete(resourceId);
 ```
 
-Subscribing to `note.*` events requires `notes:read`, subscribing to `tag.changed` requires `metadata:read`, and subscribing to `template.*` requires `templates:read`. The sync-queue status event carries no note or metadata content and requires no additional read permission.
+`resources.update()` requires both resource permissions and uses the `contentHash` returned by `resources.list()` as an optimistic-concurrency baseline. A stale baseline throws `PluginApiError` with `code: "RESOURCE_CONFLICT"`. Replacements are currently limited to 100 MiB and require the resource to be synchronized and online. The host stores new bytes under a new object key and switches the database pointer conditionally, so a rejected update does not damage the previous object.
 
-Successful note, tag, and template changes made through EdgeEver's normal repository layer—including user actions and plugin actions—feed the same plugin event stream. `workspace.synced` reports completed repository sync passes. Failed mutations do not emit success events.
+Subscribing to `note.*` events requires `notes:read`, subscribing to `tag.changed` requires `metadata:read`, subscribing to `template.*` requires `templates:read`, and subscribing to `resource.*` requires `resources:read`. The sync-queue status event carries no note or metadata content and requires no additional read permission.
+
+Successful note, tag, template, and resource changes made through EdgeEver's normal repository layer—including user actions and plugin actions—feed the same plugin event stream. `workspace.synced` reports completed repository sync passes. Failed mutations do not emit success events.
 
 ## Templates API
 
@@ -318,6 +323,31 @@ if (document) {
 
 Reading returns `null` when no editable note is open; writes throw an error. `editor.editMarkdown()` uses the same range validation as `notes.editMarkdown()`, but operates on the current in-memory document so it can safely include unsaved user changes. Plugin edits use normal editor transactions and the autosave flow.
 
+### Plugin embeds
+
+`ui:embeds` allows a plugin to register a renderer for its own constrained, block-level embed type. Inserting an embed additionally requires `editor:write`:
+
+```ts
+const disposeEmbed = context.editor.embeds.register({
+  type: "drawing",
+  async mount(container, embed) {
+    const scene = await context.resources.read(embed.resourceId);
+    // Render a framework-independent preview into container.
+    return () => container.replaceChildren();
+  }
+});
+
+await context.editor.insertEmbed({
+  type: "drawing",
+  resourceId: sceneResource.id,
+  previewResourceId: previewResource.id,
+  title: "Architecture",
+  data: { mode: "view" }
+});
+```
+
+The host assigns the embed ID and plugin ID, so a plugin cannot impersonate another renderer. Embed metadata is limited to JSON-compatible values and 64 KiB. EdgeEver persists the generic node as an `edgeever-plugin-embed` fenced block in Markdown. When the plugin is disabled or unavailable, Web and public-share views show a stable fallback, while native editors preserve the original node through their unsupported-content compatibility path. Plugins do not receive the raw TipTap editor or schema.
+
 ## Note navigation
 
 With `ui:navigation` declared, a plugin can open an existing note from a task, calendar, index, or search panel:
@@ -336,18 +366,24 @@ Plugins can register framework-independent DOM panels. Users open them from the 
 context.ui.panels.register({
   id: "dashboard",
   title: "Dashboard",
-  mount(container) {
+  presentation: "fullscreen",
+  mount(container, { state, requestClose }) {
     const heading = document.createElement("h2");
     heading.textContent = "Plugin dashboard";
     container.append(heading);
     return () => heading.remove();
+  },
+  beforeClose() {
+    return hasUnsavedDrawing
+      ? { title: "Unsaved drawing", message: "Close without saving?", confirmLabel: "Close drawing" }
+      : true;
   }
 });
 
-await context.ui.panels.open("dashboard");
+await context.ui.panels.open("dashboard", { state: { resourceId } });
 ```
 
-`panels.open()` can only open a panel registered by the calling plugin and is useful for commands, onboarding, and deep links into a plugin workflow.
+`presentation` accepts `dialog` (the default) or `fullscreen`. `panels.open()` can only open a panel registered by the calling plugin; its optional JSON state is limited to 64 KiB and is delivered through the mount context. `beforeClose()` may return `true` to close, `false` to stay open, or confirmation copy for a host-rendered dialog. The mount context's `requestClose()` follows the same guard.
 
 ## Desktop plugin entry
 

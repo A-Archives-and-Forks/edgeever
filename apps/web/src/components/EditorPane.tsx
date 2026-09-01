@@ -107,6 +107,8 @@ import {
   MEMO_CONTENT_STYLE,
   markdownToDoc,
   MergeDivider,
+  PLUGIN_EMBED_NODE_TYPE,
+  pluginEmbedToMarkdown,
   isPdfAttachment,
   resolveMemoContentDoc,
   type Notebook,
@@ -204,6 +206,7 @@ import {
 import { ImageViewer } from "./editor/ImageViewer";
 import { PdfAttachment } from "./editor/PdfAttachment";
 import { FileAttachment } from "./editor/FileAttachment";
+import { createPluginEmbedExtension } from "./editor/PluginEmbed";
 import { getEditorScrollProgress, restoreEditorScrollProgress } from "./editor/editor-mode-scroll";
 import { useEditorSaveStatus } from "./editor/useEditorSaveStatus";
 import { useEditorNoteSearchController } from "./editor/useEditorNoteSearchController";
@@ -1122,6 +1125,7 @@ const RichEditorPane = ({
     });
   }, [queryClient, repository, resourceInsertionLimit, t]);
 
+  const pluginEmbedExtension = useMemo(() => createPluginEmbedExtension(pluginHost), [pluginHost]);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -1132,6 +1136,7 @@ const RichEditorPane = ({
       TaskItem.configure({ nested: true }),
       EdgeEverCodeBlock.configure({ lowlight: codeBlockLowlight, defaultLanguage: "plaintext" }),
       MergeDivider,
+      pluginEmbedExtension,
       PdfAttachment,
       FileAttachment,
       ...createEdgeEverMathematics(),
@@ -2935,6 +2940,23 @@ const RichEditorPane = ({
       replaceDocument: (contentMarkdown) => {
         if (isMarkdownMode) setMarkdownSource(contentMarkdown);
         else editor.commands.setContent(markdownToDoc(contentMarkdown));
+        markDirty();
+      },
+      insertEmbed: (embed) => {
+        const attributes = {
+          id: embed.id,
+          pluginId: embed.pluginId,
+          type: embed.type,
+          resourceId: embed.resourceId,
+          previewResourceId: embed.previewResourceId,
+          title: embed.title,
+          dataJson: JSON.stringify(embed.data),
+        };
+        if (isMarkdownMode) {
+          setMarkdownSource((current) => `${current.trimEnd()}${current.trim() ? "\n\n" : ""}${pluginEmbedToMarkdown(attributes)}\n`);
+        } else {
+          editor.chain().focus().insertContent({ type: PLUGIN_EMBED_NODE_TYPE, attrs: attributes }).run();
+        }
         markDirty();
       },
       replaceSelection: (contentMarkdown) => {

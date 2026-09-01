@@ -1,6 +1,6 @@
 # EdgeEver 插件开发（P0 预览版）
 
-EdgeEver P0 扩展 API 支持受信任的客户端插件和无代码主题包。用户可以从已验证插件市场、公开 GitHub 仓库或 Manifest 地址安装扩展；扩展安装在当前设备，并且只在 EdgeEver 打开期间运行。当前预览版不包含定时或后台任务、Webhook、自定义编辑器 Block 和严格的 JavaScript 沙箱。
+EdgeEver P0 扩展 API 支持受信任的客户端插件和无代码主题包。用户可以从已验证插件市场、公开 GitHub 仓库或 Manifest 地址安装扩展；扩展安装在当前设备，并且只在 EdgeEver 打开期间运行。当前预览版不包含定时或后台任务、Webhook、不受约束的 TipTap 扩展和严格的 JavaScript 沙箱。
 
 ## 安全模型
 
@@ -108,6 +108,7 @@ Registry 格式：
 - `ui:navigation`
 - `ui:notices`
 - `ui:panels`
+- `ui:embeds`
 
 通过 `context.network.fetch()` 访问网络时，还必须在 Manifest 的 `networkHosts` 中声明目标域名。
 
@@ -211,14 +212,18 @@ await context.notes.editMarkdown(noteId, {
 
 ```ts
 context.resources.list(noteId); // resources:read
+const blob = await context.resources.read(resourceId); // resources:read
 context.resources.upload(noteId, file); // resources:write
+context.resources.update(resourceId, { file, expectedContentHash });
 context.resources.rename(resourceId, filename);
 context.resources.delete(resourceId);
 ```
 
-订阅 `note.*` 事件需要 `notes:read`，订阅 `tag.changed` 需要 `metadata:read`，订阅 `template.*` 需要 `templates:read`。同步队列状态事件不包含笔记或元数据，因此无需额外读取权限。
+`resources.update()` 同时需要两项资源权限，并使用 `resources.list()` 返回的 `contentHash` 做乐观并发检查。基线过期时会抛出 `code: "RESOURCE_CONFLICT"` 的 `PluginApiError`。当前替换上限为 100 MiB，并要求资源已同步且设备在线。宿主会把新内容写入新的对象键，再有条件地切换数据库指针，因此被拒绝的更新不会损坏旧对象。
 
-通过 EdgeEver 正常 Repository 层成功完成的笔记、标签和模板变更——无论来自用户操作还是插件操作——都会进入同一条插件事件流。`workspace.synced` 用于报告已完成的 Repository 同步；失败的变更不会发送成功事件。
+订阅 `note.*` 事件需要 `notes:read`，订阅 `tag.changed` 需要 `metadata:read`，订阅 `template.*` 需要 `templates:read`，订阅 `resource.*` 需要 `resources:read`。同步队列状态事件不包含笔记或元数据，因此无需额外读取权限。
+
+通过 EdgeEver 正常 Repository 层成功完成的笔记、标签、模板和资源变更——无论来自用户操作还是插件操作——都会进入同一条插件事件流。`workspace.synced` 用于报告已完成的 Repository 同步；失败的变更不会发送成功事件。
 
 ## 模板 API
 
@@ -318,6 +323,31 @@ if (document) {
 
 没有打开可编辑笔记时，读取返回 `null`，写入会抛出错误。`editor.editMarkdown()` 使用与 `notes.editMarkdown()` 相同的区间校验，但操作当前内存中的文档，因此可以安全保留用户尚未保存的修改。插件修改会进入正常的编辑器事务和自动保存流程。
 
+### 插件 Embed
+
+`ui:embeds` 允许插件为自己的受约束块级 Embed 类型注册渲染器。插入 Embed 还需要 `editor:write`：
+
+```ts
+const disposeEmbed = context.editor.embeds.register({
+  type: "drawing",
+  async mount(container, embed) {
+    const scene = await context.resources.read(embed.resourceId);
+    // 在 container 中渲染与框架无关的预览。
+    return () => container.replaceChildren();
+  }
+});
+
+await context.editor.insertEmbed({
+  type: "drawing",
+  resourceId: sceneResource.id,
+  previewResourceId: previewResource.id,
+  title: "架构图",
+  data: { mode: "view" }
+});
+```
+
+宿主会分配 Embed ID 和插件 ID，因此插件不能冒充其他渲染器。Embed 元数据只能使用兼容 JSON 的值，且上限为 64 KiB。EdgeEver 会在 Markdown 中将通用节点保存为 `edgeever-plugin-embed` 围栏块。插件停用或不可用时，Web 和公开分享页面会显示稳定的降级内容，原生编辑器则通过“不支持内容”兼容路径无损保留原节点。插件不会获得原始 TipTap 编辑器或 Schema。
+
 ## 笔记导航
 
 声明 `ui:navigation` 后，插件可以从任务、日历、索引或搜索面板打开一篇现有笔记：
@@ -336,18 +366,24 @@ await context.ui.openNote(noteId, { search: "- [ ] 发布版本" });
 context.ui.panels.register({
   id: "dashboard",
   title: "Dashboard",
-  mount(container) {
+  presentation: "fullscreen",
+  mount(container, { state, requestClose }) {
     const heading = document.createElement("h2");
     heading.textContent = "Plugin dashboard";
     container.append(heading);
     return () => heading.remove();
+  },
+  beforeClose() {
+    return hasUnsavedDrawing
+      ? { title: "绘图尚未保存", message: "仍要关闭吗？", confirmLabel: "关闭绘图" }
+      : true;
   }
 });
 
-await context.ui.panels.open("dashboard");
+await context.ui.panels.open("dashboard", { state: { resourceId } });
 ```
 
-`panels.open()` 只能打开调用插件自己注册的面板，适合命令、首次引导和插件工作流的深度跳转。
+`presentation` 可以使用 `dialog`（默认）或 `fullscreen`。`panels.open()` 只能打开调用插件自己注册的面板；可选 JSON 状态上限为 64 KiB，并通过挂载上下文传入。`beforeClose()` 可以返回 `true` 关闭、返回 `false` 保持打开，或返回由宿主显示确认框所需的文案。挂载上下文中的 `requestClose()` 同样会经过这项保护。
 
 ## 桌面端插件入口
 

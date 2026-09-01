@@ -13,6 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import type { PluginPanelOpenOptions } from "@edgeever/plugin-api";
 import { Home, Search, UserRound, Plus, ChevronDown, ChevronRight, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import * as m from "motion/react-m";
@@ -735,10 +736,14 @@ export const WorkspaceApp = ({
         queryClient.invalidateQueries({ queryKey: ["notebooks"] }),
         queryClient.invalidateQueries({ queryKey: ["tags"] }),
         queryClient.invalidateQueries({ queryKey: ["templates"] }),
+        queryClient.invalidateQueries({ queryKey: ["resources"] }),
       ]);
     },
   }), [localDataScope, queryClient, repository, t]);
-  const [requestedPluginPanel, setRequestedPluginPanel] = useState<RegisteredPluginPanel | null>(null);
+  const [requestedPluginPanel, setRequestedPluginPanel] = useState<{
+    panel: RegisteredPluginPanel;
+    options?: PluginPanelOpenOptions;
+  } | null>(null);
   const pluginNavigationRequestIdRef = useRef(0);
   const [pluginNavigationRequest, setPluginNavigationRequest] = useState<{ id: number; noteId: string; search: string } | null>(null);
 
@@ -750,18 +755,18 @@ export const WorkspaceApp = ({
   }, [pluginHost]);
 
   useEffect(() => pluginHost.setPanelAdapter({
-    openPanel(pluginId, panelId) {
+    openPanel(pluginId, panelId, options) {
       const panel = pluginHost.getSnapshot().panels.find((candidate) =>
         candidate.pluginId === pluginId && candidate.id === panelId);
       if (!panel) throw new Error("Plugin panel is not registered.");
-      setRequestedPluginPanel(panel);
+      setRequestedPluginPanel({ panel, options });
     },
   }), [pluginHost]);
 
   useEffect(() => {
     const unsubscribe = pluginHost.subscribe(() => {
       setRequestedPluginPanel((current) => current && pluginHost.getSnapshot().panels.some(
-        (panel) => panel.pluginId === current.pluginId && panel.id === current.id,
+        (panel) => panel.pluginId === current.panel.pluginId && panel.id === current.panel.id,
       ) ? current : null);
     });
     return () => {
@@ -3385,7 +3390,12 @@ export const WorkspaceApp = ({
           onConfirm={() => resetDemoMutation.mutate()}
         />
       )}
-      <PluginPanelDialog host={pluginHost} panel={requestedPluginPanel} onClose={() => setRequestedPluginPanel(null)} />
+      <PluginPanelDialog
+        host={pluginHost}
+        panel={requestedPluginPanel?.panel ?? null}
+        options={requestedPluginPanel?.options}
+        onClose={() => setRequestedPluginPanel(null)}
+      />
       {visibleActivePane !== "editor" && !memoSelectionModeActive && (
         <MobileBottomNav
           activeItem={mobileBottomNavActive}

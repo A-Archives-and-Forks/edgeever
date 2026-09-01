@@ -19,9 +19,10 @@ var PLUGIN_PERMISSIONS = [
   "ui:commands",
   "ui:navigation",
   "ui:notices",
-  "ui:panels"
+  "ui:panels",
+  "ui:embeds"
 ];
-var PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "INVALID_MARKDOWN_EDIT"];
+var PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "RESOURCE_CONFLICT", "INVALID_MARKDOWN_EDIT"];
 var THEME_TOKEN_NAMES = [
   "color.background",
   "color.surface",

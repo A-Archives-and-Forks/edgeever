@@ -20,6 +20,7 @@ export const PLUGIN_PERMISSIONS = [
   "ui:navigation",
   "ui:notices",
   "ui:panels",
+  "ui:embeds",
 ] as const;
 
 export type PluginPermission = (typeof PLUGIN_PERMISSIONS)[number];
@@ -60,7 +61,7 @@ export interface PluginSettingsSchema {
 
 export type PluginSettingValue = string | number | boolean;
 
-export const PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "INVALID_MARKDOWN_EDIT"] as const;
+export const PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "RESOURCE_CONFLICT", "INVALID_MARKDOWN_EDIT"] as const;
 export type PluginApiErrorCode = (typeof PLUGIN_API_ERROR_CODES)[number];
 export interface PluginApiError extends Error {
   code: PluginApiErrorCode;
@@ -226,6 +227,7 @@ export interface PluginResource {
   mimeType: string | null;
   filename: string | null;
   byteSize: number;
+  contentHash: string | null;
   width: number | null;
   height: number | null;
   createdAt: string;
@@ -257,6 +259,9 @@ export type PluginEventMap = {
   "template.created": { template: PluginTemplate };
   "template.updated": { template: PluginTemplate };
   "template.deleted": { templateId: string };
+  "resource.created": { resource: PluginResource };
+  "resource.updated": { resource: PluginResource };
+  "resource.deleted": { resourceId: string };
   "workspace.sync-queue-changed": Record<string, never>;
   "workspace.synced": { bootstrapped: boolean; changed: number };
 };
@@ -287,10 +292,51 @@ export interface PluginOpenNoteOptions {
   search?: string;
 }
 
+export type PluginJsonValue = null | boolean | number | string | PluginJsonValue[] | { [key: string]: PluginJsonValue };
+export type PluginPanelPresentation = "dialog" | "fullscreen";
+
+export interface PluginPanelOpenOptions {
+  state?: PluginJsonValue;
+}
+
+export interface PluginPanelMountContext {
+  state: PluginJsonValue | null;
+  requestClose(): Promise<void>;
+}
+
+export type PluginPanelCloseDecision = boolean | {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+};
+
+export interface PluginEmbedInput {
+  type: string;
+  resourceId: string;
+  previewResourceId?: string;
+  title?: string;
+  data?: PluginJsonValue;
+}
+
+export interface PluginEmbedInstance extends PluginEmbedInput {
+  id: string;
+  pluginId: string;
+  previewResourceId: string;
+  title: string;
+  data: PluginJsonValue;
+}
+
+export interface PluginEmbedRenderer {
+  type: string;
+  mount(container: HTMLElement, embed: PluginEmbedInstance): void | (() => void) | Promise<void | (() => void)>;
+}
+
 export interface PluginPanel {
   id: string;
   title: string;
-  mount(container: HTMLElement): void | (() => void) | Promise<void | (() => void)>;
+  presentation?: PluginPanelPresentation;
+  mount(container: HTMLElement, context: PluginPanelMountContext): void | (() => void) | Promise<void | (() => void)>;
+  beforeClose?(): PluginPanelCloseDecision | Promise<PluginPanelCloseDecision>;
 }
 
 export interface PluginContext {
@@ -349,12 +395,18 @@ export interface PluginContext {
     getSelection(): Promise<PluginEditorSelection | null>;
     getDocument(): Promise<PluginEditorDocument | null>;
     editMarkdown(edits: PluginMarkdownEdit[]): Promise<PluginEditorDocument>;
+    insertEmbed(input: PluginEmbedInput): Promise<PluginEmbedInstance>;
+    embeds: {
+      register(renderer: PluginEmbedRenderer): () => void;
+    };
     replaceSelection(contentMarkdown: string): Promise<void>;
     insertAtCursor(contentMarkdown: string): Promise<void>;
   };
   resources: {
     list(noteId?: string): Promise<PluginResource[]>;
+    read(resourceId: string): Promise<Blob>;
     upload(noteId: string, file: File): Promise<PluginResource>;
+    update(resourceId: string, input: { file: File; expectedContentHash: string }): Promise<PluginResource>;
     rename(resourceId: string, filename: string): Promise<PluginResource>;
     delete(resourceId: string): Promise<void>;
   };
@@ -371,7 +423,7 @@ export interface PluginContext {
     openNote(noteId: string, options?: PluginOpenNoteOptions): Promise<void>;
     panels: {
       register(panel: PluginPanel): () => void;
-      open(panelId: string): Promise<void>;
+      open(panelId: string, options?: PluginPanelOpenOptions): Promise<void>;
     };
   };
 }
