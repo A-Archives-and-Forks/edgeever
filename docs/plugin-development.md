@@ -93,6 +93,8 @@ Supported permissions:
 - `notes:read`
 - `notes:write`
 - `notes:delete`
+- `templates:read`
+- `templates:write`
 - `metadata:read`
 - `metadata:write`
 - `resources:read`
@@ -103,6 +105,7 @@ Supported permissions:
 - `editor:read`
 - `editor:write`
 - `ui:commands`
+- `ui:navigation`
 - `ui:notices`
 - `ui:panels`
 
@@ -163,7 +166,9 @@ The package build contains only `dist/index.js`, `dist/index.d.ts`, its README, 
 
 ```ts
 context.notes.query({ text, notebookId, tags, sort, limit, offset });
+context.notes.queryContent({ text, notebookId, tags, sort, limit, offset });
 context.notes.get(noteId);
+context.notes.editMarkdown(noteId, { expectedRevision, expectedContentHash, edits });
 context.notes.create({ notebookId, title, contentMarkdown, tags });
 context.notes.update(noteId, { title, contentMarkdown, tags });
 context.notes.delete(noteId, { permanent: false });
@@ -181,8 +186,25 @@ context.tags.rename("old", "new");
 context.tags.delete("unused");
 ```
 
+`notes.query()` returns lightweight summaries. Use `notes.queryContent()` when a plugin must scan Markdown across many notes, such as a Tasks index, Calendar, Kanban board, or Linter. Both APIs accept at most 200 notes per page; follow `nextOffset` until it is `null`. Prefer the summary query whenever full content is unnecessary.
+
 All writes go through EdgeEver's shared repository/business layer, including offline queueing and desktop adapters. Plugins do not access a storage implementation directly.
 `notes.update()` requires both `notes:write` and `notes:read` because the update flow reads the current revision and returns the complete updated note. This prevents write access from becoming an indirect note-content read capability.
+`notes.editMarkdown()` requires the same permissions and performs optimistic concurrency checks with the `revision` and `contentHash` returned by `notes.get()`. It is intended for plugins such as task togglers, linters, and index maintainers that change only specific Markdown ranges:
+
+```ts
+const note = await context.notes.get(noteId);
+await context.notes.editMarkdown(noteId, {
+  expectedRevision: note.revision,
+  expectedContentHash: note.contentHash,
+  edits: [
+    { from: 2, to: 3, insert: "x" },
+    { from: note.contentMarkdown.length, to: note.contentMarkdown.length, insert: "\nAppended text" }
+  ]
+});
+```
+
+Edit ranges use JavaScript UTF-16 string offsets and half-open ranges `[from, to)`. Ranges in one call must not overlap, exceed the note, or split a Unicode surrogate pair. The host rejects writes with an error carrying `code: "NOTE_CONFLICT"` when the note baseline changed or the active editor has unsaved changes; plugins should reload and ask the user to retry. Invalid ranges use `code: "INVALID_MARKDOWN_EDIT"`. The SDK exports `PluginApiError` and `PluginApiErrorCode` for TypeScript error narrowing.
 Notebook and tag reads require `metadata:read`; notebook and tag changes require `metadata:write`.
 
 Attachments use their own permissions and still flow through the same Web/Desktop repository adapters:
@@ -194,9 +216,26 @@ context.resources.rename(resourceId, filename);
 context.resources.delete(resourceId);
 ```
 
-Subscribing to `note.*` events requires `notes:read`, and subscribing to `tag.changed` requires `metadata:read`. The sync-queue status event carries no note or metadata content and requires no additional read permission.
+Subscribing to `note.*` events requires `notes:read`, subscribing to `tag.changed` requires `metadata:read`, and subscribing to `template.*` requires `templates:read`. The sync-queue status event carries no note or metadata content and requires no additional read permission.
 
-Successful note and tag changes made through EdgeEver's normal repository layer—including user actions and plugin actions—feed the same plugin event stream. `workspace.synced` reports completed repository sync passes. Failed mutations do not emit success events.
+Successful note, tag, and template changes made through EdgeEver's normal repository layer—including user actions and plugin actions—feed the same plugin event stream. `workspace.synced` reports completed repository sync passes. Failed mutations do not emit success events.
+
+## Templates API
+
+Templates are shared workspace data rather than plugin-local settings. Reading them requires `templates:read`; creating and deleting require `templates:write`; updating requires both. Applying a template also requires `notes:write` because it creates a note:
+
+```ts
+const template = await context.templates.create({
+  name: "Daily stand-up",
+  contentMarkdown: "## Done\n\n## Next\n",
+  tags: ["daily"]
+});
+await context.templates.update(template.id, { description: "Team check-in" });
+const note = await context.templates.use(template.id, notebookId);
+context.events.on("template.updated", ({ template }) => console.log(template.name));
+```
+
+`templates.create({ noteId })` can capture an existing note and additionally requires `notes:read`. Plugins can also call `templates.list()` and `templates.delete(templateId)`.
 
 ## Host-rendered settings
 
@@ -258,9 +297,9 @@ await context.secrets.remove("api-token");
 
 The web host namespaces secrets by workspace and plugin ID, encrypts them with AES-GCM using a device-local, non-exportable WebCrypto key, and stores ciphertext in IndexedDB. This prevents plaintext storage, but P0 plugins are trusted same-page code and the mechanism cannot defend against a malicious plugin reading live data.
 
-## Editor selection API
+## Editor API
 
-`editor:read` reads the active editor selection. `editor:write` replaces it or inserts Markdown at the cursor:
+`editor:read` reads the active editor selection or full live document. `editor:write` replaces the selection, inserts Markdown at the cursor, or applies validated UTF-16 range edits to the live document:
 
 ```ts
 const selection = await context.editor.getSelection();
@@ -268,9 +307,26 @@ if (selection && !selection.empty) {
   await context.editor.replaceSelection(selection.text.toUpperCase());
 }
 await context.editor.insertAtCursor("**Inserted by plugin**");
+
+const document = await context.editor.getDocument();
+if (document) {
+  await context.editor.editMarkdown([
+    { from: 0, to: 0, insert: "<!-- checked by linter -->\n" }
+  ]);
+}
 ```
 
-Reading returns `null` when no editable note is open; writes throw an error. Plugin edits use normal editor transactions and the autosave flow.
+Reading returns `null` when no editable note is open; writes throw an error. `editor.editMarkdown()` uses the same range validation as `notes.editMarkdown()`, but operates on the current in-memory document so it can safely include unsaved user changes. Plugin edits use normal editor transactions and the autosave flow.
+
+## Note navigation
+
+With `ui:navigation` declared, a plugin can open an existing note from a task, calendar, index, or search panel:
+
+```ts
+await context.ui.openNote(noteId, { search: "- [ ] Ship release" });
+```
+
+The host verifies that the note exists and is not deleted, then switches to its notebook and editor. When `search` is supplied, EdgeEver opens in-note search and reveals its first exact match. Plugins do not need and cannot access private routes or React state.
 
 ## Custom panels
 
@@ -287,7 +343,11 @@ context.ui.panels.register({
     return () => heading.remove();
   }
 });
+
+await context.ui.panels.open("dashboard");
 ```
+
+`panels.open()` can only open a panel registered by the calling plugin and is useful for commands, onboarding, and deep links into a plugin workflow.
 
 ## Desktop plugin entry
 

@@ -9,15 +9,19 @@ var PLUGIN_PERMISSIONS = [
   "metadata:write",
   "resources:read",
   "resources:write",
+  "templates:read",
+  "templates:write",
   "network",
   "storage",
   "secrets",
   "editor:read",
   "editor:write",
   "ui:commands",
+  "ui:navigation",
   "ui:notices",
   "ui:panels"
 ];
+var PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "INVALID_MARKDOWN_EDIT"];
 var THEME_TOKEN_NAMES = [
   "color.background",
   "color.surface",
@@ -302,5 +306,6 @@ export {
   THEME_API_VERSION,
   PLUGIN_PERMISSIONS,
   PLUGIN_API_VERSION,
+  PLUGIN_API_ERROR_CODES,
   MARKETPLACE_REGISTRY_VERSION
 };

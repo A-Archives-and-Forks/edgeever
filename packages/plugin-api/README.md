@@ -17,3 +17,17 @@ export default definePlugin({
 ```
 
 The package ships ESM JavaScript and TypeScript declarations. Plugin bundles must produce a single `main.js` file without relative imports before distribution. See the EdgeEver plugin development guide for the Manifest format, permissions, settings Schema, release assets, and marketplace verification rules.
+
+Conflict-safe Markdown edits use the note baseline returned by `context.notes.get()`:
+
+```ts
+const note = await context.notes.get(noteId);
+await context.notes.editMarkdown(noteId, {
+  expectedRevision: note.revision,
+  expectedContentHash: note.contentHash,
+  edits: [{ from: 0, to: 0, insert: "- [ ] New task\n" }],
+});
+await context.ui.openNote(noteId, { search: "New task" }); // requires ui:navigation
+```
+
+Bulk-indexing plugins can page through `context.notes.queryContent()`. The API also exposes workspace templates, full live-editor reads and range edits, template mutation events, and programmatic opening of a plugin's own registered panels.

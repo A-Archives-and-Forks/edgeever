@@ -36,7 +36,7 @@ globalThis.MutationObserver = class {
   disconnect() {}
 };
 
-const { EdgeEverPluginHost } = await import("./plugin-host.ts");
+const { EdgeEverPluginHost, applyPluginMarkdownEdits } = await import("./plugin-host.ts");
 const { sha256Hex } = await import("./github-plugin-distribution.ts");
 const { withRepositoryMutationEvents } = await import("../repository-events.ts");
 
@@ -96,6 +96,8 @@ describe("EdgeEverPluginHost", () => {
     let replacement = null;
     host.setEditorAdapter({
       getSelection: () => ({ noteId: "note-1", from: 1, to: 6, empty: false, text: "hello", contentMarkdown: "hello" }),
+      getDocument: () => ({ noteId: "note-1", contentMarkdown: "hello", hasUnsavedChanges: false }),
+      replaceDocument: () => undefined,
       replaceSelection: (value) => { replacement = value; },
       insertAtCursor: () => undefined,
     });
@@ -306,8 +308,46 @@ describe("EdgeEverPluginHost", () => {
       updatedAt: "2026-09-01T00:00:00.000Z",
       url: "https://edgeever.example/resource-1",
     };
+    const note = {
+      id: "note-1",
+      notebookId: "notebook-1",
+      title: "First",
+      excerpt: "First note",
+      tags: ["test"],
+      isPinned: false,
+      isArchived: false,
+      isDeleted: false,
+      revision: 3,
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      deletedAt: null,
+      contentJson: { type: "doc", content: [] },
+      contentMarkdown: "First note",
+      contentText: "First note",
+      contentHash: "first-hash",
+      sourceMemoIds: [],
+      mergeSourceCount: 0,
+      mergedIntoMemoId: null,
+    };
+    let updateInput = null;
+    const template = {
+      id: "template-1",
+      name: "Existing template",
+      description: null,
+      title: null,
+      contentMarkdown: "Template",
+      tags: [],
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    };
     const repositoryWithCapabilities = {
       ...repository,
+      listMemos: async () => ({ memos: [note], totalCount: 1, nextCursor: null }),
+      getMemo: async () => ({ memo: note }),
+      updateMemo: async (_memo, input) => {
+        updateInput = input;
+        return { memo: { ...note, contentMarkdown: input.contentMarkdown, contentText: "Updated note" }, queued: true };
+      },
       createNotebook: async (input) => ({ notebook: { id: "notebook-created", parentId: null, name: input.name, memoCount: 0 } }),
       moveMemos: async () => ({ ok: true, moved: 1 }),
       pinMemos: async () => ({ ok: true, updated: 1 }),
@@ -323,9 +363,27 @@ describe("EdgeEverPluginHost", () => {
       }] }),
       listResources: async () => ({ resources: [{ ...resource, memoTitle: "Note", memoExcerpt: "", memoDeleted: false }], summary: {} }),
       uploadMemoResource: async () => ({ resource }),
+      listTemplates: async () => ({ templates: [template] }),
+      createTemplate: async (input) => ({ template: { ...template, name: input.name } }),
+      updateTemplate: async (_templateId, input) => ({ template: { ...template, name: input.name ?? template.name } }),
+      deleteTemplate: async () => ({ ok: true }),
+      useTemplate: async () => ({ memo: { ...note, id: "templated-note", contentMarkdown: template.contentMarkdown } }),
     };
     const packageStorage = { get: async () => null, put: async () => undefined, remove: async () => undefined };
     const host = new EdgeEverPluginHost({ repository: repositoryWithCapabilities, scope: "capabilities", packageStorage });
+    const opened = [];
+    const openedPanels = [];
+    let liveDocument = "First note";
+    let liveDocumentDirty = false;
+    host.setNavigationAdapter({ openNote: (noteId, notebookId, options) => opened.push({ noteId, notebookId, options }) });
+    host.setPanelAdapter({ openPanel: (pluginId, panelId) => openedPanels.push({ pluginId, panelId }) });
+    host.setEditorAdapter({
+      getSelection: () => ({ noteId: "note-1", from: 0, to: 0, empty: true, text: "", contentMarkdown: "" }),
+      getDocument: () => ({ noteId: "note-1", contentMarkdown: liveDocument, hasUnsavedChanges: liveDocumentDirty }),
+      replaceDocument: (contentMarkdown) => { liveDocument = contentMarkdown; liveDocumentDirty = true; },
+      replaceSelection: () => undefined,
+      insertAtCursor: () => undefined,
+    });
     const entry = new URL("./plugin-host-capabilities.fixture.mjs", import.meta.url).href;
     host.installManifest({
       type: "plugin",
@@ -334,7 +392,11 @@ describe("EdgeEverPluginHost", () => {
       version: "1.0.0",
       apiVersion: "1",
       entry,
-      permissions: ["notes:read", "notes:write", "metadata:write", "resources:read", "resources:write", "ui:commands"],
+      permissions: [
+        "notes:read", "notes:write", "metadata:write", "resources:read", "resources:write",
+        "templates:read", "templates:write", "editor:read", "editor:write",
+        "ui:commands", "ui:navigation", "ui:panels",
+      ],
       settings: { fields: [{ key: "endpoint", type: "text", label: "Endpoint", default: "https://api.example" }] },
     }, "https://plugins.example/capabilities/manifest.json");
 
@@ -349,9 +411,49 @@ describe("EdgeEverPluginHost", () => {
       resources: [{ id: "resource-1", noteId: "note-1", filename: "hello.txt" }],
       uploaded: { id: "resource-1", noteId: "note-1" },
       endpoint: "https://api.example",
+      note: { id: "note-1", revision: 3, contentHash: "first-hash" },
+      edited: { contentMarkdown: "Updated note" },
+      contentQuery: { notes: [{ id: "note-1", contentMarkdown: "First note" }], totalCount: 1 },
+      templates: [{ id: "template-1", name: "Existing template" }],
+      createdTemplate: { id: "template-1", name: "Plugin template" },
+      updatedTemplate: { id: "template-1", name: "Updated template" },
+      templatedNote: { id: "templated-note", contentMarkdown: "Template" },
+      editorDocument: { noteId: "note-1", contentMarkdown: "First note", hasUnsavedChanges: false },
+      editedEditorDocument: { noteId: "note-1", contentMarkdown: "Live note", hasUnsavedChanges: true },
     });
+    expect(updateInput).toMatchObject({
+      expectedRevision: 3,
+      expectedContentHash: "first-hash",
+      contentMarkdown: "Updated note",
+    });
+    expect(opened).toEqual([{ noteId: "note-1", notebookId: "notebook-1", options: { search: "Updated note" } }]);
+    expect(openedPanels).toEqual([{ pluginId: "org.edgeever.capabilities", panelId: "capability-panel" }]);
+    await expect(host.runCommand("org.edgeever.capabilities", "edit-stale-note"))
+      .rejects.toMatchObject({ code: "NOTE_CONFLICT" });
+    host.setEditorAdapter({
+      getSelection: () => ({ noteId: "note-1", from: 0, to: 0, empty: true, text: "", contentMarkdown: "" }),
+      getDocument: () => ({ noteId: "note-1", contentMarkdown: "Draft", hasUnsavedChanges: true }),
+      replaceDocument: () => undefined,
+      replaceSelection: () => undefined,
+      insertAtCursor: () => undefined,
+    });
+    await expect(host.runCommand("org.edgeever.capabilities", "exercise-capabilities"))
+      .rejects.toMatchObject({ code: "NOTE_CONFLICT" });
     delete globalThis.edgeeverPluginCapabilityResult;
     await host.dispose();
+  });
+
+  test("applies non-overlapping Markdown edits and rejects invalid ranges", () => {
+    expect(applyPluginMarkdownEdits("one two three", [
+      { from: 8, to: 13, insert: "THREE" },
+      { from: 0, to: 3, insert: "ONE" },
+    ])).toBe("ONE two THREE");
+    expect(() => applyPluginMarkdownEdits("abcdef", [
+      { from: 1, to: 4, insert: "x" },
+      { from: 3, to: 5, insert: "y" },
+    ])).toThrow("cannot overlap");
+    expect(() => applyPluginMarkdownEdits("A😀B", [{ from: 2, to: 2, insert: "x" }]))
+      .toThrow("surrogate pair");
   });
 
   test("delivers successful user and plugin repository mutations through one workspace event stream", async () => {
@@ -376,9 +478,21 @@ describe("EdgeEverPluginHost", () => {
       mergeSourceCount: 0,
       mergedIntoMemoId: null,
     };
+    const createdTemplate = {
+      id: "template-events",
+      name: "Event template",
+      description: null,
+      title: null,
+      contentJson: { type: "doc", content: [] },
+      contentMarkdown: "Template",
+      tags: ["events"],
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+    };
     const repositoryWithEvents = withRepositoryMutationEvents({
       ...repository,
       updateMemo: async () => ({ memo: updatedMemo, queued: true }),
+      createTemplate: async () => ({ template: createdTemplate, queued: true }),
     }, "event-workspace");
     const packageStorage = { get: async () => null, put: async () => undefined, remove: async () => undefined };
     const host = new EdgeEverPluginHost({ repository: repositoryWithEvents, scope: "event-workspace", packageStorage });
@@ -389,18 +503,24 @@ describe("EdgeEverPluginHost", () => {
       version: "1.0.0",
       apiVersion: "1",
       entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
-      permissions: ["notes:read"],
+      permissions: ["notes:read", "templates:read"],
     }, "https://plugins.example/events/manifest.json");
     await host.setEnabled("org.edgeever.events", true);
     await host.activateEnabled();
 
     await repositoryWithEvents.updateMemo(updatedMemo, {});
+    await repositoryWithEvents.createTemplate({ name: "Event template" });
 
     expect(globalThis.edgeeverPluginObservedNote).toMatchObject({
       id: "note-events",
       contentMarkdown: "Updated",
     });
+    expect(globalThis.edgeeverPluginObservedTemplate).toMatchObject({
+      id: "template-events",
+      contentMarkdown: "Template",
+    });
     delete globalThis.edgeeverPluginObservedNote;
+    delete globalThis.edgeeverPluginObservedTemplate;
     await host.dispose();
   });
 });

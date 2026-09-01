@@ -9,12 +9,15 @@ export const PLUGIN_PERMISSIONS = [
   "metadata:write",
   "resources:read",
   "resources:write",
+  "templates:read",
+  "templates:write",
   "network",
   "storage",
   "secrets",
   "editor:read",
   "editor:write",
   "ui:commands",
+  "ui:navigation",
   "ui:notices",
   "ui:panels",
 ] as const;
@@ -56,6 +59,12 @@ export interface PluginSettingsSchema {
 }
 
 export type PluginSettingValue = string | number | boolean;
+
+export const PLUGIN_API_ERROR_CODES = ["NOTE_CONFLICT", "INVALID_MARKDOWN_EDIT"] as const;
+export type PluginApiErrorCode = (typeof PLUGIN_API_ERROR_CODES)[number];
+export interface PluginApiError extends Error {
+  code: PluginApiErrorCode;
+}
 
 export const THEME_TOKEN_NAMES = [
   "color.background",
@@ -136,8 +145,26 @@ export interface PluginNoteSummary {
 }
 
 export interface PluginNote extends PluginNoteSummary {
+  revision: number;
   contentMarkdown: string;
   contentText: string;
+  contentHash: string;
+}
+
+/**
+ * A replacement range in a note's Markdown source. Offsets use JavaScript
+ * UTF-16 string indices and ranges are half-open: [from, to).
+ */
+export interface PluginMarkdownEdit {
+  from: number;
+  to: number;
+  insert: string;
+}
+
+export interface PluginMarkdownEditInput {
+  expectedRevision: number;
+  expectedContentHash: string;
+  edits: PluginMarkdownEdit[];
 }
 
 export interface PluginNoteQuery {
@@ -164,6 +191,12 @@ export interface PluginNoteUpdateInput {
 
 export interface PluginNoteQueryResult {
   notes: PluginNoteSummary[];
+  totalCount: number;
+  nextOffset: number | null;
+}
+
+export interface PluginNoteContentQueryResult {
+  notes: PluginNote[];
   totalCount: number;
   nextOffset: number | null;
 }
@@ -205,11 +238,25 @@ export interface PluginTag {
   noteCount: number;
 }
 
+export interface PluginTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  title: string | null;
+  contentMarkdown: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type PluginEventMap = {
   "note.created": { note: PluginNote };
   "note.updated": { note: PluginNote };
   "note.deleted": { noteId: string };
   "tag.changed": { previousName?: string; name?: string; deleted?: boolean };
+  "template.created": { template: PluginTemplate };
+  "template.updated": { template: PluginTemplate };
+  "template.deleted": { templateId: string };
   "workspace.sync-queue-changed": Record<string, never>;
   "workspace.synced": { bootstrapped: boolean; changed: number };
 };
@@ -229,6 +276,17 @@ export interface PluginEditorSelection {
   contentMarkdown: string;
 }
 
+export interface PluginEditorDocument {
+  noteId: string;
+  contentMarkdown: string;
+  hasUnsavedChanges: boolean;
+}
+
+export interface PluginOpenNoteOptions {
+  /** Opens in-note search and reveals the first exact text match. */
+  search?: string;
+}
+
 export interface PluginPanel {
   id: string;
   title: string;
@@ -239,7 +297,9 @@ export interface PluginContext {
   pluginId: string;
   notes: {
     query(input?: PluginNoteQuery): Promise<PluginNoteQueryResult>;
+    queryContent(input?: PluginNoteQuery): Promise<PluginNoteContentQueryResult>;
     get(noteId: string): Promise<PluginNote>;
+    editMarkdown(noteId: string, input: PluginMarkdownEditInput): Promise<PluginNote>;
     create(input: PluginNoteCreateInput): Promise<PluginNote>;
     update(noteId: string, input: PluginNoteUpdateInput): Promise<PluginNote>;
     delete(noteId: string, options?: { permanent?: boolean }): Promise<void>;
@@ -262,6 +322,13 @@ export interface PluginContext {
     rename(name: string, nextName: string): Promise<number>;
     delete(name: string): Promise<number>;
   };
+  templates: {
+    list(): Promise<PluginTemplate[]>;
+    create(input: { name: string; description?: string | null; noteId?: string; title?: string | null; contentMarkdown?: string; tags?: string[] }): Promise<PluginTemplate>;
+    update(templateId: string, input: { name?: string; description?: string | null; title?: string | null; contentMarkdown?: string; tags?: string[] }): Promise<PluginTemplate>;
+    delete(templateId: string): Promise<void>;
+    use(templateId: string, notebookId: string): Promise<PluginNote>;
+  };
   commands: {
     register(command: PluginCommand): () => void;
   };
@@ -280,6 +347,8 @@ export interface PluginContext {
   };
   editor: {
     getSelection(): Promise<PluginEditorSelection | null>;
+    getDocument(): Promise<PluginEditorDocument | null>;
+    editMarkdown(edits: PluginMarkdownEdit[]): Promise<PluginEditorDocument>;
     replaceSelection(contentMarkdown: string): Promise<void>;
     insertAtCursor(contentMarkdown: string): Promise<void>;
   };
@@ -299,8 +368,10 @@ export interface PluginContext {
   };
   ui: {
     showNotice(message: string): void;
+    openNote(noteId: string, options?: PluginOpenNoteOptions): Promise<void>;
     panels: {
       register(panel: PluginPanel): () => void;
+      open(panelId: string): Promise<void>;
     };
   };
 }

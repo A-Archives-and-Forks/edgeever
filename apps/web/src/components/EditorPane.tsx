@@ -451,6 +451,7 @@ type EditorPaneProps = {
   onOpenMemo?: (memoId: string) => void;
   onOpenAiPrompts?: () => void;
   pluginHost: EdgeEverPluginHost;
+  pluginNavigationRequest?: { id: number; noteId: string; search: string } | null;
 };
 
 type RichEditorPaneProps = EditorPaneProps & {
@@ -524,6 +525,7 @@ const RichEditorPane = ({
   onOpenMemo,
   onOpenAiPrompts,
   pluginHost,
+  pluginNavigationRequest,
   onRequestMobileNativeEdit,
 }: RichEditorPaneProps) => {
   const { t, i18n } = useTranslation();
@@ -575,6 +577,7 @@ const RichEditorPane = ({
   const [noteSearchReplaceOpen, setNoteSearchReplaceOpen] = useState(false);
   const [noteSearchReplacement, setNoteSearchReplacement] = useState("");
   const [noteSearchIndex, setNoteSearchIndex] = useState(0);
+  const handledPluginNavigationRequestRef = useRef(0);
   const [noteLinkPickerOpen, setNoteLinkPickerOpen] = useState(false);
   const [noteLinkQuery, setNoteLinkQuery] = useState("");
   const [noteLinkHintPosition, setNoteLinkHintPosition] = useState<NoteLinkHintPosition | null>(null);
@@ -1743,6 +1746,23 @@ const RichEditorPane = ({
   });
 
   useEffect(() => {
+    if (
+      !pluginNavigationRequest
+      || !memo
+      || pluginNavigationRequest.id === handledPluginNavigationRequestRef.current
+      || pluginNavigationRequest.noteId !== memo.id
+      || hydratedEditorMemoId !== memo.id
+      || !isEditorReady(editor)
+    ) return;
+    handledPluginNavigationRequestRef.current = pluginNavigationRequest.id;
+    setNoteSearchQuery(pluginNavigationRequest.search);
+    setNoteSearchIndex(0);
+    setNoteSearchReplaceOpen(false);
+    setNoteSearchOpen(true);
+    window.requestAnimationFrame(() => noteSearchInputRef.current?.focus());
+  }, [editor, hydratedEditorMemoId, memo?.id, pluginNavigationRequest]);
+
+  useEffect(() => {
     if (!isEditorReady(editor)) {
       return;
     }
@@ -2905,6 +2925,18 @@ const RichEditorPane = ({
           contentMarkdown: context?.contentMarkdown ?? "",
         };
       },
+      getDocument: () => ({
+        noteId: pluginEditorMemoId,
+        contentMarkdown: isMarkdownMode
+          ? markdownSource
+          : docToMarkdown(editor.getJSON() as TiptapDoc),
+        hasUnsavedChanges: hasUnsavedChanges || saveMutation.isPending,
+      }),
+      replaceDocument: (contentMarkdown) => {
+        if (isMarkdownMode) setMarkdownSource(contentMarkdown);
+        else editor.commands.setContent(markdownToDoc(contentMarkdown));
+        markDirty();
+      },
       replaceSelection: (contentMarkdown) => {
         const { selection, doc } = editor.state;
         const context = getRichTextAiSelectionContext(doc, selection);
@@ -2917,7 +2949,7 @@ const RichEditorPane = ({
       },
     };
     return pluginHost.setEditorAdapter(adapter);
-  }, [editor, effectiveReadOnly, hydratedEditorMemoId, pluginEditorMemoId, pluginHost]);
+  }, [editor, effectiveReadOnly, hasUnsavedChanges, hydratedEditorMemoId, isMarkdownMode, markdownSource, markDirty, pluginEditorMemoId, pluginHost, saveMutation.isPending]);
   // useMutation returns a new result object on every render. Depending on the
   // whole object makes autosave timers restart during unrelated renders and
   // can starve a recovered draft indefinitely. These members are stable (or

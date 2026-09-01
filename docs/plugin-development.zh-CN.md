@@ -93,6 +93,8 @@ Registry 格式：
 - `notes:read`
 - `notes:write`
 - `notes:delete`
+- `templates:read`
+- `templates:write`
 - `metadata:read`
 - `metadata:write`
 - `resources:read`
@@ -103,6 +105,7 @@ Registry 格式：
 - `editor:read`
 - `editor:write`
 - `ui:commands`
+- `ui:navigation`
 - `ui:notices`
 - `ui:panels`
 
@@ -163,7 +166,9 @@ npm pack --dry-run
 
 ```ts
 context.notes.query({ text, notebookId, tags, sort, limit, offset });
+context.notes.queryContent({ text, notebookId, tags, sort, limit, offset });
 context.notes.get(noteId);
+context.notes.editMarkdown(noteId, { expectedRevision, expectedContentHash, edits });
 context.notes.create({ notebookId, title, contentMarkdown, tags });
 context.notes.update(noteId, { title, contentMarkdown, tags });
 context.notes.delete(noteId, { permanent: false });
@@ -181,8 +186,25 @@ context.tags.rename("old", "new");
 context.tags.delete("unused");
 ```
 
+`notes.query()` 返回轻量摘要。当插件必须扫描多篇笔记的 Markdown 时，例如 Tasks 索引、日历、看板或 Linter，应使用 `notes.queryContent()`。两个接口每页最多返回 200 篇笔记；持续使用 `nextOffset` 翻页，直到它为 `null`。不需要正文时应优先使用摘要查询。
+
 所有写入都经过 EdgeEver 的共享 Repository 和业务层，包括离线队列与桌面端适配器。插件不能直接访问具体存储实现。
 `notes.update()` 同时需要 `notes:write` 和 `notes:read`，因为更新流程需要读取当前版本并会返回更新后的完整笔记；这可以避免写权限被间接用于读取笔记正文。
+`notes.editMarkdown()` 同样需要这两项权限，并用 `notes.get()` 返回的 `revision` 与 `contentHash` 做乐观并发检查。它适合任务勾选、Linter 和索引维护等只修改 Markdown 局部内容的插件：
+
+```ts
+const note = await context.notes.get(noteId);
+await context.notes.editMarkdown(noteId, {
+  expectedRevision: note.revision,
+  expectedContentHash: note.contentHash,
+  edits: [
+    { from: 2, to: 3, insert: "x" },
+    { from: note.contentMarkdown.length, to: note.contentMarkdown.length, insert: "\n追加内容" }
+  ]
+});
+```
+
+编辑区间使用 JavaScript UTF-16 字符串偏移和半开区间 `[from, to)`。一次调用中的区间不得重叠、越界或切开 Unicode 代理对。笔记基线已经变化或当前编辑器存在未保存内容时，宿主拒绝写入并抛出带 `code: "NOTE_CONFLICT"` 的错误；插件应重新读取并要求用户重试。无效区间使用 `code: "INVALID_MARKDOWN_EDIT"`。SDK 导出 `PluginApiError` 和 `PluginApiErrorCode` 供 TypeScript 插件缩小错误类型。
 读取笔记本和标签需要 `metadata:read`，修改笔记本和标签需要 `metadata:write`。
 
 附件使用独立权限，并继续通过 Web/桌面端共用的 Repository 适配器执行：
@@ -194,9 +216,26 @@ context.resources.rename(resourceId, filename);
 context.resources.delete(resourceId);
 ```
 
-订阅 `note.*` 事件需要 `notes:read`，订阅 `tag.changed` 需要 `metadata:read`。同步队列状态事件不包含笔记或元数据，因此无需额外读取权限。
+订阅 `note.*` 事件需要 `notes:read`，订阅 `tag.changed` 需要 `metadata:read`，订阅 `template.*` 需要 `templates:read`。同步队列状态事件不包含笔记或元数据，因此无需额外读取权限。
 
-通过 EdgeEver 正常 Repository 层成功完成的笔记和标签变更——无论来自用户操作还是插件操作——都会进入同一条插件事件流。`workspace.synced` 用于报告已完成的 Repository 同步；失败的变更不会发送成功事件。
+通过 EdgeEver 正常 Repository 层成功完成的笔记、标签和模板变更——无论来自用户操作还是插件操作——都会进入同一条插件事件流。`workspace.synced` 用于报告已完成的 Repository 同步；失败的变更不会发送成功事件。
+
+## 模板 API
+
+模板是工作区共享数据，而不是插件私有设置。读取模板需要 `templates:read`；创建和删除需要 `templates:write`；更新需要两者。套用模板会创建笔记，因此还需要 `notes:write`：
+
+```ts
+const template = await context.templates.create({
+  name: "每日站会",
+  contentMarkdown: "## 已完成\n\n## 下一步\n",
+  tags: ["daily"]
+});
+await context.templates.update(template.id, { description: "团队同步" });
+const note = await context.templates.use(template.id, notebookId);
+context.events.on("template.updated", ({ template }) => console.log(template.name));
+```
+
+`templates.create({ noteId })` 可以从已有笔记生成模板，此时还需要 `notes:read`。插件也可以调用 `templates.list()` 和 `templates.delete(templateId)`。
 
 ## 宿主统一渲染的设置
 
@@ -258,9 +297,9 @@ await context.secrets.remove("api-token");
 
 Web 端按照工作区和插件 ID 隔离 Secret，并使用设备本地、不可导出的 WebCrypto 密钥进行 AES-GCM 加密，密文保存在 IndexedDB。它可以避免密钥以明文形式落盘，但由于 P0 插件是同页面受信任代码，不能防御恶意插件读取运行中的数据。
 
-## 编辑器选区 API
+## 编辑器 API
 
-`editor:read` 可以读取当前编辑器选区，`editor:write` 可以替换选区或在光标处插入 Markdown：
+`editor:read` 可以读取当前编辑器选区或完整实时文档，`editor:write` 可以替换选区、在光标处插入 Markdown，或对实时文档应用经过校验的 UTF-16 区间编辑：
 
 ```ts
 const selection = await context.editor.getSelection();
@@ -268,9 +307,26 @@ if (selection && !selection.empty) {
   await context.editor.replaceSelection(selection.text.toUpperCase());
 }
 await context.editor.insertAtCursor("**Inserted by plugin**");
+
+const document = await context.editor.getDocument();
+if (document) {
+  await context.editor.editMarkdown([
+    { from: 0, to: 0, insert: "<!-- 已通过 linter 检查 -->\n" }
+  ]);
+}
 ```
 
-没有打开可编辑笔记时，读取返回 `null`，写入会抛出错误。插件修改会进入正常的编辑器事务和自动保存流程。
+没有打开可编辑笔记时，读取返回 `null`，写入会抛出错误。`editor.editMarkdown()` 使用与 `notes.editMarkdown()` 相同的区间校验，但操作当前内存中的文档，因此可以安全保留用户尚未保存的修改。插件修改会进入正常的编辑器事务和自动保存流程。
+
+## 笔记导航
+
+声明 `ui:navigation` 后，插件可以从任务、日历、索引或搜索面板打开一篇现有笔记：
+
+```ts
+await context.ui.openNote(noteId, { search: "- [ ] 发布版本" });
+```
+
+宿主会先确认笔记存在且未被删除，再切换到对应笔记本和编辑器。提供 `search` 后，EdgeEver 会打开笔记内搜索并显示第一个精确匹配。插件不需要也不能操作私有路由或 React 状态。
 
 ## 自定义面板
 
@@ -287,7 +343,11 @@ context.ui.panels.register({
     return () => heading.remove();
   }
 });
+
+await context.ui.panels.open("dashboard");
 ```
+
+`panels.open()` 只能打开调用插件自己注册的面板，适合命令、首次引导和插件工作流的深度跳转。
 
 ## 桌面端插件入口
 
