@@ -5,6 +5,7 @@ import {
   getDefaultAiAction,
   getDefaultTargetLanguage,
   parseDefaultAiPromptKey,
+  resolveAiAssistantComposerInput,
 } from "./ai-assistant.ts";
 
 describe("AI assistant interaction model", () => {
@@ -79,6 +80,47 @@ describe("AI assistant interaction model", () => {
       title: "",
       tone: "professional",
     })).toMatchObject({ attachments: [attachment] });
+  });
+
+  test("sends a custom instruction when generating from a blank note", () => {
+    expect(buildAiAssistantRequest({
+      action: "custom",
+      contentMarkdown: "",
+      customInstruction: "Write a friendly greeting email.",
+      targetLanguage: "en",
+      title: "",
+      tone: "professional",
+    })).toEqual({
+      action: "custom",
+      title: "",
+      contentMarkdown: "",
+      instruction: "Write a friendly greeting email.",
+    });
+  });
+
+  test("uses retained composer text as the source for a selected processing action", () => {
+    expect(resolveAiAssistantComposerInput({
+      composerText: "写一首诗",
+      isFreeformCustom: false,
+      noteContentMarkdown: "整篇笔记不应被翻译",
+      noteTitle: "现有笔记",
+    })).toEqual({
+      contentMarkdown: "写一首诗",
+      customInstruction: "",
+      title: "",
+      usesComposerAsSource: true,
+    });
+    expect(resolveAiAssistantComposerInput({
+      composerText: "",
+      isFreeformCustom: false,
+      noteContentMarkdown: "留空时处理整篇笔记",
+      noteTitle: "现有笔记",
+    })).toEqual({
+      contentMarkdown: "留空时处理整篇笔记",
+      customInstruction: "",
+      title: "现有笔记",
+      usesComposerAsSource: false,
+    });
   });
 
   test("keeps extractive output additive while allowing rewritten content to replace its source", () => {

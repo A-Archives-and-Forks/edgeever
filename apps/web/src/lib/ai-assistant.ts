@@ -43,6 +43,26 @@ export {
   promptNeedsTone,
 };
 
+export const resolveAiAssistantComposerInput = ({
+  composerText,
+  isFreeformCustom,
+  noteContentMarkdown,
+  noteTitle,
+}: {
+  composerText: string;
+  isFreeformCustom: boolean;
+  noteContentMarkdown: string;
+  noteTitle: string;
+}) => {
+  const usesComposerAsSource = !isFreeformCustom && Boolean(composerText.trim());
+  return {
+    contentMarkdown: usesComposerAsSource ? composerText : noteContentMarkdown,
+    customInstruction: isFreeformCustom ? composerText : "",
+    title: usesComposerAsSource ? "" : noteTitle,
+    usesComposerAsSource,
+  };
+};
+
 export const buildAiAssistantRequest = ({
   action,
   contentMarkdown,
