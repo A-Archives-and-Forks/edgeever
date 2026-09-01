@@ -154,6 +154,57 @@ test.describe("AI custom prompts", () => {
     await expect(composer).toBeVisible();
   });
 
+  test("drags the AI assistant by its header and keeps it inside the viewport", async ({ page }) => {
+    const memo = await createMemo(page, `e2e-ai-drag-${Date.now()}`, "用于测试 AI 助手拖动。");
+    const assistant = await openMemoAssistant(page, memo.id, notebookName);
+    const dragHandle = assistant.locator('[data-ai-assistant-drag-handle="true"]');
+    const [initialBox, handleBox] = await Promise.all([
+      assistant.boundingBox(),
+      dragHandle.boundingBox(),
+    ]);
+    expect(initialBox).not.toBeNull();
+    expect(handleBox).not.toBeNull();
+    expect(handleBox!.y).toBeCloseTo(initialBox!.y, 0);
+    expect(handleBox!.height).toBeGreaterThanOrEqual(60);
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+
+    const maxLeft = viewport!.width - initialBox!.width - 12;
+    const maxTop = viewport!.height - initialBox!.height - 12;
+    const targetLeft = initialBox!.x > (12 + maxLeft) / 2
+      ? Math.max(12, initialBox!.x - 140)
+      : Math.min(maxLeft, initialBox!.x + 140);
+    const targetTop = initialBox!.y > (12 + maxTop) / 2
+      ? Math.max(12, initialBox!.y - 80)
+      : Math.min(maxTop, initialBox!.y + 80);
+    const deltaX = targetLeft - initialBox!.x;
+    const deltaY = targetTop - initialBox!.y;
+
+    const startX = handleBox!.x + Math.min(80, handleBox!.width / 2);
+    const startY = handleBox!.y + 6;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + deltaX, startY + deltaY, { steps: 5 });
+    await page.mouse.up();
+
+    const movedBox = await assistant.boundingBox();
+    expect(movedBox).not.toBeNull();
+    expect(movedBox!.x).toBeCloseTo(targetLeft, 0);
+    expect(movedBox!.y).toBeCloseTo(targetTop, 0);
+
+    const movedHandleBox = await dragHandle.boundingBox();
+    expect(movedHandleBox).not.toBeNull();
+    await page.mouse.move(movedHandleBox!.x + 40, movedHandleBox!.y + movedHandleBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(viewport!.width - 1, viewport!.height - 1, { steps: 5 });
+    await page.mouse.up();
+
+    const clampedBox = await assistant.boundingBox();
+    expect(clampedBox).not.toBeNull();
+    expect(clampedBox!.x + clampedBox!.width).toBeLessThanOrEqual(viewport!.width - 11);
+    expect(clampedBox!.y + clampedBox!.height).toBeLessThanOrEqual(viewport!.height - 11);
+  });
+
   test("opens the function menu from a bare slash and runs its AI command", async ({ page }) => {
     const memo = await createMemo(page, `e2e-slash-menu-${Date.now()}`, "斜杠菜单测试");
     await ensureAuthenticatedPage(page);

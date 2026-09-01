@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookmarkPlus, Check, Copy, FileText, Library, Loader2, Paperclip, PenLine, RefreshCw, Sparkles, Square, Trash2, X } from "lucide-react";
+import { BookmarkPlus, Check, Copy, FileText, GripHorizontal, Library, Loader2, Paperclip, PenLine, RefreshCw, Sparkles, Square, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,11 +54,18 @@ import {
   type TargetLanguage,
 } from "@/lib/ai-assistant";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { clampFloatingPanelPosition, type FloatingPanelPosition } from "@/lib/floating-panel";
 import { cn } from "@/lib/utils";
 
 const FREEFORM_VALUE = "custom";
 const PROMPT_VALUE_PREFIX = "prompt:";
 const AI_ASSISTANT_LAYER_SELECTOR = '[data-edgeever-ai-assistant-layer="true"]';
+const AI_ASSISTANT_VIEWPORT_GAP = 12;
+
+const getViewportSize = () => ({
+  height: typeof window === "undefined" ? 768 : window.innerHeight,
+  width: typeof window === "undefined" ? 1024 : window.innerWidth,
+});
 
 export const isAiAssistantPointerTarget = (target: EventTarget | null, panel: HTMLElement | null) => {
   if (!(target instanceof Node)) return false;
@@ -112,8 +128,16 @@ export const AiAssistantDialog = ({
   const [isReadingAttachments, setIsReadingAttachments] = useState(false);
   const [initializedForOpen, setInitializedForOpen] = useState(false);
   const [panelElement, setPanelElement] = useState<HTMLElement | null>(null);
+  const [draggedPosition, setDraggedPosition] = useState<FloatingPanelPosition | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [viewportSize, setViewportSize] = useState(getViewportSize);
   const controllerRef = useRef<AbortController | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  const dragStateRef = useRef<{
+    offsetX: number;
+    offsetY: number;
+    pointerId: number;
+  } | null>(null);
   const instructionRef = useRef<HTMLTextAreaElement | null>(null);
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentReadIdRef = useRef(0);
@@ -149,6 +173,9 @@ export const AiAssistantDialog = ({
     attachmentReadIdRef.current += 1;
     if (!open) {
       setInitializedForOpen(false);
+      setDraggedPosition(null);
+      setIsDragging(false);
+      dragStateRef.current = null;
       return;
     }
     setAction(defaultAction);
@@ -169,9 +196,34 @@ export const AiAssistantDialog = ({
     setAttachmentError(null);
     setIsReadingAttachments(false);
     setInitializedForOpen(false);
+    setDraggedPosition(null);
+    setIsDragging(false);
+    dragStateRef.current = null;
     customInstructionEditedRef.current = false;
     lastRequestRef.current = null;
   }, [defaultAction, defaultTargetLanguage, hasSelection, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleResize = () => {
+      const nextViewportSize = getViewportSize();
+      setViewportSize(nextViewportSize);
+      setDraggedPosition((current) => {
+        const panel = panelRef.current;
+        if (!current || !panel) return current;
+        const panelRect = panel.getBoundingClientRect();
+        return clampFloatingPanelPosition(
+          current,
+          { height: panelRect.height, width: panelRect.width },
+          nextViewportSize,
+          AI_ASSISTANT_VIEWPORT_GAP,
+        );
+      });
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [open]);
 
   useEffect(() => {
     if (!open || initializedForOpen || promptsQuery.isLoading) return;
@@ -382,10 +434,76 @@ export const AiAssistantDialog = ({
   const generateDisabled = isGenerating
     || isReadingAttachments;
 
+  const handleDragStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.pointerType === "touch") return;
+    if (event.target instanceof Element && event.target.closest("button")) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const panelRect = panel.getBoundingClientRect();
+    dragStateRef.current = {
+      offsetX: event.clientX - panelRect.left,
+      offsetY: event.clientY - panelRect.top,
+      pointerId: event.pointerId,
+    };
+    setDraggedPosition({ left: panelRect.left, top: panelRect.top });
+    setIsDragging(true);
+    event.preventDefault();
+  }, []);
+
+  const handleDragMove = useCallback((event: PointerEvent) => {
+    const dragState = dragStateRef.current;
+    const panel = panelRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId || !panel) return;
+    const panelRect = panel.getBoundingClientRect();
+    setDraggedPosition(clampFloatingPanelPosition(
+      {
+        left: event.clientX - dragState.offsetX,
+        top: event.clientY - dragState.offsetY,
+      },
+      { height: panelRect.height, width: panelRect.width },
+      getViewportSize(),
+      AI_ASSISTANT_VIEWPORT_GAP,
+    ));
+  }, []);
+
+  const handleDragEnd = useCallback((event: PointerEvent) => {
+    if (dragStateRef.current?.pointerId !== event.pointerId) return;
+    dragStateRef.current = null;
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleWindowBlur = () => {
+      dragStateRef.current = null;
+      setIsDragging(false);
+    };
+    window.addEventListener("pointermove", handleDragMove);
+    window.addEventListener("pointerup", handleDragEnd);
+    window.addEventListener("pointercancel", handleDragEnd);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("pointermove", handleDragMove);
+      window.removeEventListener("pointerup", handleDragEnd);
+      window.removeEventListener("pointercancel", handleDragEnd);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [handleDragEnd, handleDragMove, open]);
+
   const panelStyle = useMemo<CSSProperties>(() => {
-    const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth;
-    const viewportHeight = typeof window === "undefined" ? 768 : window.innerHeight;
-    const left = Math.max(12, Math.min(anchor.left, viewportWidth - Math.min(576, viewportWidth - 24)));
+    const { height: viewportHeight, width: viewportWidth } = viewportSize;
+    if (draggedPosition) {
+      return {
+        left: draggedPosition.left,
+        maxHeight: Math.max(0, Math.min(viewportHeight * 0.7, viewportHeight - draggedPosition.top - AI_ASSISTANT_VIEWPORT_GAP)),
+        top: draggedPosition.top,
+      };
+    }
+    const panelWidth = Math.min(576, Math.max(0, viewportWidth - AI_ASSISTANT_VIEWPORT_GAP * 2));
+    const left = Math.max(
+      AI_ASSISTANT_VIEWPORT_GAP,
+      Math.min(anchor.left, viewportWidth - panelWidth - AI_ASSISTANT_VIEWPORT_GAP),
+    );
     const availableHeight = anchor.placement === "above"
       ? anchor.top - 12
       : viewportHeight - anchor.top - 12;
@@ -393,7 +511,7 @@ export const AiAssistantDialog = ({
     return anchor.placement === "above"
       ? { bottom: Math.max(12, viewportHeight - anchor.top), left, maxHeight }
       : { left, maxHeight, top: Math.max(12, anchor.top) };
-  }, [anchor]);
+  }, [anchor, draggedPosition, viewportSize]);
 
   return (
     <>
@@ -412,15 +530,23 @@ export const AiAssistantDialog = ({
             }
           }}
         >
-          <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
+          <div
+            className={cn(
+              "-mx-4 -mt-4 mb-3 flex h-16 shrink-0 touch-none select-none items-center justify-between gap-3 px-4 cursor-grab",
+              isDragging && "cursor-grabbing",
+            )}
+            data-ai-assistant-drag-handle="true"
+            onPointerDown={handleDragStart}
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <Sparkles className="h-5 w-5 shrink-0 text-emerald-600" />
               <span className="truncate text-sm font-semibold text-slate-950">{t("aiAssistant.title")}</span>
               <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
                 {t(hasSelection ? "aiAssistant.selectedScope" : "aiAssistant.noteScope")}
               </span>
+              <GripHorizontal aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 text-slate-300" />
             </div>
-            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={t("common.close")} onClick={() => onOpenChange(false)}>
+            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0 cursor-pointer" aria-label={t("common.close")} onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
