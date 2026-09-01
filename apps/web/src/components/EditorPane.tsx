@@ -222,7 +222,10 @@ import {
   ResourceActionMenu,
   type NoteLinkHintPosition,
 } from "./editor/EditorPaneChrome";
-import { resolveEditorDraftState } from "./editor/editor-draft-state";
+import {
+  resolveEditorDraftState,
+  shouldReplaceEditorDocument,
+} from "./editor/editor-draft-state";
 import type { EdgeEverPluginHost, PluginEditorAdapter } from "@/lib/plugins/plugin-host";
 import {
   useEditorResourceActions,
@@ -2212,10 +2215,14 @@ const RichEditorPane = ({
       } = resolvedDraft;
 
       const alreadyHydratedSameMemo = sameMemo && hydratedMemoIdRef.current === memo.id;
+      const currentEditorDocument = isEditorReady(currentEditor)
+        ? currentEditor.getJSON() as TiptapDoc
+        : null;
+      const shouldReplaceDocument = shouldReplaceEditorDocument(currentEditorDocument, nextContent);
       const editorMarkdownMatches = Boolean(
         alreadyHydratedSameMemo &&
-        isEditorReady(currentEditor) &&
-        docToMarkdown(currentEditor.getJSON() as TiptapDoc) === nextMarkdown &&
+        currentEditorDocument &&
+        docToMarkdown(currentEditorDocument) === nextMarkdown &&
         title === nextTitle &&
         tagsText === nextTagsText
       );
@@ -2275,7 +2282,7 @@ const RichEditorPane = ({
       setMarkdownSource(nextMarkdown);
       setMobilePlainTextElementValue(mobileTextAreaRef.current, nextMarkdown);
 
-      if (isEditorReady(currentEditor)) {
+      if (isEditorReady(currentEditor) && shouldReplaceDocument) {
         try {
           currentEditor.commands.setContent(nextContent);
         } catch (err) {
