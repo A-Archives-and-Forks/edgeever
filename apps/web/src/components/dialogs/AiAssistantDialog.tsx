@@ -56,7 +56,11 @@ import {
   type TargetLanguage,
 } from "@/lib/ai-assistant";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { clampFloatingPanelPosition, type FloatingPanelPosition } from "@/lib/floating-panel";
+import {
+  clampFloatingPanelPosition,
+  resolveAnchoredFloatingPanelLayout,
+  type FloatingPanelPosition,
+} from "@/lib/floating-panel";
 import { cn } from "@/lib/utils";
 
 const FREEFORM_VALUE = "custom";
@@ -542,17 +546,12 @@ export const AiAssistantDialog = ({
       };
     }
     const panelWidth = Math.min(576, Math.max(0, viewportWidth - AI_ASSISTANT_VIEWPORT_GAP * 2));
-    const left = Math.max(
+    return resolveAnchoredFloatingPanelLayout(
+      anchor,
+      panelWidth,
+      { height: viewportHeight, width: viewportWidth },
       AI_ASSISTANT_VIEWPORT_GAP,
-      Math.min(anchor.left, viewportWidth - panelWidth - AI_ASSISTANT_VIEWPORT_GAP),
     );
-    const availableHeight = anchor.placement === "above"
-      ? anchor.top - 12
-      : viewportHeight - anchor.top - 12;
-    const maxHeight = Math.max(180, Math.min(viewportHeight * 0.7, availableHeight));
-    return anchor.placement === "above"
-      ? { bottom: Math.max(12, viewportHeight - anchor.top), left, maxHeight }
-      : { left, maxHeight, top: Math.max(12, anchor.top) };
   }, [anchor, draggedPosition, viewportSize]);
 
   return (
