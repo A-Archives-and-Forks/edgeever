@@ -269,6 +269,8 @@ export const enUS = {
       title: "Custom editor theme",
       description: "Adjust editor colors. This setting is saved in the current browser.",
       edit: "Edit colors",
+      import: "Import",
+      export: "Export",
       reset: "Restore defaults",
       name: "Theme name",
       background: "Background",
@@ -282,7 +284,16 @@ export const enUS = {
       previewBody: "This is a body text preview to help you evaluate the color combination.",
       previewMuted: "Muted supporting text should remain clear on the soft background.",
       previewAccent: "Accent text",
-      contrastWarning: "Body, muted, heading, or accent colors need more contrast before saving.",
+      contrastWarning: "{{fields}} have low contrast in {{mode}}. You can still save this theme.",
+      modes: {
+        light: "light mode",
+        dark: "dark mode",
+      },
+      importErrors: {
+        invalidFile: "Import failed: this is not a valid EdgeEver editor theme file.",
+        unsupportedVersion: "Import failed: this editor theme file version is not supported.",
+        fileTooLarge: "Import failed: the editor theme file exceeds 64 KiB.",
+      },
     },
     mermaidThemes: {
       auto: "Follow app appearance",

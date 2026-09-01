@@ -269,6 +269,8 @@ export const zhCN = {
       title: "自定义编辑器主题",
       description: "调整正文编辑区的颜色，设置仅保存在当前浏览器中。",
       edit: "编辑配色",
+      import: "导入",
+      export: "导出",
       reset: "恢复默认",
       name: "主题名称",
       background: "背景色",
@@ -282,7 +284,16 @@ export const zhCN = {
       previewBody: "这是一段正文预览，用来感受背景、文字和边框的组合效果。",
       previewMuted: "辅助说明文字需要在柔和背景上保持清晰。",
       previewAccent: "强调文字",
-      contrastWarning: "正文、辅助文字、标题或强调色的对比度不足，请调整后保存。",
+      contrastWarning: "{{mode}}的{{fields}}对比度较低；你仍可保存此主题。",
+      modes: {
+        light: "浅色模式",
+        dark: "深色模式",
+      },
+      importErrors: {
+        invalidFile: "无法导入：文件不是有效的 EdgeEver 编辑器主题。",
+        unsupportedVersion: "无法导入：该主题文件版本暂不受支持。",
+        fileTooLarge: "无法导入：主题文件超过 64 KiB。",
+      },
     },
     mermaidThemes: {
       auto: "跟随应用外观",
