@@ -4,6 +4,16 @@ import { readFileSync } from "node:fs";
 const globals = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 
 describe("image gallery layout", () => {
+  test("reserves a wrapping toolbar row instead of overlaying image controls", () => {
+    const toolbar = globals.match(/\.ProseMirror \.edgeever-image-gallery__toolbar \{([^}]+)\}/)?.[1];
+    expect(toolbar).toContain("position: relative;");
+    expect(toolbar).toContain("flex-wrap: wrap;");
+    expect(toolbar).toContain("max-width: 100%;");
+    expect(toolbar).toContain("margin-bottom: 0.5rem;");
+    expect(toolbar).not.toContain("position: absolute");
+    expect(toolbar).not.toContain("opacity: 0");
+  });
+
   test("fills React image node grid cells without exposing a persistent background", () => {
     expect(globals).toContain(
       ".edgeever-image-gallery__content > div > div > .edgeever-image-node {",

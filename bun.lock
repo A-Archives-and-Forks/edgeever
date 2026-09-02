@@ -209,6 +209,7 @@
       "dependencies": {
         "@codemirror/lang-markdown": "^6.5.2",
         "@edgeever/client": "workspace:*",
+        "@floating-ui/react-dom": "^2.1.8",
         "@fontsource-variable/noto-sans-sc": "^5.2.8",
         "@tiptap/extension-code-block-lowlight": "3.31.0",
         "@tiptap/pm": "3.31.0",

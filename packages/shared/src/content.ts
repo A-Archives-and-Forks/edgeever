@@ -13,7 +13,7 @@ import {
 } from "./mathematics-markdown";
 import { projectNativeUnknownContentForMarkdown } from "./mobile-content-compatibility";
 import { PluginEmbed, PLUGIN_EMBED_NODE_TYPE } from "./plugin-embed";
-import { ImageGallery, IMAGE_GALLERY_NODE_TYPE } from "./image-gallery";
+import { ImageGallery, IMAGE_GALLERY_NODE_TYPE, normalizeImageGalleries } from "./image-gallery";
 
 export { PluginEmbed, PLUGIN_EMBED_NODE_TYPE, pluginEmbedToMarkdown, normalizePluginEmbedAttributes } from "./plugin-embed";
 export type { PluginEmbedAttributes } from "./plugin-embed";
@@ -139,7 +139,9 @@ export const resolveMemoContentDoc = (
   contentMarkdown: string | null | undefined
 ): TiptapDoc => {
   const currentDoc = contentJson && Array.isArray(contentJson.content)
-    ? upgradeStandaloneFileLinks(upgradeStandalonePdfLinks(upgradeLegacyAttachmentLinks(contentJson)))
+    ? normalizeImageGalleries(
+        upgradeStandaloneFileLinks(upgradeStandalonePdfLinks(upgradeLegacyAttachmentLinks(contentJson))),
+      )
     : emptyDoc();
   if (
     !contentMarkdown?.trim() ||

@@ -115,6 +115,7 @@ import {
   MEMO_CONTENT_STYLE,
   markdownToDoc,
   MergeDivider,
+  normalizeImageGalleries,
   PLUGIN_EMBED_NODE_TYPE,
   pluginEmbedToMarkdown,
   isPdfAttachment,
@@ -1537,9 +1538,9 @@ const RichEditorPane = ({
         ...detail,
         kind: "image",
         position: {
-          left: Math.min(Math.max(rect.right - 8, 12), window.innerWidth - 12),
-          top: Math.min(Math.max(rect.bottom - 8, 12), window.innerHeight - 12),
-          placement: "inside-bottom-right",
+          left: rect.left + rect.width / 2,
+          top: rect.bottom + 8,
+          placement: "below",
         },
       });
     };
@@ -1833,7 +1834,7 @@ const RichEditorPane = ({
                 currentMemo.id,
                 markdownSource,
               )
-            : (currentEditor?.getJSON() as TiptapDoc),
+            : normalizeImageGalleries(currentEditor?.getJSON() as TiptapDoc),
         updatedAt: new Date().toISOString(),
       });
     },
@@ -2069,7 +2070,7 @@ const RichEditorPane = ({
       return null;
     }
 
-    return currentEditor.getJSON() as TiptapDoc;
+    return normalizeImageGalleries(currentEditor.getJSON() as TiptapDoc);
   }, [getMobilePlainTextValue, markdownSource, useMarkdownSourceEditor, useMobilePlainTextEditor]);
 
   const characterCount = useMemo(() => {

@@ -1233,6 +1233,7 @@ textarea {
 }
 
 .ProseMirror .edgeever-image-node:hover .edgeever-image-preview-control,
+.ProseMirror .edgeever-image-node.is-selected .edgeever-image-preview-control,
 .ProseMirror .edgeever-image-preview-control:focus-within {
   opacity: 1;
   pointer-events: auto;
@@ -1308,11 +1309,12 @@ textarea {
 }
 
 .ProseMirror .edgeever-image-gallery__toolbar {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  z-index: 6;
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 0.5rem;
   align-items: center;
   gap: 0.25rem;
   border: 1px solid rgba(var(--brand-green-200-rgb), 0.95);
@@ -1320,16 +1322,6 @@ textarea {
   background: rgba(255, 255, 255, 0.96);
   padding: 0.3rem;
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 160ms ease;
-}
-
-.ProseMirror .edgeever-image-gallery:hover .edgeever-image-gallery__toolbar,
-.ProseMirror .edgeever-image-gallery.is-selected .edgeever-image-gallery__toolbar,
-.ProseMirror .edgeever-image-gallery__toolbar:focus-within {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .ProseMirror .edgeever-image-gallery__button {

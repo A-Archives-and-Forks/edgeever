@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { mergeAttributes } from "@tiptap/core";
 import Image from "@tiptap/extension-image";
-import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
+import { NodeViewWrapper, ReactNodeViewRenderer, useEditorState, type NodeViewProps } from "@tiptap/react";
 import { Maximize2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getImageReferrerPolicy, IMAGE_GALLERY_NODE_TYPE } from "@edgeever/shared";
@@ -15,6 +15,7 @@ import { getAttachmentResourceId } from "@/lib/attachment-links";
 import { createMarkdownImagePasteRule } from "@/lib/markdown-image-paste";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { isImageInGallery } from "./image-editing-context";
 
 export type ImageMenuRequestDetail = {
   element: HTMLElement;
@@ -47,7 +48,14 @@ const ResizableImageNodeView = ({
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
   const nodeWidth = parseImageWidth(node.attrs.width) ?? DEFAULT_IMAGE_WIDTH_PERCENT;
   const width = previewWidth ?? nodeWidth;
-  const editable = editor.isEditable;
+  const { editable, inGallery } = useEditorState({
+    editor,
+    selector: ({ editor: activeEditor }) => ({
+      editable: activeEditor.isEditable,
+      inGallery: isImageInGallery(activeEditor.state.doc, getPos()),
+    }),
+  });
+  const showSizeControls = editable && selected && !inGallery;
   const alt = typeof node.attrs.alt === "string" ? node.attrs.alt : "";
   const title = typeof node.attrs.title === "string" ? node.attrs.title : "";
   const src = typeof node.attrs.src === "string" ? node.attrs.src : "";
@@ -59,7 +67,10 @@ const ResizableImageNodeView = ({
     const resolved = editor.state.doc.resolve(position);
     const parent = resolved.parent;
     const index = resolved.index();
-    if (parent.child(index)?.type.name !== "image") return null;
+    // Only standalone top-level images can be grouped. Offering this action to
+    // images already inside a gallery can empty the parent gallery, which the
+    // schema then fills with a default image whose src is null.
+    if (parent.type.name !== "doc" || parent.child(index)?.type.name !== "image") return null;
 
     let startIndex = index;
     let endIndex = index;
@@ -133,11 +144,12 @@ const ResizableImageNodeView = ({
   }, [alt, hideImageMenu, src, title]);
 
   const updateWidth = useCallback((nextWidth: number) => {
+    if (!editor.isEditable || isImageInGallery(editor.state.doc, getPos())) return;
     updateAttributes({ width: clampImageWidth(nextWidth) });
-  }, [updateAttributes]);
+  }, [editor, getPos, updateAttributes]);
 
   const startResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!editable) return;
+    if (!editable || isImageInGallery(editor.state.doc, getPos())) return;
 
     const wrapper = wrapperRef.current;
     const parent = wrapper?.parentElement;
@@ -169,7 +181,7 @@ const ResizableImageNodeView = ({
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerCancel);
     previewFromPointer(event.clientX);
-  }, [editable, nodeWidth, updateWidth]);
+  }, [editable, editor, getPos, nodeWidth, updateWidth]);
 
   const previewButton = (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
@@ -219,7 +231,7 @@ const ResizableImageNodeView = ({
           requestImagePreview();
         }}
       />
-      {editable && selected && (
+      {showSizeControls && (
         <div className="edgeever-image-controls" contentEditable={false}>
           {previewButton}
           <div className="edgeever-image-presets" aria-label={t("editor.imageScale")}>
@@ -228,8 +240,9 @@ const ResizableImageNodeView = ({
                 key={preset.width}
                 type="button"
                 className={cn("edgeever-image-preset", width === preset.width && "is-active")}
-                title={t(preset.labelKey)}
                 aria-label={t(preset.labelKey)}
+                aria-pressed={width === preset.width}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => updateWidth(preset.width)}
               >
                 <span>{t(preset.labelKey)}</span>
@@ -247,16 +260,22 @@ const ResizableImageNodeView = ({
               <span>{t("editor.imageGallery.group")}</span>
             </button>
           ) : null}
-          <button
-            type="button"
-            className="edgeever-image-resize-handle"
-            title={t("editor.resizeImage")}
-            aria-label={t("editor.resizeImage")}
-            onPointerDown={startResize}
-          />
+          <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="edgeever-image-resize-handle"
+                  aria-label={t("editor.resizeImage")}
+                  onPointerDown={startResize}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="top">{t("editor.resizeImage")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       )}
-      {(!editable || !selected) && (
+      {!showSizeControls && (
         <div className="edgeever-image-preview-control" contentEditable={false}>
           {previewButton}
         </div>

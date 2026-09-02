@@ -1,5 +1,5 @@
 import { mergeAttributes, Node } from "@tiptap/core";
-import type { TiptapNode } from "./content";
+import type { TiptapDoc, TiptapNode, TiptapTextNode } from "./content";
 
 export const IMAGE_GALLERY_NODE_TYPE = "edgeeverImageGallery" as const;
 export const IMAGE_GALLERY_LAYOUTS = ["auto", "2", "3", "1"] as const;
@@ -86,4 +86,57 @@ export const groupConsecutiveImagesIntoGalleries = (nodes: TiptapNode[]): Tiptap
   flushImages();
 
   return grouped;
+};
+
+const hasUsableImageSource = (node: TiptapNode | TiptapTextNode) =>
+  node.type === "image" &&
+  "attrs" in node &&
+  typeof node.attrs?.src === "string" &&
+  node.attrs.src.trim().length > 0;
+
+type NormalizedNodes = {
+  changed: boolean;
+  nodes: Array<TiptapNode | TiptapTextNode>;
+};
+
+const normalizeNode = (node: TiptapNode | TiptapTextNode): NormalizedNodes => {
+  if (node.type === IMAGE_GALLERY_NODE_TYPE) {
+    const images = (node.content ?? []).filter(hasUsableImageSource) as TiptapNode[];
+    if (images.length === 0) return { changed: true, nodes: [] };
+    if (images.length === 1) return { changed: true, nodes: images };
+    if (images.length !== node.content?.length) {
+      return { changed: true, nodes: [{ ...node, content: images }] };
+    }
+    return { changed: false, nodes: [node] };
+  }
+
+  if (!("content" in node) || !node.content) {
+    return { changed: false, nodes: [node] };
+  }
+
+  let changed = false;
+  const content = node.content.flatMap((child) => {
+    const normalized = normalizeNode(child);
+    changed ||= normalized.changed;
+    return normalized.nodes;
+  });
+  return changed
+    ? { changed: true, nodes: [{ ...node, content }] }
+    : { changed: false, nodes: [node] };
+};
+
+/** Removes invalid gallery images and unwraps galleries that no longer contain a group. */
+export const normalizeImageGalleries = (doc: TiptapDoc): TiptapDoc => {
+  let changed = false;
+  const content = doc.content.flatMap((node) => {
+    const normalized = normalizeNode(node);
+    changed ||= normalized.changed;
+    return normalized.nodes as TiptapNode[];
+  });
+
+  if (!changed) return doc;
+  return {
+    ...doc,
+    content: content.length > 0 ? content : [{ type: "paragraph" }],
+  };
 };
