@@ -89,6 +89,7 @@ import {
 } from "./editor/NoteLinkSuggestion";
 import { WeChatIcon } from "./WeChatIcon";
 import { ThemeToggle } from "./ThemeToggle";
+import { ExecutionCenterButton } from "./execution/ExecutionCenterButton";
 import { useEditorTheme, useMarkdownTheme } from "./ThemeProvider";
 import type { MarkdownSourceEditorRef } from "./editor/MarkdownSourceEditor";
 
@@ -464,6 +465,7 @@ type EditorPaneProps = {
   onOpenAiPrompts?: () => void;
   pluginHost: EdgeEverPluginHost;
   pluginNavigationRequest?: { id: number; noteId: string; search: string } | null;
+  onOpenExecutionCenter: () => void;
 };
 
 type RichEditorPaneProps = EditorPaneProps & {
@@ -538,6 +540,7 @@ const RichEditorPane = ({
   onOpenAiPrompts,
   pluginHost,
   pluginNavigationRequest,
+  onOpenExecutionCenter,
   onRequestMobileNativeEdit,
 }: RichEditorPaneProps) => {
   const { t, i18n } = useTranslation();
@@ -3972,11 +3975,6 @@ const RichEditorPane = ({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <IconTooltip label={t("editor.versionHistory")}>
-              <Button className="hidden h-8 w-8 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-300 min-[1600px]:inline-flex" size="icon" variant="ghost" aria-label={t("editor.versionHistory")} onClick={() => setHistoryOpen(true)}>
-                <History className="h-5 w-5" strokeWidth={2.25} />
-              </Button>
-            </IconTooltip>
             <GitHubRepositoryLink className="hidden h-8 w-8 justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/70 min-[1600px]:inline-flex" iconClassName="h-5 w-5" />
             <IconTooltip label={t("systemInfo.title")}>
               <Button className="relative hidden h-8 w-8 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500/70 min-[1600px]:inline-flex" size="icon" variant="ghost" aria-label={t("systemInfo.title")} onClick={() => setSystemInfoOpen(true)}>
@@ -3984,6 +3982,7 @@ const RichEditorPane = ({
                 {deployedUpdateUnseen ? <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white" /> : null}
               </Button>
             </IconTooltip>
+            <ExecutionCenterButton className="h-8 w-8" onClick={onOpenExecutionCenter} />
             <ThemeToggle />
             {!effectiveReadOnly && (
               <IconTooltip label={t("editor.save")}>
