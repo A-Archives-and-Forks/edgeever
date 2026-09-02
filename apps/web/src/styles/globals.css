@@ -1263,6 +1263,11 @@ textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="1"]:not(.edgeever-image-gallery),
+.ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="1"] .edgeever-image-gallery__content > div {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ProseMirror [data-edgeever-image-gallery] > img,
 .ProseMirror .edgeever-image-gallery__content > img,
 .ProseMirror .edgeever-image-gallery__content > .edgeever-image-node,
@@ -1275,15 +1280,26 @@ textarea {
   margin: 0;
   overflow: hidden;
   border-radius: 8px;
-  background: rgb(var(--slate-100-rgb) / 0.72);
+  background: transparent;
+}
+
+.ProseMirror .edgeever-image-gallery__content > div > div > .edgeever-image-node {
+  width: 100% !important;
+  min-width: 0;
+  height: 100%;
+  max-height: none;
+  margin: 0 !important;
+  overflow: hidden;
+  border-radius: 8px;
+  background: transparent;
 }
 
 .ProseMirror [data-edgeever-image-gallery] > img,
 .ProseMirror .edgeever-image-gallery__content > img,
 .ProseMirror .edgeever-image-gallery__content > .edgeever-image-node > img,
-.ProseMirror .edgeever-image-gallery__content > div > div > .edgeever-image-node,
 .ProseMirror .edgeever-image-gallery__content > div > div > .edgeever-image-node > img {
-  width: 100%;
+  display: block;
+  width: 100% !important;
   height: 100%;
   min-height: 8rem;
   max-height: 18rem;
@@ -1339,18 +1355,17 @@ textarea {
   outline-offset: 1px;
 }
 
-.ProseMirror .edgeever-image-gallery__separator {
-  width: 1px;
-  height: 1.25rem;
-  background: rgb(var(--slate-200-rgb));
-}
-
 @media (max-width: 520px) {
   .ProseMirror [data-edgeever-image-gallery]:not(.edgeever-image-gallery),
   .ProseMirror .edgeever-image-gallery__content > div,
   .ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="3"]:not(.edgeever-image-gallery),
   .ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="3"] .edgeever-image-gallery__content > div {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="1"]:not(.edgeever-image-gallery),
+  .ProseMirror [data-edgeever-image-gallery][data-image-gallery-layout="1"] .edgeever-image-gallery__content > div {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

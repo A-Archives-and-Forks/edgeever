@@ -15,23 +15,13 @@ import {
 } from "@edgeever/shared";
 import { cn } from "@/lib/utils";
 
-const ImageGalleryNodeView = ({ editor, getPos, node, selected, updateAttributes }: NodeViewProps) => {
+const ImageGalleryNodeView = ({ editor, node, selected, updateAttributes }: NodeViewProps) => {
   const { t } = useTranslation();
   const layout = resolveImageGalleryLayout(node.attrs.layout);
   const isEditable = useEditorState({
     editor,
     selector: ({ editor: activeEditor }) => activeEditor.isEditable,
   });
-
-  const ungroup = useCallback(() => {
-    const position = getPos();
-    if (typeof position !== "number") return;
-
-    editor.view.dispatch(
-      editor.state.tr.replaceWith(position, position + node.nodeSize, node.content),
-    );
-    editor.commands.focus(Math.min(position + 1, editor.state.doc.content.size));
-  }, [editor, getPos, node]);
 
   const setLayout = useCallback((nextLayout: ImageGalleryLayout) => {
     updateAttributes({ layout: nextLayout });
@@ -66,15 +56,6 @@ const ImageGalleryNodeView = ({ editor, getPos, node, selected, updateAttributes
               {t(`editor.imageGallery.layouts.${item}`)}
             </button>
           ))}
-          <span className="edgeever-image-gallery__separator" aria-hidden="true" />
-          <button
-            type="button"
-            className="edgeever-image-gallery__button"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={ungroup}
-          >
-            {t("editor.imageGallery.ungroup")}
-          </button>
         </div>
       ) : null}
       <NodeViewContent className="edgeever-image-gallery__content" />

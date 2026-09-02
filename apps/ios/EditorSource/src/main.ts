@@ -97,10 +97,10 @@ const ImageGallery = Node.create({
         default: "auto",
         parseHTML: (element: HTMLElement) => {
           const layout = element.getAttribute("data-image-gallery-layout");
-          return layout === "2" || layout === "3" ? layout : "auto";
+          return layout === "1" || layout === "2" || layout === "3" ? layout : "auto";
         },
         renderHTML: (attributes: { layout?: unknown }) => ({
-          "data-image-gallery-layout": attributes.layout === "2" || attributes.layout === "3"
+          "data-image-gallery-layout": attributes.layout === "1" || attributes.layout === "2" || attributes.layout === "3"
             ? attributes.layout
             : "auto",
         }),

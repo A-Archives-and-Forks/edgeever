@@ -224,6 +224,10 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.edgeever-print-content [data-edgeever-image-gallery][data-image-gallery-layout="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .edgeever-print-content [data-edgeever-image-gallery] > img {
   width: 100%;
   height: 52mm;

@@ -370,8 +370,13 @@ const convertImageGalleriesForWeChat = (root: HTMLElement) => {
 
     const layout = gallery.getAttribute("data-image-gallery-layout");
     let columns = Math.min(images.length, 3);
-    if (layout === "3") columns = 3;
-    if (layout === "2" || (layout !== "3" && images.length === 4)) columns = 2;
+    if (layout === "1") {
+      columns = 1;
+    } else if (layout === "2" || (layout !== "3" && images.length === 4)) {
+      columns = 2;
+    } else if (layout === "3") {
+      columns = 3;
+    }
     const table = document.createElement("table");
     table.setAttribute("role", "presentation");
     table.style.cssText = "width: 100%; margin: 1em 0; border: 0; border-collapse: separate; border-spacing: 6px; table-layout: fixed;";

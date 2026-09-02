@@ -3178,6 +3178,7 @@ const getEditorStyles = (theme: "light" | "dark", options?: { viewer?: boolean }
   .edgeever-image-node > img[hidden] { display: none; }
   [data-edgeever-image-gallery] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 8px; margin: 14px 0; }
   [data-edgeever-image-gallery][data-image-gallery-layout="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-edgeever-image-gallery][data-image-gallery-layout="1"] { grid-template-columns: minmax(0, 1fr); }
   [data-edgeever-image-gallery] > .edgeever-image-node, [data-edgeever-image-gallery] > img { width: 100% !important; min-width: 0; height: 100%; min-height: 112px; max-height: 220px; margin: 0 !important; overflow: hidden; border-radius: 10px; background: ${theme === "dark" ? "#1e293b" : "#f1f5f9"}; }
   [data-edgeever-image-gallery] > .edgeever-image-node > img, [data-edgeever-image-gallery] > img { width: 100%; height: 100%; min-height: 112px; max-height: 220px; object-fit: cover; }
   .edgeever-image-node.is-selected > img, .edgeever-image-upload-result.is-selected > img { outline: 2px solid #0f766e; outline-offset: 3px; }

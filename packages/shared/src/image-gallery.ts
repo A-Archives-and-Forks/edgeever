@@ -2,7 +2,7 @@ import { mergeAttributes, Node } from "@tiptap/core";
 import type { TiptapNode } from "./content";
 
 export const IMAGE_GALLERY_NODE_TYPE = "edgeeverImageGallery" as const;
-export const IMAGE_GALLERY_LAYOUTS = ["auto", "2", "3"] as const;
+export const IMAGE_GALLERY_LAYOUTS = ["auto", "2", "3", "1"] as const;
 export type ImageGalleryLayout = (typeof IMAGE_GALLERY_LAYOUTS)[number];
 
 export const resolveImageGalleryLayout = (value: unknown): ImageGalleryLayout =>

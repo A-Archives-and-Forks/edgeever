@@ -303,6 +303,9 @@ html[data-theme="dark"] body {
 [data-edgeever-image-gallery][data-image-gallery-layout="3"] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+[data-edgeever-image-gallery][data-image-gallery-layout="1"] {
+  grid-template-columns: minmax(0, 1fr);
+}
 [data-edgeever-image-gallery] > .edgeever-image-node,
 [data-edgeever-image-gallery] > img {
   width: 100% !important;

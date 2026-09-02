@@ -10,6 +10,7 @@ const image = (src) => ({ type: "image", attrs: { src } });
 describe("image gallery", () => {
   test("normalizes supported layouts", () => {
     expect(resolveImageGalleryLayout("auto")).toBe("auto");
+    expect(resolveImageGalleryLayout("1")).toBe("1");
     expect(resolveImageGalleryLayout("2")).toBe("2");
     expect(resolveImageGalleryLayout("3")).toBe("3");
     expect(resolveImageGalleryLayout("4")).toBe("auto");
