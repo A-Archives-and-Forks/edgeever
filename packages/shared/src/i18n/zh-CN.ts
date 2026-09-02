@@ -1164,6 +1164,15 @@ export const zhCN = {
     imageSizeFull: "铺满",
     resizeImage: "拖拽调整图片宽度",
     previewImage: "预览大图",
+    imageGallery: {
+      toolbar: "图片画廊布局",
+      layouts: {
+        auto: "自动",
+        "2": "2 栏",
+        "3": "3 栏",
+      },
+      ungroup: "拆分",
+    },
     imageViewer: "图片查看器",
     imageZoomIn: "放大图片",
     imageZoomOut: "缩小图片",

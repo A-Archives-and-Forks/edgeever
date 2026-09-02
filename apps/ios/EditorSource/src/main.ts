@@ -84,6 +84,44 @@ const MergeDivider = Node.create({
   },
 });
 
+/** Keep in sync with packages/shared ImageGallery to avoid duplicate TipTap runtime types. */
+const ImageGallery = Node.create({
+  name: "edgeeverImageGallery",
+  group: "block",
+  content: "image+",
+  defining: true,
+  isolating: true,
+  addAttributes() {
+    return {
+      layout: {
+        default: "auto",
+        parseHTML: (element: HTMLElement) => {
+          const layout = element.getAttribute("data-image-gallery-layout");
+          return layout === "2" || layout === "3" ? layout : "auto";
+        },
+        renderHTML: (attributes: { layout?: unknown }) => ({
+          "data-image-gallery-layout": attributes.layout === "2" || attributes.layout === "3"
+            ? attributes.layout
+            : "auto",
+        }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "div[data-edgeever-image-gallery]" }];
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, {
+        "data-edgeever-image-gallery": "true",
+        "data-image-count": String(node.childCount),
+      }),
+      0,
+    ];
+  },
+});
+
 type BridgeMessage =
   | { type: "ready"; startupMs: number }
   | { type: "change"; contentMarkdown: string; contentJson: string }
@@ -714,6 +752,7 @@ function buildExtensions(placeholder: string) {
     CodeBlock.configure({
       languageClassPrefix: "language-",
     }),
+    ImageGallery,
     createEdgeEverImageExtension(),
     TableKit.configure({
       table: { resizable: false },

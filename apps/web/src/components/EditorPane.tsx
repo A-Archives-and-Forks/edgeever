@@ -111,6 +111,7 @@ import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_MAX_WIDTH_COLLAPSED } from "@/
 import {
   countMemoCharacters,
   docToMarkdown,
+  groupConsecutiveImagesIntoGalleries,
   MEMO_CONTENT_STYLE,
   markdownToDoc,
   MergeDivider,
@@ -210,6 +211,7 @@ import {
   type ImageMenuRequestDetail,
   type ImagePreviewRequestDetail,
 } from "./editor/ResizableImage";
+import { EditableImageGallery } from "./editor/ImageGallery";
 import { ImageViewer } from "./editor/ImageViewer";
 import { PdfAttachment } from "./editor/PdfAttachment";
 import { FileAttachment } from "./editor/FileAttachment";
@@ -1114,7 +1116,11 @@ const RichEditorPane = ({
           insertion.focus();
         }
         insertion
-          .insertContentAt(safeInsertionTarget, content, { updateSelection })
+          .insertContentAt(
+            safeInsertionTarget,
+            groupConsecutiveImagesIntoGalleries(content),
+            { updateSelection },
+          )
           .run();
         if (!updateSelection) {
           // ProseMirror can still map a cursor at the document boundary to a
@@ -1154,6 +1160,7 @@ const RichEditorPane = ({
       FileAttachment,
       ...createEdgeEverMathematics(),
       ThemeBlock,
+      EditableImageGallery,
       ResizableImage.configure({
         allowBase64: false,
         inline: false,

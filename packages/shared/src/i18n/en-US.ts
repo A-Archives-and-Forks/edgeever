@@ -1164,6 +1164,15 @@ export const enUS = {
     imageSizeFull: "Full",
     resizeImage: "Drag to resize image width",
     previewImage: "Preview image",
+    imageGallery: {
+      toolbar: "Image gallery layout",
+      layouts: {
+        auto: "Auto",
+        "2": "2 columns",
+        "3": "3 columns",
+      },
+      ungroup: "Ungroup",
+    },
     imageViewer: "Image viewer",
     imageZoomIn: "Zoom in image",
     imageZoomOut: "Zoom out image",
