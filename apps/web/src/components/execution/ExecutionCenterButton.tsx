@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+// Temporarily hide the shared header entry without disabling schedules or the log page.
+const SHOW_SCHEDULED_TASK_LOG_ENTRY = false;
+
 interface ExecutionCenterButtonProps {
   onClick(): void;
   className?: string;
@@ -11,6 +14,8 @@ interface ExecutionCenterButtonProps {
 
 export const ExecutionCenterButton = ({ onClick, className }: ExecutionCenterButtonProps) => {
   const { t } = useTranslation();
+
+  if (!SHOW_SCHEDULED_TASK_LOG_ENTRY) return null;
 
   return (
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
