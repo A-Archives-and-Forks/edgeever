@@ -5,7 +5,7 @@ import { Bell } from "lucide-react";
 import type { CompanionAction, CompanionDiscoveryItem } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api, ApiRequestError } from "@/lib/api";
 import { assertCompanionChangesSynced } from "@/lib/companion-actions";
 import { discoveryFeedKey, discoverySettingsKey, useCompanionDiscoverySettings } from "@/hooks/useCompanionDiscovery";
@@ -84,13 +84,18 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
   const openNote = (id: string, notebookId: string) => { setOpen(false); onOpenNote(id, notebookId); };
   if (!enabled) return null;
   return <>
-    <Tooltip><TooltipTrigger asChild>
-      <Button variant="outline" size="icon" className="fixed bottom-24 right-4 z-40 h-9 w-9 rounded-full bg-background lg:bottom-4"
-        aria-label={t("companion.discovery.title")} onClick={() => { setOpen(true); void feed.refetch(); }}>
-        <Bell className="h-4 w-4" aria-hidden="true" />
-        {items.some(item => !item.seen && item.action?.status !== "applied") ? <span aria-label={t("companion.discovery.unread")} className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary" /> : null}
-      </Button>
-    </TooltipTrigger><TooltipContent>{t("companion.discovery.title")}</TooltipContent></Tooltip>
+    <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="fixed bottom-24 right-4 z-40 h-9 w-9 rounded-full bg-background lg:bottom-4"
+            aria-label={t("companion.discovery.title")} onClick={() => { setOpen(true); void feed.refetch(); }}>
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            {items.some(item => !item.seen && item.action?.status !== "applied") ? <span aria-label={t("companion.discovery.unread")} className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary" /> : null}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("companion.discovery.title")}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto">
         <DialogHeader><DialogTitle>{t("companion.discovery.title")}</DialogTitle>
