@@ -41,6 +41,8 @@ import type {
   SyncChangesResponse,
 } from "@edgeever/shared";
 
+const MAX_SINGLE_REQUEST_UPLOAD_BYTES = 5 * 1024 * 1024;
+
 export type EdgeEverClientRequestContext = {
   path: string;
   token?: string;
@@ -1158,12 +1160,19 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
     ),
 
     uploadMemoResource: (memoId: string, file: Blob | FormData) => {
-      if (!(file instanceof FormData)) {
+      // Small files do not benefit from an upload session's three round trips.
+      // Keep large attachments on the bounded-memory, resumable path.
+      if (!(file instanceof FormData) && file.size > MAX_SINGLE_REQUEST_UPLOAD_BYTES) {
         return uploadMemoResourceMultipart(memoId, file);
       }
       const form = file instanceof FormData ? file : new FormData();
-      if (!(file instanceof FormData)) form.append("file", file);
-      return request<ResourceResponse>(`/api/v1/memos/${memoId}/resources`, {
+      if (!(file instanceof FormData)) {
+        const filename = "name" in file && typeof file.name === "string" && file.name.trim()
+          ? file.name
+          : "attachment";
+        form.append("file", file, filename);
+      }
+      return request<ResourceResponse>(`/api/v1/memos/${encodeURIComponent(memoId)}/resources`, {
         method: "POST",
         body: form,
       });

@@ -1246,6 +1246,7 @@ export const zhCN = {
       fileFailed: "文件上传失败",
       imageCompressing: "图片压缩中",
       imagePreparing: "正在处理图片",
+      waitingToUpload: "等待上传",
       fileUploading: "文件上传中",
     },
     notebookFallback: "笔记本",

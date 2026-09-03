@@ -1246,6 +1246,7 @@ export const enUS = {
       fileFailed: "File upload failed",
       imageCompressing: "Compressing image",
       imagePreparing: "Processing image",
+      waitingToUpload: "Waiting to upload",
       fileUploading: "Uploading file",
     },
     notebookFallback: "Notebook",
