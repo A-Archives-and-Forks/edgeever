@@ -2,6 +2,48 @@ import { memoTemplateSeedTranslations } from "../memo-template-seeds";
 
 // Shared by the PWA and native mobile clients.
 export const enUS = {
+  companion: {
+    "title": "Chat with EdgeEver · Preview",
+    "intro": "Beyond rewriting notes: let EdgeEver remember the preferences you explicitly share.",
+    "privacy": "Uses your configured default AI model. Sending shares the conversation, enabled memories and retrieved note excerpts with that model provider. Memories and chats are stored on this instance's server, not exclusively on your device.",
+    "chat": "Chat",
+    "memories": "What she remembers",
+    "history": "Recent conversations",
+    "newChat": "New conversation",
+    "waiting": "No response content yet",
+    "rememberMessage": "Remember my message",
+    "stop": "Stop",
+    "memoryHelp": "Only explicitly added information is saved; no automatic profiling. Up to 50 memories, 500 characters each. You can correct or forget them. Saving resets history context for subsequent requests.",
+    "correct": "Correct",
+    "addMemory": "Something to remember",
+    "forget": "Forget",
+    "fromMessage": "Source: your explicitly saved message",
+    "fromManual": "Source: manually added or edited by you",
+    "backupHelp": "Preview data is not included in note ZIP backups or native mobile / desktop offline sync. Export it separately. Import merges memories only, not chats. Exports contain plaintext; keep them safe.",
+    "export": "Export memories and chats",
+    "import": "Import memories",
+    "clearHistory": "Clear chat history",
+    "useMemory": "Use saved memories",
+    "allowNotes": "Allow note search (read-only)",
+    "contextHelp": "Notes are not searched without permission. With memory off, this conversation can continue using prior turns that did not use memory. Replies that used memory or cited notes are excluded. Models run only when you send.",
+    "message": "What would you like to talk about?",
+    "send": "Send",
+    "clearHelp": "Permanently delete all chats, keep saved memories, and stop the current generation. Export a backup first if needed.",
+    "forgetHelp": "Delete this memory, stop current generation and exclude old replies from future automatic context. Existing chat text, exported backups and provider-held data are not deleted; clear them separately if needed.",
+    "configureModel": "Configure a default model in AI settings before chatting.",
+    "conflict": "A memory was changed elsewhere or the 50-memory limit was reached. Refresh and try again.",
+    "historyFull": "The 500-turn limit was reached. Export and clear chat history first.",
+    "unavailable": "Preview requires a signed-in personal account on a non-demo instance.",
+    "failed": "The operation did not finish. Check your connection and default model settings, then refresh for saved results. Model calls are never retried automatically.",
+    "recovered": "Generation stopped or disconnected. Recovering saved content; refresh for its final status. No generation will be retried automatically.",
+    "status": {
+      "running": "Generating (refresh to recover)",
+      "completed": "Completed",
+      "failed": "Failed · partial content may remain",
+      "cancelled": "Stopped",
+      "interrupted": "Interrupted"
+    }
+  },
   common: {
     appName: "EdgeEver",
     close: "Close",

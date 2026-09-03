@@ -8,6 +8,25 @@ const jsonResponse = (body, init = {}) => new Response(JSON.stringify(body), {
 });
 
 describe("EdgeEver client HTTP contract", () => {
+  test("companion streaming handles split UTF-8 frames, authenticates and does not retry", async () => {
+    const expected = [{ type: "start", id: "request" }, { type: "text-delta", text: "你好" }, { type: "error", code: "failed" }];
+    const bytes = new TextEncoder().encode(expected.map(event => `data: ${JSON.stringify(event)}`).join("\n\n"));
+    let calls = 0;
+    const client = createEdgeEverClient({ baseUrl: "https://notes.example", token: "test-token", fetch: async (url, init) => {
+      calls++;
+      expect(url).toBe("https://notes.example/api/v1/companion/turns");
+      expect(new Headers(init.headers).get("Authorization")).toBe("Bearer test-token");
+      return new Response(new ReadableStream({ start(controller) {
+        for (const byte of bytes) controller.enqueue(new Uint8Array([byte]));
+        controller.close();
+      } }));
+    } });
+    const actual = [];
+    await client.streamCompanion({ id: "request", message: "hi" }, { onEvent: event => actual.push(event) });
+    expect(actual).toEqual(expected);
+    expect(calls).toBe(1);
+  });
+
   test("reads public instance diagnostics through the configured base URL", async () => {
     const calls = [];
     const client = createEdgeEverClient({

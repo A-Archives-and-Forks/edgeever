@@ -1,4 +1,8 @@
 import type {
+  CompanionMemory,
+  CompanionTurn,
+  CompanionTurnInput,
+  CompanionEvent,
   ApiToken,
   AuthSession,
   LoginInput,
@@ -42,6 +46,27 @@ import type {
 } from "@edgeever/shared";
 
 const MAX_SINGLE_REQUEST_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+async function consumeEventStream<T>(body: ReadableStream<Uint8Array>, onEvent: (event: T) => void) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const emit = (frame: string) => {
+    const data = frame.split("\n").find(line => line.startsWith("data: "))?.slice(6);
+    if (data) onEvent(JSON.parse(data) as T);
+  };
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) emit(frame);
+      if (done) break;
+    }
+    if (buffer) emit(buffer);
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
 
 export type EdgeEverClientRequestContext = {
   path: string;
@@ -703,6 +728,31 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
         signal,
       }),
 
+    listCompanionMemories: () => request<{ memories: CompanionMemory[] }>("/api/v1/companion/memories"),
+    saveCompanionMemory: (content: string, sourceTurnId?: string) => request<{ memory: CompanionMemory }>("/api/v1/companion/memories", {
+      method: "POST", body: JSON.stringify({ content, sourceTurnId }),
+    }),
+    updateCompanionMemory: (memory: CompanionMemory, content: string) => request<{ memory: CompanionMemory }>(`/api/v1/companion/memories/${encodeURIComponent(memory.id)}`, {
+      method: "PATCH", body: JSON.stringify({ content, version: memory.version }),
+    }),
+    forgetCompanionMemory: (memory: CompanionMemory) => request<{ ok: true }>(`/api/v1/companion/memories/${encodeURIComponent(memory.id)}?version=${memory.version}`, { method: "DELETE" }),
+    listCompanionTurns: () => request<{ turns: CompanionTurn[] }>("/api/v1/companion/turns"),
+    getCompanionTurn: (id: string) => request<{ turn: CompanionTurn }>(`/api/v1/companion/turns/${encodeURIComponent(id)}`),
+    cancelCompanionTurn: (id: string) => request<{ ok: true }>(`/api/v1/companion/turns/${encodeURIComponent(id)}/cancel`, { method: "POST", body: "{}" }),
+    clearCompanionHistory: () => request<{ ok: true }>("/api/v1/companion/history", { method: "DELETE" }),
+    exportCompanion: () => request<{ version: 1; exportedAt: string; memories: CompanionMemory[]; turns: CompanionTurn[] }>("/api/v1/companion/export"),
+    importCompanionMemories: (memories: { content: string }[]) => request<{ memories: CompanionMemory[] }>("/api/v1/companion/import-memories", {
+      method: "POST", body: JSON.stringify({ version: 1, memories }),
+    }),
+    streamCompanion: async (payload: CompanionTurnInput, options: { signal?: AbortSignal; onEvent: (event: CompanionEvent) => void }) => {
+      const { context, response } = await send("/api/v1/companion/turns", {
+        method: "POST", body: JSON.stringify(payload), signal: options.signal,
+      });
+      if (!response.ok) await throwRequestError(context, response);
+      if (!response.body) throw new ApiRequestError("Stream unavailable", 502, "companion_failed");
+      await consumeEventStream(response.body, options.onEvent);
+    },
+
     streamAiGeneration: async (
       payload: AiGenerateInput,
       streamOptions: { signal?: AbortSignal; onEvent: (event: AiStreamEvent) => void },
@@ -717,22 +767,7 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
         await throwRequestError(context, response);
       }
       if (!response.body) throw new ApiRequestError("Streaming response is unavailable", 502, "ai_stream_unavailable");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        buffer += decoder.decode(value, { stream: !done });
-        const frames = buffer.split("\n\n");
-        buffer = frames.pop() ?? "";
-        for (const frame of frames) {
-          const data = frame.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
-          if (data) streamOptions.onEvent(JSON.parse(data) as AiStreamEvent);
-        }
-        if (done) break;
-      }
-      const trailingData = buffer.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
-      if (trailingData) streamOptions.onEvent(JSON.parse(trailingData) as AiStreamEvent);
+      await consumeEventStream(response.body, streamOptions.onEvent);
     },
 
     listUsers: () => request<ListUsersResponse>("/api/v1/users"),
