@@ -20,9 +20,11 @@ The main flow is: normal note-taking → the Agent identifies an opportunity at 
 - Suggestions do not enter the normal note list or automatically become “AI suggestion drafts.” Notes are created or modified only after confirmation of the corresponding write.
 - Users may dismiss suggestions or disable the mode. Disabling invalidates unconfirmed discovery actions; already-started confirmed operations retain receipts. Disabling does not undo completed changes.
 
-The settings page keeps only a short benefit description:
+The settings page starts with a short benefit description, then makes the background behavior visible without adding configuration burden. A read-only status panel shows whether Paw mode is idle, checking, ready, or failed; the last check time; the conditions for another check; the data scope and confirmation boundary; and the latest generated discovery when one exists:
 
 > When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.
+>
+> The longer you use it, the better Paw mode understands you.
 
 ## 3. Current capabilities and boundaries
 
