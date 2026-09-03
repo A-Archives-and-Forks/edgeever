@@ -4,6 +4,7 @@ import {
   Database,
   Info,
   LayoutTemplate,
+  PawPrint,
   Shield,
   SlidersHorizontal,
   Sparkles,
@@ -16,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import * as m from "motion/react-m";
 import { SystemInfoDialog } from "@/components/SystemInfoDialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { EditorContentAlignment, ShortcutSettings } from "@/lib/app-helpers";
 import { WORKSPACE_PAGE_TITLE_CLASSNAME } from "@/lib/workspace-ui";
 import { cn } from "@/lib/utils";
@@ -71,7 +73,7 @@ const SettingsGroup = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-type TabKey = "general" | "users" | "data" | "ai" | "advanced" | "account";
+type TabKey = "general" | "paw" | "users" | "data" | "ai" | "advanced" | "account";
 
 interface TabItem {
   key: TabKey;
@@ -153,6 +155,15 @@ export const SettingsPane = ({
         ]
       : []),
     {
+      key: "paw",
+      label: t("settings.tabs.paw"),
+      icon: PawPrint,
+      colorClass: "text-emerald-700",
+      bgColorClass: "bg-emerald-50/80",
+      hoverColorClass: "hover:bg-emerald-50/40",
+      iconColorClass: "text-emerald-600",
+    },
+    {
       key: "advanced",
       label: t("settings.tabs.advanced"),
       icon: Wrench,
@@ -220,6 +231,21 @@ export const SettingsPane = ({
             <FeedbackLink className="hidden lg:flex" />
           </SettingsGroup>
         );
+      case "paw":
+        return (
+          <SettingsGroup>
+            {authRequired && user && !demoMode ? (
+              <CompanionDiscoverySettingsCard scope={companionScope} onOpenCompanion={onOpenCompanion} />
+            ) : (
+              <Card className="shadow-none">
+                <CardHeader className="p-4 sm:p-5">
+                  <CardTitle className="text-sm">{t("companion.discovery.settingsTitle")}</CardTitle>
+                  <CardDescription>{t("companion.unavailableHelp")}</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+          </SettingsGroup>
+        );
       case "users":
         return isOwner ? (
           <SettingsGroup>
@@ -237,7 +263,6 @@ export const SettingsPane = ({
         return (
           <SettingsGroup>
             <AiModelCard />
-            {authRequired && user && !demoMode ? <CompanionDiscoverySettingsCard scope={companionScope} onOpenCompanion={onOpenCompanion} /> : null}
             <McpConfigCard />
             <AiPromptsCard onOpenLibrary={onOpenAiPrompts} />
             <AdvancedPlayCard />

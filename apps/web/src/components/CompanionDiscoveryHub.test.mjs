@@ -29,10 +29,10 @@ describe("quiet discovery UI", () => {
     expect(html).toContain('aria-label="来自 EdgeEver 的发现"');
     expect(html).not.toContain('role="dialog"'); expect(html).not.toContain("有新发现");
   });
-  test("Agent mode briefly explains benefits and confirmation without notebook selection", async () => {
+  test("Paw mode briefly explains benefits and confirmation without notebook selection", async () => {
     const html = await render(false, "zh-CN", true);
-    expect(html).toContain("帮你合并零散点子、补充已有笔记、发现相关旧知识。修改前由你确认。");
-    expect(html).toContain("Agent 模式");
+    expect(html).toContain("开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。只在有价值时轻量提醒，改动完全由你决定。");
+    expect(html).toContain("猫爪模式");
     expect(html).not.toContain("默认模型服务商"); expect(html).not.toContain("24 小时");
     expect(html).toContain('role="switch"'); expect(html).not.toContain('disabled=""');
     expect(html).toContain('aria-checked="false"');
@@ -41,9 +41,9 @@ describe("quiet discovery UI", () => {
   });
   test("English settings have matching concise benefits and no raw translation keys", async () => {
     const html = await render(false, "en-US", true);
-    expect(html).toContain("Combine scattered ideas, add to existing notes, and rediscover related knowledge. Changes require your confirmation.");
+    expect(html).toContain("When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.");
     expect(html).not.toContain("default model provider"); expect(html).not.toContain("one minute");
-    expect(html).not.toContain("companion.discovery."); expect(html).toContain("Agent mode");
+    expect(html).not.toContain("companion.discovery."); expect(html).toContain("Paw mode");
   });
   test("checks are event-driven, sync-gated and cancel on cleanup", () => {
     const source = readFileSync(new URL("./CompanionDiscoveryHub.tsx", import.meta.url), "utf8");

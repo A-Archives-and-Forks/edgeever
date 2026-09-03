@@ -4,10 +4,10 @@ import { memoTemplateSeedTranslations } from "../memo-template-seeds";
 export const zhCN = {
   companion: {
     discovery: {
-      settingsTitle: "Agent 模式",
+      settingsTitle: "猫爪模式",
       title: "来自 EdgeEver 的发现",
-      description: "帮你合并零散点子、补充已有笔记、发现相关旧知识。修改前由你确认。",
-      enable: "启用 Agent 模式",
+      description: "开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。只在有价值时轻量提醒，改动完全由你决定。",
+      enable: "启用猫爪模式",
       settingsFailed: "设置未保存。请检查连接或刷新后重试。",
       openCompanion: "对话与个人记忆",
       panelDescription: "不需要逐条处理。只有你确认的操作才会改变笔记；发现 7 天后自动隐藏。",
@@ -479,8 +479,9 @@ export const zhCN = {
     themeToggleToLight: "切换到浅色模式",
     tabs: {
       general: "常规设置",
-      data: "导入导出",
       ai: "AI集成",
+      data: "导入导出",
+      paw: "猫爪模式",
       advanced: "高级设置",
       account: "登录设置",
     },

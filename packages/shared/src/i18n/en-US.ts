@@ -4,10 +4,10 @@ import { memoTemplateSeedTranslations } from "../memo-template-seeds";
 export const enUS = {
   companion: {
     discovery: {
-      settingsTitle: "Agent mode",
+      settingsTitle: "Paw mode",
       title: "Discoveries from EdgeEver",
-      description: "Combine scattered ideas, add to existing notes, and rediscover related knowledge. Changes require your confirmation.",
-      enable: "Enable Agent mode",
+      description: "When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.",
+      enable: "Enable Paw mode",
       settingsFailed: "Settings were not saved. Check your connection or refresh and retry.",
       openCompanion: "Conversation and personal memory",
       panelDescription: "No need to process every item. Only approved operations change notes; discoveries disappear after 7 days.",
@@ -479,8 +479,9 @@ export const enUS = {
     themeToggleToLight: "Switch to light mode",
     tabs: {
       general: "General",
-      data: "Import & Export",
       ai: "AI Integrations",
+      data: "Import & Export",
+      paw: "Paw mode",
       advanced: "Advanced",
       account: "Login Settings",
     },

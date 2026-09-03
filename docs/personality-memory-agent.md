@@ -1,4 +1,4 @@
-# EdgeEver Agent mode: design and tradeoffs
+# EdgeEver Paw mode: design and tradeoffs
 
 [简体中文](personality-memory-agent.zh-CN.md)
 
@@ -14,7 +14,7 @@ The main flow is: normal note-taking → the Agent identifies an opportunity at 
 
 ## 2. Interaction rules
 
-- Entry: Settings → AI integration → Agent mode, off by default. Enabling covers all notes in the current account, including child notebooks and future notes, without notebook selection. This does not mean reading or sending the entire library at once.
+- Entry: Settings → Paw mode, off by default. Enabling covers all notes in the current account, including child notebooks and future notes, without notebook selection. This does not mean reading or sending the entire library at once.
 - Use a small bell and unread dot, without primary navigation, automatic popups, or system notifications. Currently available to signed-in personal accounts on non-demo instances with login enabled; no native Android/iOS entry yet.
 - Informational notifications offer useful connections, explanations, and source links without requiring a task. Action notifications explain which notes will change, how, and with what consequences; confirmation invokes existing note capabilities.
 - Suggestions do not enter the normal note list or automatically become “AI suggestion drafts.” Notes are created or modified only after confirmation of the corresponding write.
@@ -22,7 +22,7 @@ The main flow is: normal note-taking → the Agent identifies an opportunity at 
 
 The settings page keeps only a short benefit description:
 
-> Combine scattered ideas, add to existing notes, and rediscover related knowledge. Changes require your confirmation.
+> When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.
 
 ## 3. Current capabilities and boundaries
 
@@ -33,7 +33,7 @@ The settings page keeps only a short benefit description:
 | Proactive discovery: append | Add a new fragment to an existing note while preserving the source and original target content | Currently limited to plain-text notes without attachments; no automatic rewriting of rich documents |
 | Optional conversation: note tools | 28 existing tools: 13 reads and 15 confirmed writes covering creation, import, editing, merging, moving, tags, trash, revision recovery, and notebook organization | Discovery does not propose all these operations; permanent deletion, public sharing, binary uploads, and system administration are not exposed |
 
-“Conversation and personal memory” remains an optional settings entry. Conversation currently has independent note-access and memory controls, with note access off by default; these are not unified with the Agent-mode switch. This is the implementation state, not a requirement to select notebooks, and must not be presented as a single permission switch across the product.
+“Conversation and personal memory” remains an optional settings entry. Conversation currently has independent note-access and memory controls, with note access off by default; these are not unified with the Paw-mode switch. This is the implementation state, not a requirement to select notebooks, and must not be presented as a single permission switch across the product.
 
 “Note-operation capabilities” means reusing existing APIs and business services, not building another note system or granting unattended write authority to the model. Proactive tagging and other notification-based organization scenarios are not yet connected; the full tool catalog must not be advertised as proactive functionality.
 
@@ -149,7 +149,7 @@ Notes, memories, attachments, and tool results are untrusted data. They cannot c
 - Build a real-note evaluation set: whether fragments belong to one idea, whether merging/appending is worthwhile, and whether connections are useful. Measure false positives, interruptions, acceptance, and harmful organization—not notification count or chat duration.
 - Validate structured outputs, tool calling, cancellation, source accuracy, and prompt-injection defenses with real models. Model failures must not disrupt ordinary note operations.
 - Measure installer size, cold start, CPU, RSS/heap, and model costs with the Agent disabled, idle, on first use, during sustained use, and after cancellation. Separate client and server measurements; use the [desktop performance baseline](desktop-performance-baseline.md).
-- Once current scenarios are reliable, evaluate memory-informed suggestions, proactive tagging, and consistent permissions across conversation and Agent mode. These document goals are not completed features.
+- Once current scenarios are reliable, evaluate memory-informed suggestions, proactive tagging, and consistent permissions across conversation and Paw mode. These document goals are not completed features.
 - Complete backup/recovery, deletion propagation, and cross-device experience. Automation, reminders, multiple agents, and heavier retrieval infrastructure are not in the current default scope; reconsider only when actual needs and measurements justify them.
 
 Implementation changes must pass relevant tests, the full non-E2E suite, `bun run typecheck`, `bun run typecheck:mobile`, and `bun run build:web`. Passing tests does not establish suggestion quality or acceptable resource usage.
