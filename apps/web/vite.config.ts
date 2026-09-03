@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { localDevelopmentAuth } from "./local-dev-auth";
 import { resolveAppVersion, resolveDeploymentMethod, resolveDeploymentTrigger, resolveReleaseTimestamp } from "./build-metadata";
 
 const readPackageVersion = () => {
@@ -147,6 +148,7 @@ export default defineConfig({
     __EDGEEVER_DESKTOP_BUILD__: JSON.stringify(isDesktopBuild),
   },
   plugins: [
+    localDevelopmentAuth(),
     developmentServiceWorkerReset,
     react(),
     VitePWA({
