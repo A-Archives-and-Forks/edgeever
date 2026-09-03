@@ -5,7 +5,7 @@ export const enUS = {
   companion: {
     discovery: {
       settingsTitle: "Paw mode",
-      title: "Discoveries from EdgeEver",
+      title: "Discoveries from Paw mode",
       description: "When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw.",
       tagline: "The longer you use it, the better Paw mode understands you.",
       enable: "Enable Paw mode",

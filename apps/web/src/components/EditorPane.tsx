@@ -470,6 +470,7 @@ type EditorPaneProps = {
   pluginHost: EdgeEverPluginHost;
   pluginNavigationRequest?: { id: number; noteId: string; search: string } | null;
   onOpenExecutionCenter: () => void;
+  companionDiscoveryHub?: ReactNode;
 };
 
 type RichEditorPaneProps = EditorPaneProps & {
@@ -545,6 +546,7 @@ const RichEditorPane = ({
   pluginHost,
   pluginNavigationRequest,
   onOpenExecutionCenter,
+  companionDiscoveryHub,
   onRequestMobileNativeEdit,
 }: RichEditorPaneProps) => {
   const { t, i18n } = useTranslation();
@@ -4003,6 +4005,7 @@ const RichEditorPane = ({
                 {deployedUpdateUnseen ? <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white" /> : null}
               </Button>
             </IconTooltip>
+            {companionDiscoveryHub}
             <ExecutionCenterButton className="h-8 w-8" onClick={onOpenExecutionCenter} />
             <ThemeToggle />
             {!effectiveReadOnly && (

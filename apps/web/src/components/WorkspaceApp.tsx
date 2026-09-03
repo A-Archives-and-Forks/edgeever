@@ -3399,6 +3399,15 @@ export const WorkspaceApp = ({
                     >
                       <EditorPane
                       onOpenExecutionCenter={handleOpenExecutionCenter}
+                      companionDiscoveryHub={authRequired && Boolean(user) && !demoMode ? (
+                        <Suspense fallback={null}>
+                          <CompanionDiscoveryHub key={localDataScope} scope={localDataScope} onOpenNote={handleOpenPluginNote} onOpenSettings={handleOpenSettings}
+                            onNotesChanged={async () => {
+                              const result = await refreshWorkspaceFromServer("manual");
+                              if ("skipped" in result && result.skipped) throw new Error("Workspace refresh was skipped.");
+                            }} />
+                        </Suspense>
+                      ) : null}
                       memo={selectedMemo}
                       repository={repository}
                       pluginHost={pluginHost}
@@ -3590,13 +3599,6 @@ export const WorkspaceApp = ({
         options={requestedPluginPanel?.options}
         onClose={() => setRequestedPluginPanel(null)}
       />
-      {authRequired && Boolean(user) && !demoMode ? <Suspense fallback={null}>
-        <CompanionDiscoveryHub key={localDataScope} scope={localDataScope} onOpenNote={handleOpenPluginNote} onOpenSettings={handleOpenSettings}
-          onNotesChanged={async () => {
-            const result = await refreshWorkspaceFromServer("manual");
-            if ("skipped" in result && result.skipped) throw new Error("Workspace refresh was skipped.");
-          }} />
-      </Suspense> : null}
       {visibleActivePane !== "editor" && !memoSelectionModeActive && (
         <MobileBottomNav
           activeItem={mobileBottomNavActive}

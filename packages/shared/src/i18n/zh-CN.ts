@@ -5,7 +5,7 @@ export const zhCN = {
   companion: {
     discovery: {
       settingsTitle: "猫爪模式",
-      title: "来自 EdgeEver 的发现",
+      title: "来自猫爪的发现",
       description: "开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。",
       tagline: "用得越久，猫爪越懂你。",
       enable: "启用猫爪模式",

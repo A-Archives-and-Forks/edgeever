@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Bell } from "lucide-react";
+import { PawPrint } from "lucide-react";
 import type { CompanionAction, CompanionDiscoveryItem } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -87,10 +87,10 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
     <TooltipProvider delayDuration={0} skipDelayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="outline" size="icon" className="fixed bottom-24 right-4 z-40 h-9 w-9 rounded-full bg-background lg:bottom-4"
+          <Button variant="ghost" size="icon" className="relative h-8 w-8 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500/70"
             aria-label={t("companion.discovery.title")} onClick={() => { setOpen(true); void feed.refetch(); }}>
-            <Bell className="h-4 w-4" aria-hidden="true" />
-            {items.some(item => !item.seen && item.action?.status !== "applied") ? <span aria-label={t("companion.discovery.unread")} className="absolute right-0 top-0 h-2 w-2 rounded-full bg-primary" /> : null}
+            <PawPrint className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
+            {items.some(item => !item.seen && item.action?.status !== "applied") ? <span aria-label={t("companion.discovery.unread")} className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white" /> : null}
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("companion.discovery.title")}</TooltipContent>

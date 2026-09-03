@@ -23,10 +23,17 @@ async function render(enabled, locale = "zh-CN", card = false, settings = {}, it
   client.clear(); return result;
 }
 describe("quiet discovery UI", () => {
-  test("disabled means no notification entry or panel", async () => { expect(await render(false)).toBe(""); });
-  test("enabled shows only a quiet bell, not an automatically opened dialog", async () => {
+  test("disabled hides the Paw mode entry and panel", async () => {
+    const html = await render(false);
+    expect(html).toBe("");
+    expect(html).not.toContain("lucide-paw-print");
+  });
+  test("enabled shows only a quiet paw, not an automatically opened dialog", async () => {
     const html = await render(true);
-    expect(html).toContain('aria-label="来自 EdgeEver 的发现"');
+    expect(html).toContain('aria-label="来自猫爪的发现"');
+    expect(html).toContain("lucide-paw-print");
+    expect(html).not.toContain("lucide-bell");
+    expect(html).not.toContain("fixed bottom-24");
     expect(html).not.toContain('role="dialog"'); expect(html).not.toContain("有新发现");
   });
   test("Paw mode explains benefits and exposes its inactive state without personalization controls", async () => {
