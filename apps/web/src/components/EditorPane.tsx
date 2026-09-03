@@ -4308,6 +4308,7 @@ const RichEditorPane = ({
                 "--editor-theme-light-heading": customEditorTheme.light.heading,
                 "--editor-theme-light-accent": customEditorTheme.light.accent,
                 "--editor-theme-light-soft": customEditorTheme.light.soft,
+                "--editor-theme-light-code-bg": customEditorTheme.light.codeBackground,
                 "--editor-theme-light-border": customEditorTheme.light.border,
                 "--editor-theme-dark-bg": customEditorTheme.dark.background,
                 "--editor-theme-dark-text": customEditorTheme.dark.text,
@@ -4315,6 +4316,7 @@ const RichEditorPane = ({
                 "--editor-theme-dark-heading": customEditorTheme.dark.heading,
                 "--editor-theme-dark-accent": customEditorTheme.dark.accent,
                 "--editor-theme-dark-soft": customEditorTheme.dark.soft,
+                "--editor-theme-dark-code-bg": customEditorTheme.dark.codeBackground,
                 "--editor-theme-dark-border": customEditorTheme.dark.border,
               }
             : {}),

@@ -322,6 +322,8 @@ export const enUS = {
       accent: "Accent",
       soft: "Soft background",
       border: "Border",
+      codeBackground: "Code background",
+      previewQuote: "A code block inside a quote should have a distinct background.",
       previewTitle: "Theme preview",
       previewBody: "This is a body text preview to help you evaluate the color combination.",
       previewMuted: "Muted supporting text should remain clear on the soft background.",

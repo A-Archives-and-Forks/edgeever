@@ -322,6 +322,8 @@ export const zhCN = {
       accent: "强调色",
       soft: "柔和背景",
       border: "边框色",
+      codeBackground: "代码背景色",
+      previewQuote: "引用中的代码块应有独立、清晰可辨的背景。",
       previewTitle: "主题预览",
       previewBody: "这是一段正文预览，用来感受背景、文字和边框的组合效果。",
       previewMuted: "辅助说明文字需要在柔和背景上保持清晰。",
