@@ -10,6 +10,8 @@ export const zhCN = {
       tagline: "用得越久，猫爪越懂你。",
       enable: "启用猫爪模式",
       settingsFailed: "设置未保存。请检查连接或刷新后重试。",
+      modelRequired: "开启猫爪模式前，请先配置并启用默认 AI 模型。",
+      configureModel: "前往 AI 集成",
       openCompanion: "对话与个人记忆",
       openCompanionDesc: "管理猫爪在日常对话中沉淀的记忆与上下文偏好。",
       panelDescription: "不需要逐条处理。只有你确认的操作才会改变笔记；发现 7 天后自动隐藏。",

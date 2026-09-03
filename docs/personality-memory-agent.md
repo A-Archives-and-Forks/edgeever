@@ -14,7 +14,7 @@ The main flow is: normal note-taking → the Agent identifies an opportunity at 
 
 ## 2. Interaction rules
 
-- Entry: Settings → Paw mode, off by default. Enabling covers all notes in the current account, including child notebooks and future notes, without notebook selection. This does not mean reading or sending the entire library at once.
+- Entry: Settings → Paw mode, off by default. It can be enabled only after a default AI model is configured and enabled; the client links to model setup and the server enforces the same model-availability check. Paw mode can still be turned off while the model is unavailable. Enabling covers all notes in the current account, including child notebooks and future notes, without notebook selection. This does not mean reading or sending the entire library at once.
 - Use a small bell and unread dot, without primary navigation, automatic popups, or system notifications. Currently available to signed-in personal accounts on non-demo instances with login enabled; no native Android/iOS entry yet.
 - Informational notifications offer useful connections, explanations, and source links without requiring a task. Action notifications explain which notes will change, how, and with what consequences; confirmation invokes existing note capabilities.
 - Suggestions do not enter the normal note list or automatically become “AI suggestion drafts.” Notes are created or modified only after confirmation of the corresponding write.

@@ -38,8 +38,15 @@ export const registerCompanionRoutes = (parent: Hono<AppEnv>, dependencies: {
 
   app.get("/api/v1/companion/memories", async c => c.json({ memories: await listCompanionMemories(c.env.storage.db, scopeFor(c)) }));
   app.get("/api/v1/companion/discovery/settings", async c => c.json({ settings: await getDiscoverySettings(c.env.storage.db, scopeFor(c)) }));
-  app.put("/api/v1/companion/discovery/settings", zValidator("json", CompanionDiscoverySettingsInputSchema), async c =>
-    c.json({ settings: await saveDiscoverySettings(c.env.storage.db, scopeFor(c), c.req.valid("json")) }));
+  app.put("/api/v1/companion/discovery/settings", zValidator("json", CompanionDiscoverySettingsInputSchema), async c => {
+    const input = c.req.valid("json");
+    // Validate the same default model used by an actual discovery check.
+    // Turning Paw mode off must remain possible when a provider is unavailable.
+    if (input.enabled) {
+      await (dependencies.loadModel ?? loadDefaultAiModel)(c.env.storage.db, getWorkspaceId(c), c.env);
+    }
+    return c.json({ settings: await saveDiscoverySettings(c.env.storage.db, scopeFor(c), input) });
+  });
   app.get("/api/v1/companion/discovery", async c => c.json({ items: await listDiscoveries(c.env.storage.db, scopeFor(c)) }));
   app.post("/api/v1/companion/discovery/check", async c => {
     const stop = new AbortController();

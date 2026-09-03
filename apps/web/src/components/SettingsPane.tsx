@@ -237,7 +237,8 @@ export const SettingsPane = ({
         return (
           <SettingsGroup>
             {authRequired && user && !demoMode ? (
-              <CompanionDiscoverySettingsCard scope={companionScope} onOpenCompanion={onOpenCompanion} />
+              <CompanionDiscoverySettingsCard scope={companionScope} onOpenCompanion={onOpenCompanion}
+                onOpenAiSettings={() => setActiveTab("ai")} />
             ) : (
               <Card className="shadow-none">
                 <CardHeader className="p-4 sm:p-5">

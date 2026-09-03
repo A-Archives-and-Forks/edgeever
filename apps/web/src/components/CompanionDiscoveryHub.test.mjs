@@ -12,12 +12,14 @@ import Hub from "./CompanionDiscoveryHub.tsx";
 import { CompanionDiscoverySettingsCard } from "./settings/CompanionDiscoverySettingsCard.tsx";
 import { discoverySettingsKey, discoveryFeedKey } from "../hooks/useCompanionDiscovery.ts";
 
-async function render(enabled, locale = "zh-CN", card = false, settings = {}, items = []) {
+async function render(enabled, locale = "zh-CN", card = false, settings = {}, items = [], aiReady = true) {
   const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   client.setQueryData(discoverySettingsKey("test"), { enabled, version: 0, lastCheckAt: null, lastStatus: "quiet", ...settings });
   client.setQueryData(discoveryFeedKey("test"), items);
+  client.setQueryData(["ai-settings", locale], { defaultModelId: aiReady ? "default" : null,
+    providers: aiReady ? [{ isEnabled: true, models: [{ id: "default" }] }] : [], encryptionConfigured: true });
   const i18n = createInstance(); await i18n.init({ lng: locale, resources: { "zh-CN": { translation: zhCN }, "en-US": { translation: enUS } } });
-  const component = card ? createElement(CompanionDiscoverySettingsCard, { scope: "test", onOpenCompanion() {} })
+  const component = card ? createElement(CompanionDiscoverySettingsCard, { scope: "test", onOpenCompanion() {}, onOpenAiSettings() {} })
     : createElement(Hub, { scope: "test", onOpenNote() {}, async onNotesChanged() {}, onOpenSettings() {} });
   const result = renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(QueryClientProvider, { client }, createElement(TooltipProvider, {}, component))));
   client.clear(); return result;
@@ -57,6 +59,11 @@ describe("quiet discovery UI", () => {
     expect(html).toContain("最近检查完成"); expect(html).toContain("最近检查"); expect(html).toContain("下次检查");
     expect(html).toContain("最近发现"); expect(html).toContain("两个产品想法可以互相补充");
     expect(html).toContain("早期记录解释了新方案的取舍。"); expect(html).not.toContain("个性化偏好");
+  });
+  test("shows the AI model prerequisite before Paw mode can be enabled", async () => {
+    const html = await render(false, "zh-CN", true, {}, [], false);
+    expect(html).toContain("开启猫爪模式前，请先配置并启用默认 AI 模型。");
+    expect(html).toContain("前往 AI 集成");
   });
   test("English settings have matching concise benefits and no raw translation keys", async () => {
     const html = await render(false, "en-US", true);

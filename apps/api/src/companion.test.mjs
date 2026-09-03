@@ -12,6 +12,7 @@ import { companionMessages, selectCompanionMemories, streamCompanion } from "./c
 import { applyCompanionAction, proposeCompanionAction, listCompanionActions, dismissCompanionAction } from "./companion-actions.ts";
 import { createMemoRecord, getMemoDetail, updateMemoRecord } from "./memo-service.ts";
 import { COMPANION_MCP_TOOLS } from "./companion-tool-catalog.ts";
+import { AppError } from "./app-error.ts";
 
 const databases = [];
 afterEach(() => { for (const db of databases.splice(0)) db.close(); });
@@ -161,6 +162,26 @@ describe("companion organization proposals", () => {
 });
 
 describe("companion persistence and governance", () => {
+  test("requires a usable default model to enable discovery but always allows disabling", async () => {
+    let modelLoads = 0;
+    const unavailable = fixture({ loadModel: async () => {
+      modelLoads++;
+      throw new AppError("ai_not_configured", "Choose a default AI model first.", 409);
+    } });
+    const disabled = await unavailable.request("discovery/settings", "PUT", { enabled: false, version: 0 });
+    expect(disabled.status).toBe(200);
+    expect(modelLoads).toBe(0);
+    const rejected = await unavailable.request("discovery/settings", "PUT", { enabled: true, version: 1 });
+    expect(rejected.status).toBe(409);
+    expect(await rejected.json()).toMatchObject({ error: { code: "ai_not_configured" } });
+    expect(modelLoads).toBe(1);
+
+    const available = fixture({ loadModel: async () => { modelLoads++; return { modelId: "ready" }; } });
+    const enabled = await available.request("discovery/settings", "PUT", { enabled: true, version: 0 });
+    expect(enabled.status).toBe(200);
+    expect((await enabled.json()).settings.enabled).toBe(true);
+    expect(modelLoads).toBe(2);
+  });
   test("stores, corrects, and forgets only within the owner/workspace pair", async () => {
     const { db } = fixture();
     const memory = await saveCompanionMemory(db, scope, { content: "Be concise" });

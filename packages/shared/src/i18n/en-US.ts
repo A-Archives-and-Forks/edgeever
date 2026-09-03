@@ -10,6 +10,8 @@ export const enUS = {
       tagline: "The longer you use it, the better Paw mode understands you.",
       enable: "Enable Paw mode",
       settingsFailed: "Settings were not saved. Check your connection or refresh and retry.",
+      modelRequired: "Configure and enable a default AI model before turning on Paw mode.",
+      configureModel: "Open AI integrations",
       openCompanion: "Conversation and personal memory",
       openCompanionDesc: "Manage memories and context preferences Paw mode learns from conversations.",
       panelDescription: "No need to process every item. Only approved operations change notes; discoveries disappear after 7 days.",

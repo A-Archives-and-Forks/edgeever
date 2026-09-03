@@ -4,18 +4,23 @@ import { useTranslation } from "react-i18next";
 import { Sparkles, ShieldCheck, ChevronRight, Clock, Activity, MessageSquareText } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { api } from "@/lib/api";
+import { api, ApiRequestError } from "@/lib/api";
 import { discoveryFeedKey, discoverySettingsKey, useCompanionDiscoverySettings } from "@/hooks/useCompanionDiscovery";
 
-export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion }: {
-  scope: string; onOpenCompanion: () => void;
+export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion, onOpenAiSettings }: {
+  scope: string; onOpenCompanion: () => void; onOpenAiSettings: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const query = useCompanionDiscoverySettings(scope);
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"settings" | "model" | null>(null);
   const settings = query.data;
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const aiQuery = useQuery({ queryKey: ["ai-settings", locale], queryFn: () => api.getAiSettings(locale), staleTime: 60_000 });
+  const aiSettings = aiQuery.data;
+  const defaultModelReady = Boolean(aiSettings?.encryptionConfigured && aiSettings.providers.some(provider =>
+    provider.isEnabled && provider.models.some(model => model.id === aiSettings.defaultModelId)));
   const enabled = settings?.enabled === true;
   const feed = useQuery({
     queryKey: discoveryFeedKey(scope),
@@ -33,13 +38,19 @@ export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion }: {
   const save = async (enabled: boolean) => {
     if (!settings || busy) return;
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
+      if (enabled) {
+        const current = aiSettings ?? (await aiQuery.refetch()).data;
+        const ready = Boolean(current?.encryptionConfigured && current.providers.some(provider =>
+          provider.isEnabled && provider.models.some(model => model.id === current.defaultModelId)));
+        if (!ready) { setError("model"); return; }
+      }
       const result = await api.saveCompanionDiscoverySettings({ enabled, version: settings.version });
       client.setQueryData(discoverySettingsKey(scope), result.settings);
       client.setQueryData(discoveryFeedKey(scope), []);
-    } catch {
-      setError(true);
+    } catch (cause) {
+      setError(cause instanceof ApiRequestError && cause.code?.startsWith("ai_") ? "model" : "settings");
       await query.refetch();
     } finally {
       setBusy(false);
@@ -85,10 +96,19 @@ export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion }: {
       </CardHeader>
 
       <CardContent className="space-y-4 px-4 pb-5 sm:px-5">
-        {error || query.isError ? (
+        {error === "settings" || query.isError ? (
           <p role="alert" className="text-sm text-destructive">
             {t("companion.discovery.settingsFailed")}
           </p>
+        ) : null}
+        {error === "model" || (aiSettings && !defaultModelReady) ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+            <p role="alert" className="text-sm text-amber-900 dark:text-amber-200">{t("companion.discovery.modelRequired")}</p>
+            <button type="button" onClick={onOpenAiSettings}
+              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              {t("companion.discovery.configureModel")}
+            </button>
+          </div>
         ) : null}
 
         <section
