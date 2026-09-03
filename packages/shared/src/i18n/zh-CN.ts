@@ -403,6 +403,11 @@ export const zhCN = {
     uninstall: "卸载",
     settings: {
       title: "插件设置",
+      open: "打开 {{name}} 的设置",
+      description: "配置仅保存在当前设备，不会跨设备同步。插件停用时也可以编辑；留空的已配置密钥会保持不变。",
+      loadFailed: "无法读取插件设置：{{message}}",
+      retry: "重新读取",
+      saveFailed: "保存未完成，请检查并重试：{{message}}",
       saved: "设置已保存到当前设备。",
       required: "{{name}} 为必填项。",
       secretConfigured: "已配置，留空表示保持不变",
@@ -410,6 +415,8 @@ export const zhCN = {
     },
     details: {
       title: "插件详情",
+      overview: "概览",
+      navigation: "插件详情导航",
       open: "查看 {{name}} 详情",
       notFound: "未找到这个插件，可能已被卸载。",
       type: "类型",

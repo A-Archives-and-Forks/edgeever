@@ -403,6 +403,11 @@ export const enUS = {
     uninstall: "Uninstall",
     settings: {
       title: "Plugin settings",
+      open: "Open settings for {{name}}",
+      description: "Settings are stored on this device only and do not sync across devices. You can edit them while the plugin is disabled. Leave configured secrets blank to keep them unchanged.",
+      loadFailed: "Could not load plugin settings: {{message}}",
+      retry: "Reload settings",
+      saveFailed: "Saving did not complete. Check your settings and try again: {{message}}",
       saved: "Settings saved on this device.",
       required: "{{name}} is required.",
       secretConfigured: "Configured — leave blank to keep unchanged",
@@ -410,6 +415,8 @@ export const enUS = {
     },
     details: {
       title: "Plugin details",
+      overview: "Overview",
+      navigation: "Plugin detail navigation",
       open: "View details for {{name}}",
       notFound: "This plugin was not found. It may have been uninstalled.",
       type: "Type",
