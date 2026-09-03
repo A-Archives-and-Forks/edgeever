@@ -74,6 +74,7 @@ import { registerAuthRoutes } from "./auth-routes";
 import { registerApiTokenRoutes } from "./api-token-routes";
 import { registerObjectStorageRoutes } from "./object-storage-routes";
 import { registerAiRoutes } from "./ai-routes";
+import { registerPluginCapabilityRoutes } from "./plugin-capability-routes";
 import { registerCompanionRoutes } from "./companion-routes";
 import { registerAiPromptRoutes } from "./ai-prompt-routes";
 import { registerResourceRoutes } from "./resource-routes";
@@ -296,6 +297,7 @@ registerObjectStorageRoutes(app, {
 registerAiRoutes(app, {
   isDemoMode: (...args) => isDemoMode(...args),
 });
+registerPluginCapabilityRoutes(app, { isDemoMode: (...args) => isDemoMode(...args) });
 registerCompanionRoutes(app, { isDemoMode: (...args) => isDemoMode(...args) });
 registerAiPromptRoutes(app, {
   isDemoMode: (...args) => isDemoMode(...args),
@@ -422,6 +424,8 @@ const worker = {
     return fetchEdgeEverApp(request, {
       ...env,
       storage: createCloudflareStorageAdapter(env),
+      // workerd's default Internet egress checks resolved addresses against its public-only network policy.
+      publicNetworkFetch: (url, init) => fetch(url, init),
     }, ctx);
   },
   async scheduled(controller: ScheduledController, env: WorkerBindings, ctx: ExecutionContext) {

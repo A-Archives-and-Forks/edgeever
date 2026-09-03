@@ -3,6 +3,8 @@ import type { CloudflareStorageBindings } from "./cloudflare-storage-adapter";
 import type { StorageAdapter } from "./storage-contract";
 
 export type Bindings = {
+  /** Runtime driver for public-only egress; no platform-specific business logic. */
+  publicNetworkFetch?: (input: string, init: RequestInit) => Promise<Response>;
   /** The only persistence dependency exposed to application code. */
   storage: StorageAdapter;
   EDGE_EVER_AUTH_USERNAME?: string;
@@ -24,7 +26,7 @@ export type Bindings = {
   EDGE_EVER_ALLOW_UNAUTHENTICATED?: string;
 };
 
-export type WorkerBindings = Omit<Bindings, "storage"> & CloudflareStorageBindings;
+export type WorkerBindings = Omit<Bindings, "storage" | "publicNetworkFetch"> & CloudflareStorageBindings;
 
 export type AuthContext = {
   kind: "user" | "agent";

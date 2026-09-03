@@ -1,3 +1,4 @@
+import { createPluginCapabilities } from './plugin-capabilities';
 import type {
   CompanionMemory,
   CompanionTurn,
@@ -558,6 +559,7 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
 
   return {
     getInstanceHealth: () => request<InstanceHealth>("/api/health"),
+    ...createPluginCapabilities(request),
 
     getInstanceRelease: () => request<InstanceRelease>("/api/release"),
 

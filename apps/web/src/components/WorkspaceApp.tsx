@@ -743,6 +743,8 @@ export const WorkspaceApp = ({
   const pluginHost = useMemo(() => new EdgeEverPluginHost({
     repository,
     scope: localDataScope,
+    aiAdapter: api.pluginAi,
+    publicNetworkAdapter: api.pluginNetwork,
     onNotice: (message) => setAppNoticeDialog({ title: t("plugins.noticeTitle"), description: message }),
     scheduleAdapter: pluginScheduleAdapter,
     onWorkspaceChanged: async () => {
@@ -2437,6 +2439,7 @@ export const WorkspaceApp = ({
   }, [clearMemoSelection, clearPendingCreatedMemo, navigateWorkspaceHome, setSelectedMemoId, setSelectedNotebookId]);
 
   const handleOpenPluginNote = useCallback((memoId: string, notebookId: string, options?: { search?: string }) => {
+    setRequestedPluginPanel(null);
     navigateWorkspaceHome();
     setMemoView("notebook");
     setSelectedTag(null);

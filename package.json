@@ -151,6 +151,7 @@
     "fflate": "^0.8.3",
     "hono": "latest",
     "i18next": "^26.3.4",
+    "ipaddr.js": "^2.2.0",
     "katex": "0.16.22",
     "lucide-react": "latest",
     "marked": "^18.0.5",

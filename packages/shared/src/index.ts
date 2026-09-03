@@ -31,3 +31,4 @@ export * from "./file-attachment";
 export * from "./note-image-card";
 export * from "./pdf-attachment";
 export * from "./types";
+export * from './plugin-capabilities';
