@@ -78,6 +78,7 @@ type TabKey = "general" | "paw" | "users" | "data" | "ai" | "advanced" | "accoun
 interface TabItem {
   key: TabKey;
   label: string;
+  badge?: string;
   icon: React.ComponentType<{ className?: string }>;
   colorClass: string;
   bgColorClass: string;
@@ -157,6 +158,7 @@ export const SettingsPane = ({
     {
       key: "paw",
       label: t("settings.tabs.paw"),
+      badge: "Beta",
       icon: PawPrint,
       colorClass: "text-emerald-700",
       bgColorClass: "bg-emerald-50/80",
@@ -343,7 +345,19 @@ export const SettingsPane = ({
                   )}
                 >
                   <Icon className={cn("h-4 w-4 shrink-0 transition-colors", isSelected ? item.colorClass : "text-slate-400")} />
-                  {item.label}
+                  <span className="flex-1 truncate">{item.label}</span>
+                  {item.badge ? (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                        isSelected
+                          ? "bg-emerald-600/15 text-emerald-800"
+                          : "bg-slate-200/80 text-slate-600"
+                      )}
+                    >
+                      {item.badge}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -405,6 +419,11 @@ export const SettingsPane = ({
                           <Icon className={cn("h-4 w-4", item.iconColorClass)} />
                         </div>
                         <span className="text-sm font-semibold text-slate-800">{item.label}</span>
+                        {item.badge ? (
+                          <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            {item.badge}
+                          </span>
+                        ) : null}
                       </div>
                       <ChevronRight className="h-4 w-4 text-slate-400" />
                     </button>

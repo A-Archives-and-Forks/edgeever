@@ -54,6 +54,9 @@ export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion }: {
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <CardTitle className="text-sm font-semibold sm:text-base">{t("companion.discovery.settingsTitle")}</CardTitle>
+              <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-300">
+                Beta
+              </span>
             </div>
             <CardDescription className="text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-400">
               {t("companion.discovery.description")}
