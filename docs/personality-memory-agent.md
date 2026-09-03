@@ -54,7 +54,55 @@ The next priority is to test whether controlled memory improves relevance, not t
 
 Deleting a note does not delete its text or snapshots in chats; forgetting a memory does not delete its source. This data is not yet included in note ZIP backups, desktop offline mirrors, or native mobile sync. Do not promise full cross-device recovery or deletion of exported files or provider-retained data.
 
-## 5. Technical and reliability tradeoffs
+## 5. How the implementation works
+
+The architecture is “client trigger + server-side retrieval and model judgment + existing business operations after confirmation,” not an autonomous program permanently running inside Electron. The client handles interaction and sync checks; the instance server handles model calls, authorization, and persistence.
+
+```text
+Client activity/sync/visibility events → idle check → server rate/change checks
+  → retrieve a few relevant notes → model returns a structured suggestion
+      ├─ No useful result: finish without notification
+      ├─ Knowledge connection: persist discovery → informational notification
+      └─ Organization proposal: persist discovery and action → confirmation notification
+          → user confirms action ID → revalidate → existing note service executes → save receipt, refresh notes
+```
+
+### How proactive discoveries are generated
+
+1. Client events reset a one-shot idle timer rather than a polling loop. Before a check, verify visibility, connectivity, and pending sync changes. A conditional database update claims the server-side check; account rate limits and the workspace change cursor prevent duplicate model calls across devices.
+2. Start from a recently updated note, find related records through existing search, and read bodies within the budget. The model sees only selected notes; it does not connect directly to the database or automatically know the entire library.
+3. Create a `ToolLoopAgent` on demand, using `Output.object` and a shared schema to constrain output to no suggestion or one `insight / merge / append`. This path exposes no model-callable tools. The model judges connections and explains reasons; the server revalidates source IDs, data versions, and operation conditions.
+4. The server constructs concrete merge/append tool arguments and persists notifications in `companion_discoveries` and action plans in `companion_actions`. Deduplicate by type and source combination. These are separate records, not ordinary notes; the client reads them to display the two notification types.
+
+### How personality, memory, and conversation work
+
+Optional conversation combines product-maintained identity instructions, the current message, eligible recent conversation, retrieved explicit memories, and tool results into model context. Memories come from the database and are selected by relevance when the user permits their use. This is not model training or reliance on the provider automatically remembering the user. Proactive discovery currently does not use this personal-memory retrieval path.
+
+The conversation `ToolLoopAgent` can call exposed note tools within a step budget: read tools return query results immediately, while write tools only persist proposals awaiting confirmation. Tool definitions reuse the MCP catalog, but the built-in Agent calls the shared business executor directly, without an external MCP client round trip.
+
+### Which database tables are involved
+
+Seven Agent-specific tables live in the existing instance database; no separate database is introduced. Business records are scoped by workspace and user; `companion_action_checks` is for transaction-local validation and stores no user content.
+
+| Table | Purpose |
+| --- | --- |
+| `companion_discovery_settings` | Stores the Agent switch, settings version, check time, workspace cursor, and active check claim. `last_input_hash` holds the last successfully analyzed input fingerprint to reduce repeat calls. The retained `notebook_ids_json` no longer selects the note-access scope. |
+| `companion_discoveries` | Stores notification type, title, body, sources, deduplication fingerprint, and seen/dismissed status. `turn_id` links to the generation run; action notifications also link to a proposal through `action_id`. These are not notes. |
+| `companion_turns` | Stores conversation or discovery generation runs: input, response, sources, model, permission snapshot, context version, status, and expiry. Token fields record usage when available, not complete billing statistics for every discovery request. `origin` distinguishes chat from discovery. |
+| `companion_actions` | Stores exact proposed arguments and source snapshots, status, expiry, execution claims, and result receipts. Confirmation executes this persisted record without having the model regenerate arguments. |
+| `companion_state` | Stores the account's `memory_revision` context version. Editing/forgetting memories or clearing history increments it to prevent generation or execution with stale context. It does not store personality content. |
+| `companion_memories` | Stores explicitly added long-term memories, optional source runs, versions, and timestamps. Optional conversation retrieves them; proactive discovery currently does not. |
+| `companion_action_checks` | Asserts valid permissions, context, and data versions within a database batch. A failed constraint rolls back the batch; successful check rows are deleted before commit. This is not an operation log or task queue. |
+
+Identity instructions and tool-exposure rules remain in code; there is no separate “personality table.” Schemas are defined by migrations [0040](../migrations/0040_companion_memory.sql), [0041](../migrations/0041_companion_actions.sql), [0042](../migrations/0042_companion_tool_execution.sql), [0043](../migrations/0043_companion_discovery.sql), and [0044](../migrations/0044_companion_discovery_input_hash.sql).
+
+### Why confirmation can execute directly
+
+Confirmation submits an action ID instead of asking the model to regenerate a task. The server reads the persisted arguments and source snapshots, rechecks account, status, expiry, and versions, then calls existing note services. Execution claims and write guards apply within database batches; outcomes become persistent receipts. The client uses those receipts to show success or uncertainty and refresh notes. Model judgment and actual writes are separate; the next section specifies conflict and partial-completion boundaries.
+
+Implementation entry points: [client triggers](../apps/web/src/components/CompanionDiscoveryHub.tsx), [discovery service](../apps/api/src/companion-discovery.ts), [structured generation](../apps/api/src/companion-discovery-runtime.ts), [conversation and memory retrieval](../apps/api/src/companion-runtime.ts), [tool catalog](../apps/api/src/companion-tool-catalog.ts), [confirmed execution](../apps/api/src/companion-tool-actions.ts).
+
+## 6. Technical and reliability tradeoffs
 
 ### Reuse existing capabilities
 
@@ -78,6 +126,15 @@ This is a provisional decision based on current scope and architecture, not a cl
 - Full conversations have separate tool-call, context, concurrency, and timeout budgets. Library-wide authorization does not mean putting the entire library into a prompt.
 - Selected content is sent to the user's configured default model provider. A check can incur charges without producing a visible suggestion. Keyword retrieval may miss semantic connections, and low-frequency checks do not guarantee timely discovery of every opportunity.
 
+### Token controls
+
+- Proactive discovery stores a fingerprint of the last successfully analyzed input. Even when unrelated workspace changes trigger another eligible check, identical candidate notes, instructions, language, settings, context, and model-configuration versions skip the model call. Successful no-suggestion results count too. Failures are not cached; clearing history removes the fingerprint. Old results are not replayed and invalidated actions are not revived.
+- Note IDs sent to the model become short, invocation-local aliases, strictly mapped back to real IDs by the server. Bodies remain complete; organization sources are not truncated to save tokens.
+- Conversations retrieve at most eight relevant memories, reducing the total memory-body budget from 8,000 to 4,000 characters. Without keyword matches, retain at most two recent memories. Stored memories are not deleted, but relevant older preferences may be missed; validate this tradeoff against real scenarios.
+- Repeated reads of a completely read note within one run return a reference hint, reusing the body already in that run's context. Authorization and data-version checks still apply; there is no cross-run cache. Confirmed operations continue to use persisted arguments without another model call.
+
+These controls reuse the existing AI SDK without changing the default model, trigger frequency, or confirmation permissions. Character budgets are not token measurements; actual cost depends on model, language, and content, so no fixed savings percentage is promised. Upgrades require [database migration 0044](../migrations/0044_companion_discovery_input_hash.sql), which adds only a nullable fingerprint field without changing note content.
+
 ### Confirmation and recovery
 
 1. The model proposes; the server validates sources and arguments. For proactive merges/appends, the server constructs the arguments. Persist the exact operation, reason, and data versions; a proposal does not modify notes.
@@ -87,9 +144,7 @@ This is a provisional decision based on current scope and architecture, not a cl
 
 Notes, memories, attachments, and tool results are untrusted data. They cannot change identity, grant permissions, or forge confirmation. Do not expose shell/computer control, automatic external messaging, or publication, or relax authorization because the Agent “knows the user.”
 
-Implementation entry points: [discovery](../apps/api/src/companion-discovery.ts), [conversation and memory retrieval](../apps/api/src/companion-runtime.ts), [tool catalog](../apps/api/src/companion-tool-catalog.ts), [confirmed execution](../apps/api/src/companion-tool-actions.ts).
-
-## 6. Outstanding validation and priorities
+## 7. Outstanding validation and priorities
 
 - Build a real-note evaluation set: whether fragments belong to one idea, whether merging/appending is worthwhile, and whether connections are useful. Measure false positives, interruptions, acceptance, and harmful organization—not notification count or chat duration.
 - Validate structured outputs, tool calling, cancellation, source accuracy, and prompt-injection defenses with real models. Model failures must not disrupt ordinary note operations.

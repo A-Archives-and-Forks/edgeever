@@ -400,7 +400,7 @@ describe("actual AI SDK companion runtime", () => {
   });
   test("memory selection and history size stay bounded", () => {
     const memories = Array.from({ length: 50 }, () => ({ content: "a".repeat(500), updatedAt: "2026-01-01" }));
-    expect(selectCompanionMemories(memories, "hello").reduce((sum, m) => sum + m.content.length, 0)).toBeLessThanOrEqual(8000);
+    expect(selectCompanionMemories(memories, "hello")).toHaveLength(2);
     const next = input();
     const history = Array.from({ length: 100 }, () => ({ id: crypto.randomUUID(), thread_id: next.threadId, status: "completed", memory_revision: 1, use_memory: 1,
       allow_notes: 0, sources_json: "[]", message: "user", response: "reply" }));
@@ -412,7 +412,7 @@ describe("actual AI SDK companion runtime", () => {
     const memories = [...newer, old];
     const selected = selectCompanionMemories(memories, "我的咖啡偏好是什么？");
     expect(selected[0].id).toBe("coffee");
-    expect(selected.reduce((total, memory) => total + memory.content.length, 0)).toBeLessThanOrEqual(8000);
+    expect(selected).toHaveLength(1);
     expect(memories.at(-1)).toBe(old);
   });
   test("normalizes Unicode and matches words rather than accidental substrings", () => {
@@ -422,6 +422,14 @@ describe("actual AI SDK companion runtime", () => {
     ];
     expect(selectCompanionMemories(memories, "ＲＵＳＴ")[0].id).toBe("rust");
     expect(selectCompanionMemories(memories, "？？？")[0].id).toBe("trust");
+  });
+  test("memory context keeps at most eight relevant records within 4000 characters without deleting stored data", () => {
+    const memories = Array.from({ length: 50 }, (_, i) => ({ id: String(i), content: `coffee ${i} ` + "x".repeat(490), updatedAt: "2026-01-01" }));
+    const selected = selectCompanionMemories(memories, "coffee");
+    expect(selected).toHaveLength(8);
+    expect(selected.reduce((sum, memory) => sum + memory.content.length, 0)).toBeLessThanOrEqual(4000);
+    expect(memories).toHaveLength(50);
+    expect(selectCompanionMemories(memories, "unrelated")).toHaveLength(2);
   });
   test("memory-off mode keeps only safe same-thread history and respects forgetting", () => {
     const next = input({ useMemory: false });

@@ -152,6 +152,7 @@ export const clearCompanionHistory = async (db: DatabaseAdapter, scope: Companio
   await db.batch([
     db.prepare("UPDATE companion_memories SET source_turn_id = NULL, version = version + 1 WHERE workspace_id = ? AND owner_id = ? AND source_turn_id IS NOT NULL").bind(...bindScope(scope)),
     db.prepare("DELETE FROM companion_turns WHERE workspace_id = ? AND owner_id = ?").bind(...bindScope(scope)),
+    db.prepare("UPDATE companion_discovery_settings SET last_input_hash = NULL WHERE workspace_id = ? AND owner_id = ?").bind(...bindScope(scope)),
     ...invalidateContext(db, scope),
   ]);
 };

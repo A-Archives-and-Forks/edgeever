@@ -91,6 +91,39 @@ describe("quiet discoveries", () => {
     expect(f.sqlite.query("SELECT COUNT(*) AS n FROM companion_turns").get().n).toBe(0);
     expect((await getDiscoverySettings(f.db, scope)).lastStatus).toBe("quiet");
   });
+  for (const kind of [null, "insight", "merge"]) test(`identical analysis input skips another model call after an unrelated change (${kind})`, async () => {
+    const f = await setup(kind); await f.enable(); await f.run();
+    const cached = f.sqlite.query("SELECT last_input_hash FROM companion_discovery_settings").get().last_input_hash;
+    expect(cached).toMatch(/^[0-9a-f]{64}$/);
+    f.sqlite.exec("UPDATE notebooks SET name = 'Renamed notebook' WHERE id = 'ideas'; UPDATE companion_discovery_settings SET last_check_at = '2020-01-01';");
+    await f.run();
+    expect(f.calls()).toBe(1); expect(f.modelCalls()).toBe(1);
+    expect(f.sqlite.query("SELECT last_input_hash FROM companion_discovery_settings").get().last_input_hash).toBe(cached);
+  });
+  test("changed content, language, settings, model configuration and cleared history invalidate the analysis cache", async () => {
+    const f = await setup(null); await f.enable(); await f.run();
+    const allowNextCheck = () => f.sqlite.exec("UPDATE companion_discovery_settings SET last_check_at = '2020-01-01', last_cursor = -1");
+    await updateMemoRecord(f.db, scope.workspaceId, f.notes[0].id, { contentMarkdown: "Project changed details" }, actor, "owner");
+    allowNextCheck(); await f.run(); expect(f.calls()).toBe(2);
+    f.options.locale = "zh-CN";
+    allowNextCheck(); await f.run(); expect(f.calls()).toBe(3);
+    await f.enable(); allowNextCheck(); await f.run(); expect(f.calls()).toBe(4);
+    f.sqlite.exec("INSERT INTO ai_workspace_settings(workspace_id, created_at, updated_at) VALUES ('ws_test', '2026-01-01', '2026-01-01');");
+    allowNextCheck(); await f.run(); expect(f.calls()).toBe(5);
+    await clearCompanionHistory(f.db, scope);
+    expect(f.sqlite.query("SELECT last_input_hash FROM companion_discovery_settings").get().last_input_hash).toBeNull();
+    allowNextCheck(); await f.run(); expect(f.calls()).toBe(6);
+  });
+  test("failed generation is never cached as successful input", async () => {
+    const f = await setup(null); await f.enable();
+    const generate = f.options.generate;
+    f.options.generate = async () => { throw new Error("Offline provider"); };
+    await expect(f.run()).rejects.toThrow();
+    expect(f.sqlite.query("SELECT last_input_hash FROM companion_discovery_settings").get().last_input_hash).toBeNull();
+    f.options.generate = generate;
+    f.sqlite.exec("UPDATE companion_discovery_settings SET last_check_at = '2020-01-01', last_cursor = -1");
+    await f.run(); expect(f.calls()).toBe(1);
+  });
   test("turning off revokes pending confirmations even through the direct API", async () => {
     const f = await setup(); await f.enable(); await f.run();
     const [item] = await listDiscoveries(f.db, scope);
@@ -110,6 +143,7 @@ describe("quiet discoveries", () => {
     await expect(f.run()).rejects.toThrow();
     expect(await listDiscoveries(f.db, scope)).toEqual([]);
     expect(f.sqlite.query("SELECT COUNT(*) AS n FROM companion_actions").get().n).toBe(0);
+    expect(f.sqlite.query("SELECT last_input_hash FROM companion_discovery_settings").get().last_input_hash).toBeNull();
   });
   test("edits invalidate old source text and pending actions", async () => {
     const f = await setup(); await f.enable(); await f.run();

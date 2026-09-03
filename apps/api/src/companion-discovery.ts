@@ -9,9 +9,10 @@ import { companionWorkspaceCursor, proposeCompanionToolAction, workspaceCursorSq
 import { getCompanionAction } from "./companion-actions";
 import type { loadDefaultAiModel } from "./ai-service";
 import type { generateCompanionDiscovery } from "./companion-discovery-runtime";
+import { discoveryInputHash } from "./companion-discovery-context";
 
 type SettingsRow = { enabled: number; version: number; last_cursor: number;
-  last_check_at: string | null; last_status: CompanionDiscoverySettings["lastStatus"]; active_turn_id: string | null };
+  last_check_at: string | null; last_status: CompanionDiscoverySettings["lastStatus"]; active_turn_id: string | null; last_input_hash: string | null };
 type FeedRow = { id: string; kind: CompanionDiscoveryItem["kind"]; title: string; body: string; action_id: string | null;
   sources_json: string; seen_at: string | null; created_at: string };
 const keys = (scope: CompanionScope) => [scope.workspaceId, scope.ownerId];
@@ -143,8 +144,9 @@ export async function checkDiscoveries(db: DatabaseAdapter, scope: CompanionScop
     .bind(now, cursor, turnId, ...keys(scope), settings.version, cursor, new Date(Date.now() - 86400000).toISOString()).run();
   if (Number(claim.meta.changes) !== 1) return;
   let turn: Awaited<ReturnType<typeof beginCompanionTurn>> | null = null;
-  const finish = (status: string) => db.prepare(`UPDATE companion_discovery_settings SET last_status = ?, active_turn_id = NULL
-    WHERE workspace_id = ? AND owner_id = ? AND active_turn_id = ?`).bind(status, ...keys(scope), turnId).run();
+  const finish = (status: string, inputHash: string | null = null) => db.prepare(`UPDATE companion_discovery_settings SET last_status = ?, active_turn_id = NULL,
+    last_input_hash = COALESCE(?, last_input_hash)
+    WHERE workspace_id = ? AND owner_id = ? AND active_turn_id = ?`).bind(status, inputHash, ...keys(scope), turnId).run();
   const assertCurrent = async () => {
     options.signal.throwIfAborted();
     const current = await settingsRow(db, scope);
@@ -157,19 +159,32 @@ export async function checkDiscoveries(db: DatabaseAdapter, scope: CompanionScop
     const candidates = await candidatesFor(db, scope);
     if (candidates.length < 2) { await finish("quiet"); return; }
     await assertCurrent();
+    const generationInput = {
+      candidates: candidates.map(note => ({ id: note.id, title: note.title, contentMarkdown: note.contentMarkdown, updatedAt: note.updatedAt, plainText: plainText(note.contentJson) })),
+      anchorId: candidates[0].id, locale: options.locale,
+    };
+    const contextRevision = await companionRevision(db, scope);
+    // Read configuration versions without decrypting credentials/loading SDKs.
+    // Switching providers or models must not reuse the previous analysis cache.
+    const modelConfiguration = await db.prepare(`SELECT s.default_model_id, s.updated_at AS settings_updated_at,
+      p.updated_at AS provider_updated_at, m.updated_at AS model_updated_at
+      FROM ai_workspace_settings s LEFT JOIN ai_models m ON m.id = s.default_model_id
+      LEFT JOIN ai_provider_configs p ON p.id = m.provider_config_id AND p.workspace_id = s.workspace_id
+      WHERE s.workspace_id = ?`).bind(scope.workspaceId).first();
+    const inputHash = await discoveryInputHash({ ...generationInput, settingsVersion: settings.version, contextRevision, modelConfiguration });
+    await assertCurrent();
+    if (inputHash === settings.last_input_hash) { await finish("quiet"); return; }
     const model = await options.loadModel();
     turn = await beginCompanionTurn(db, scope, { id: turnId, threadId: turnId, message: "Quiet discovery", useMemory: false,
       allowNotes: true, locale: options.locale === "zh-CN" ? "zh-CN" : "en-US" }, model.modelId);
     await db.prepare("UPDATE companion_turns SET origin = 'discovery' WHERE id = ? AND workspace_id = ? AND owner_id = ?").bind(turnId, ...keys(scope)).run();
     await assertCurrent();
     const generate = options.generate ?? (await import("./companion-discovery-runtime")).generateCompanionDiscovery;
-    const { suggestion } = CompanionDiscoveryOutputSchema.parse(await generate({ model,
-      candidates: candidates.map(note => ({ id: note.id, title: note.title, contentMarkdown: note.contentMarkdown, updatedAt: note.updatedAt, plainText: plainText(note.contentJson) })), anchorId: candidates[0].id,
-      locale: options.locale, signal: options.signal }));
+    const { suggestion } = CompanionDiscoveryOutputSchema.parse(await generate({ ...generationInput, model, signal: options.signal }));
     await assertCurrent();
     if (!suggestion) {
       await db.prepare("DELETE FROM companion_turns WHERE id = ? AND workspace_id = ? AND owner_id = ?").bind(turnId, ...keys(scope)).run();
-      await finish("quiet"); return;
+      await finish("quiet", inputHash); return;
     }
     const sources = suggestion.sourceIds.map(id => candidates.find(note => note.id === id));
     if (sources.some(note => !note) || new Set(suggestion.sourceIds).size !== sources.length || !suggestion.sourceIds.includes(candidates[0].id)) throw changed();
@@ -179,7 +194,7 @@ export async function checkDiscoveries(db: DatabaseAdapter, scope: CompanionScop
       .bind(...keys(scope), fingerprint).first();
     if (duplicate) {
       await db.prepare("DELETE FROM companion_turns WHERE id = ? AND workspace_id = ? AND owner_id = ?").bind(turnId, ...keys(scope)).run();
-      await finish("quiet"); return;
+      await finish("quiet", inputHash); return;
     }
     let actionId: string | null = null;
     const inspected = new Map(notes.map(note => [note.id, note.revision]));
@@ -222,7 +237,7 @@ export async function checkDiscoveries(db: DatabaseAdapter, scope: CompanionScop
         .bind(suggestion.body, JSON.stringify(sourceRefs), turnId),
       db.prepare("DELETE FROM companion_action_checks WHERE id = ?").bind(id),
     ]);
-    await finish("ready");
+    await finish("ready", inputHash);
   } catch (error) {
     if (turn) await checkpointCompanionTurn(db, scope, turn, "", [], "failed").catch(() => {});
     await finish("failed");

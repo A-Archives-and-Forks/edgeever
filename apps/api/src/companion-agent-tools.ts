@@ -45,6 +45,12 @@ export function createCompanionTools(args: { db: DatabaseAdapter; scope: Compani
         if (cursor !== current) return { error: "Notes changed during this request. Start a fresh request." };
         if (!readOnly && parameters_.dryRun !== true) return proposeCompanionToolAction(args.db, args.scope, args.input.id,
           definition.name, parameters_, typeof _reason === "string" ? _reason : definition.title, cursor, inspected);
+        if (definition.name === "get_memo" && inspected.has(String(parameters_.memoId))) {
+          // The original full result remains in this run's model messages. Only
+          // reuse it after authorization/context/cursor checks, never across runs.
+          return { id: parameters_.memoId, revision: inspected.get(String(parameters_.memoId)), alreadyRead: true,
+            message: "Use the complete get_memo result already returned in this run." };
+        }
         if (definition.name === "search_memos" || definition.name === "list_memos") {
           parameters_.limit = Math.min(Number(parameters_.limit ?? 5), 5);
           if (definition.name === "list_memos") parameters_.includeContent = false;

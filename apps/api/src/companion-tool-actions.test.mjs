@@ -121,6 +121,30 @@ describe("shared companion MCP adapter", () => {
     expect(f.sqlite.query("SELECT COUNT(*) AS n FROM companion_actions").get().n).toBe(0);
     expect(createCompanionTools({ ...f, scope, input: { ...f.input, allowNotes: false } })).toEqual({});
   });
+  test("repeated complete reads return a reference without consuming the note budget again", async () => {
+    const f = await setup();
+    for (const note of f.notes) await updateMemoRecord(f.db, scope.workspaceId, note.id, { contentMarkdown: "x".repeat(6000) }, actor, "owner");
+    const tools = createCompanionTools({ ...f, scope, signal: new AbortController().signal, assertActive: async () => {}, sources: [] });
+    const first = await tools.get_memo.execute({ memoId: f.notes[0].id });
+    const repeated = await tools.get_memo.execute({ memoId: f.notes[0].id });
+    expect(first.content).toHaveLength(6000); expect(first.truncated).toBe(false);
+    expect(repeated).toMatchObject({ id: f.notes[0].id, alreadyRead: true });
+    expect(repeated).not.toHaveProperty("content");
+    expect(JSON.stringify(repeated).length).toBeLessThan(JSON.stringify(first).length / 10);
+    const second = await tools.get_memo.execute({ memoId: f.notes[1].id });
+    expect(second.content).toHaveLength(6000); expect(second.truncated).toBe(false);
+    expect(await tools.merge_memos.execute({ memoIds: f.notes.map(note => note.id), _reason: "Same idea" })).toHaveProperty("proposalId");
+    await updateMemoRecord(f.db, scope.workspaceId, f.notes[0].id, { contentMarkdown: "changed" }, actor, "owner");
+    expect(await tools.get_memo.execute({ memoId: f.notes[0].id })).toHaveProperty("error");
+  });
+  test("a truncated read cannot become a complete source through the duplicate-read optimization", async () => {
+    const f = await setup();
+    await updateMemoRecord(f.db, scope.workspaceId, f.notes[0].id, { contentMarkdown: "x".repeat(9000) }, actor, "owner");
+    const tools = createCompanionTools({ ...f, scope, signal: new AbortController().signal, assertActive: async () => {}, sources: [] });
+    expect(await tools.get_memo.execute({ memoId: f.notes[0].id })).toMatchObject({ truncated: true });
+    expect(await tools.get_memo.execute({ memoId: f.notes[0].id })).toMatchObject({ truncated: true });
+    await expect(tools.update_memo.execute({ memoId: f.notes[0].id, contentMarkdown: "replacement", _reason: "Rewrite" })).rejects.toThrow();
+  });
 
   for (const state of ["owner", "edit", "move-notebook", "forget", "dismiss", "expire", "clear"]) test(`rejects ${state} changes before any write`, async () => {
     const f = await setup();
