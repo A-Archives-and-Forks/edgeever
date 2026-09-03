@@ -6,11 +6,12 @@ export const enUS = {
     discovery: {
       settingsTitle: "Paw mode",
       title: "Discoveries from EdgeEver",
-      description: "When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.",
+      description: "When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw.",
       tagline: "The longer you use it, the better Paw mode understands you.",
       enable: "Enable Paw mode",
       settingsFailed: "Settings were not saved. Check your connection or refresh and retry.",
       openCompanion: "Conversation and personal memory",
+      openCompanionDesc: "Manage memories and context preferences Paw mode learns from conversations.",
       panelDescription: "No need to process every item. Only approved operations change notes; discoveries disappear after 7 days.",
       unread: "New discoveries",
       empty: "Nothing worth interrupting you for yet. Keep capturing your ideas.",

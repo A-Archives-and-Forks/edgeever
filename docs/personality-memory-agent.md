@@ -22,7 +22,7 @@ The main flow is: normal note-taking → the Agent identifies an opportunity at 
 
 The settings page starts with a short benefit description, then makes the background behavior visible without adding configuration burden. A read-only status panel shows whether Paw mode is idle, checking, ready, or failed; the last check time; the conditions for another check; the data scope and confirmation boundary; and the latest generated discovery when one exists:
 
-> When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.
+> When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw.
 >
 > The longer you use it, the better Paw mode understands you.
 

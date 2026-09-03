@@ -6,11 +6,12 @@ export const zhCN = {
     discovery: {
       settingsTitle: "猫爪模式",
       title: "来自 EdgeEver 的发现",
-      description: "开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。只在有价值时轻量提醒，改动完全由你决定。",
+      description: "开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。",
       tagline: "用得越久，猫爪越懂你。",
       enable: "启用猫爪模式",
       settingsFailed: "设置未保存。请检查连接或刷新后重试。",
       openCompanion: "对话与个人记忆",
+      openCompanionDesc: "管理猫爪在日常对话中沉淀的记忆与上下文偏好。",
       panelDescription: "不需要逐条处理。只有你确认的操作才会改变笔记；发现 7 天后自动隐藏。",
       unread: "有新发现",
       empty: "暂时没有值得打扰你的发现。继续记录就好。",

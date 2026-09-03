@@ -31,7 +31,7 @@ describe("quiet discovery UI", () => {
   });
   test("Paw mode explains benefits and exposes its inactive state without personalization controls", async () => {
     const html = await render(false, "zh-CN", true);
-    expect(html).toContain("开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。只在有价值时轻量提醒，改动完全由你决定。");
+    expect(html).toContain("开启后，EdgeEver 会像猫爪轻推纸片一样，帮你归拢零散碎片、将新想法沉淀到已有笔记、挑出过往的相关灵感。");
     expect(html).toContain("用得越久，猫爪越懂你。");
     expect(html).toContain("猫爪模式");
     expect(html).toContain("猫爪状态"); expect(html).toContain("未运行");
@@ -53,7 +53,7 @@ describe("quiet discovery UI", () => {
   });
   test("English settings have matching concise benefits and no raw translation keys", async () => {
     const html = await render(false, "en-US", true);
-    expect(html).toContain("When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw. It nudges you only when valuable, and all changes remain entirely up to you.");
+    expect(html).toContain("When enabled, EdgeEver quietly helps tuck scattered fragments together, append new ideas to existing notes, and surface relevant past insights like a gentle cat paw.");
     expect(html).toContain("The longer you use it, the better Paw mode understands you.");
     expect(html).toContain("Paw status"); expect(html).toContain("Not running");
     expect(html).not.toContain("Personal preferences"); expect(html).not.toContain("one minute");
