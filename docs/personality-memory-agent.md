@@ -1,260 +1,102 @@
-# EdgeEver lightweight personality and memory agent: plan and tradeoffs
+# EdgeEver Agent mode: design and tradeoffs
 
 [简体中文](personality-memory-agent.zh-CN.md)
 
-Date: 2026-09-03. Status: an interactive preview is implemented in the workspace, not released. P0 performance/real-model evaluation and full P1 acceptance remain incomplete.
+Updated: 2026-09-03. This document describes the current product direction, implementation boundaries, and outstanding validation—not release notes or a development log. Git retains implementation history and verification records.
 
-## Current preview scope (2026-09-03)
+## 1. Product positioning
 
-Worker lazy-loading fix (2026-09-03): the previously recorded full-suite failure is resolved. The plugin AI endpoint now imports `ai-runtime` only when generating. The build regression follows the entrypoint's complete static dependency graph, including shared chunks, and excludes AI runtimes and SDKs from startup while confirming they remain reachable on demand. Full non-E2E regression: 1,376 passed, zero failed; web/mobile type checks and the web build passed. No new dependency or migration.
+The Agent is a long-term assistant working with the user's knowledge, not just a chatbot familiar with notes or a general-purpose computer operator. Its value is connecting scattered records, understanding enduring interests, and helping organize notes.
 
-- Entry: Settings → AI integration → Agent mode. Off by default; enabling grants access to all notes in the current account, including child notebooks and future notes, without notebook selection. A small bell opens the discovery panel, without a primary navigation tab or system notifications. “Conversation and personal memory” in settings retains the optional `/companion` workspace. No native Android/iOS entry yet.
-- Requires a signed-in personal account on a non-demo instance with login enabled and reuses the configured default model. Disabling stops discovery and invalidates unconfirmed discovery actions. The optional conversation workspace keeps its independent per-turn note permission. The prompt library only manages note-processing templates.
-- One stable identity and an on-demand ToolLoopAgent. Users explicitly add memories or save their own words, correct/forget them and reuse them in new conversations. No automatic candidates, background full-library scanning or reminders. Note writes require individual confirmation; notes are not modified automatically.
-- Instance-server storage is isolated by workspace and user; Cloudflare/Docker share business logic. Migrations `0040`–`0043` cover memory, actions, tool execution and discovery; no changes to previously executed migrations, dependency manifests or release versions. No migration was applied to real instances.
-- Note access defaults off. Enabling it exposes 28 note-related tools from the existing MCP catalog through the same business executor. Authorized reads cover notes, trash, history, tags and notebooks; content updates and merges require fully read sources. The model can only read, preview and propose; confirmation APIs execute persisted arguments. No external sending or system-control tools.
-- With memory disabled, complete prior turns from the same conversation remain eligible only if they did not use memory or cite notes; memory-enabled replies are excluded. Memory edits/forgetting still invalidate old context and cancel running generation; previous replies citing notes are not resent automatically. Existing chat text/source snapshots remain: note deletion is not chat deletion. Clear chats separately; exported files and provider-held data are outside this deletion control.
-- Request IDs are allocated/persisted before generation; recover by ID after disconnection, never automatically repeat a model call. Failure/cancellation retain recoverable results. A subsequent read marks abandoned runs interrupted after their 90-second expiry. No permanent polling or background replay.
-- Separate JSON export includes memories, chats and organization records. Import atomically merges/deduplicates memories without replacing existing entries; it does not restore chats or organization records. Preview data is not included in note ZIP backups, desktop offline mirrors or native mobile sync; the UI discloses this.
+The product must stay lightweight, fast, and reliable. Presence can be subtle; suggestions must be useful. Personality should emerge through continuing understanding, accurate memory, and measured actions—not anthropomorphic lines, simulated emotions, or frequent interruptions. Chat is a supporting entry point, not the primary experience.
 
-### Quiet discoveries (2026-09-03, current implementation)
+The main flow is: normal note-taking → the Agent identifies an opportunity at an appropriate time → grounded information or an action proposal → execution after confirmation. Without a worthwhile result, remain quiet.
 
-Agent-mode refinement: 20 discovery/UI tests pass, including cross-notebook operations, child and newly created notebooks, account isolation and global retrieval budgets. Web/mobile type checks and the web build pass. The live local settings page shows “Agent mode”, no notebook picker, and an available switch; verification did not enable the feature or call a paid model. Existing shadcn controls were reused and notebook-selection state/props removed. No new dependency or migration is needed for this refinement.
+## 2. Interaction rules
 
-- Two notification types: useful knowledge connections without required action, and persisted note-operation proposals. Neither creates a normal note or an “AI draft”. Source links and exact changes are reviewable; confirmation executes existing tools without another model decision.
-- Three initial scenarios: combine fragments of one idea, append a new fragment to an existing note, and resurface related older knowledge. Append preserves both notes and original text, supports plain-text notes only and rejects attached resources; rich documents should use the lossless merge tool. Merge moves sources to trash and revokes shares; no undo-all promise.
-- Agent mode can read and propose operations across all notebooks in the current account; writes still require confirmation. Other accounts remain isolated. After one minute without input, an open, visible, online client with no pending local changes may check. A persisted cross-device claim limits attempts to once per 24 hours and skips unchanged libraries; no timer daemon, polling loop, embeddings or bundled model. A check can incur provider charges even if no discovery is shown.
-- Retrieval uses one workspace-wide recent query (12 summaries) and at most one keyword query (8 summaries), then at most six complete note bodies totaling 12,000 characters, each at most 8,000. Budgets do not grow with notebook count. The latest anchor must be within 14 days. One structured ToolLoopAgent generation, 1,200 output-token limit, no tools, no model retry, 60-second cancellation. Model-facing data excludes personal memories, full note JSON and other accounts' content.
-- The model selects a connection, not executable arguments. The server validates all source IDs and constructs merge/append arguments using existing APIs. Publication checks settings version, context revision, turn state and workspace cursor in one transaction. Disabling cancels unconfirmed work; already-started confirmed operations retain receipts. Source changes hide stale discoveries and block confirmation. The old notebook-selection storage column remains for migration compatibility but is no longer an authorization filter; settings requests contain only enabled/version and reject obsolete notebook-selection fields.
-- The bell uses only an unread dot; nothing opens automatically. Seen status follows visible cards, and skipping a source group suppresses that group. Display is limited to 20 items from the past seven days; proposals expire after 24 hours. Old records stay available in the separate JSON export until history is cleared. Discovery turns do not enter chat history; all retained turns still share the existing 500-record cap. Clearing companion history also removes discovery records and deduplication, but retains settings/cooldown; import remains memory-only.
-- Known tradeoffs: keyword retrieval can miss semantic connections; the broad workspace cursor invalidates suggestions even for unrelated edits. These conservative first-release choices favor safety and bounded resource use. No claim of tested real-model relevance, installer delta or resident-memory delta. No new dependencies, real-instance migrations, paid model calls or release changes in this iteration.
-- Verification: 19 new discovery tests pass (including the actual SDK with a mock provider), alongside the existing companion regression. Web/mobile type checks and the production web build pass. The full non-E2E suite reports 1,364 passing and one existing failure: `plugin-capability-routes.ts` statically imports `ai-runtime`, violating the Worker lazy-loading gate; this iteration did not edit that file. Isolated browser fixtures verified default-off consent, both notification types, confirmation receipts, opening results, refresh recovery, disabling and 390px layout; temporary files/server were removed. The discovery-panel chunk is 5.77 kB / 2.33 kB gzip, excluding shared code and settings—not an installer-size measurement. No commit, push or deployment was made.
+- Entry: Settings → AI integration → Agent mode, off by default. Enabling covers all notes in the current account, including child notebooks and future notes, without notebook selection. This does not mean reading or sending the entire library at once.
+- Use a small bell and unread dot, without primary navigation, automatic popups, or system notifications. Currently available to signed-in personal accounts on non-demo instances with login enabled; no native Android/iOS entry yet.
+- Informational notifications offer useful connections, explanations, and source links without requiring a task. Action notifications explain which notes will change, how, and with what consequences; confirmation invokes existing note capabilities.
+- Suggestions do not enter the normal note list or automatically become “AI suggestion drafts.” Notes are created or modified only after confirmation of the corresponding write.
+- Users may dismiss suggestions or disable the mode. Disabling invalidates unconfirmed discovery actions; already-started confirmed operations retain receipts. Disabling does not undo completed changes.
 
-### Shared note-tool integration (2026-09-03, previous iteration)
+The settings page keeps only a short benefit description:
 
-- `mcp-tool-executor.ts` is the shared execution entry for remote MCP and the built-in AI. Tool names, descriptions and parameter schemas come from `MCP_TOOLS`. Only exposure policy and confirmation adaptation are added; no copied note business logic, MCP client, second agent framework or additional dependency.
-- The 28 tools comprise 13 reads and 15 confirmed writes: create/import/update notes, merge, move, add/remove/rename/delete tags, trash/restore notes, restore revisions, and create/rename/move notebooks. Permanent deletion, public sharing, binary uploads, template/AI instruction management and system administration are not exposed; arbitrary operations are not supported.
-- Write tools persist exact arguments and a reason; execution uses those arguments without another model call. Cards show the operation, source excerpts, resolved notebook names, full proposed content, account-wide tag impact counts and consequences. Content changes clearly replace rather than append. Legacy merge/tag cards remain compatible; new proposals use shared tools.
-- Existing sync change cursors plus source content revisions and metadata protect confirmation. Each service write batch receives an execution claim and cursor check, preventing duplicate confirmation. Completed receipts recover normally; a connection loss after a write produces an uncertain result that is never automatically replayed. Multi-batch operations may partially complete and do not promise whole-operation atomic rollback.
-- Conflict handling is deliberately conservative: any note/notebook change after generation requires a new proposal, so applying one action may invalidate other pending proposals. Explicit target sets are limited to 25 notes and argument JSON to 24,000 characters; each turn permits 3 proposals with 24-hour expiry. Operations depending on new object IDs are generated after confirming the prerequisite, never against invented IDs.
-- With note access enabled, subsequent turns can read the latest 6 execution receipts in this conversation within 4,000 characters, isolated by account, conversation and memory revision. Disabling note access excludes note-tool metadata and receipts; disabling memory excludes records from memory-enabled turns.
-- All 87 focused tests pass, covering 15 writes, argument tampering, cross-user confirmation, changed versions, concurrent confirmation, lost commit acknowledgements and receipt permissions. Web/mobile type checks and the web build pass. The full suite reports 1342 passing and 1 failing: separate uncommitted `plugin-capability-routes.ts` changes statically import the AI runtime and fail the Worker lazy-loading gate; that file was not changed in this iteration.
-- Browser checks against isolated storage passed: review then update content, tags and notebook together, inspect the actual result, and refresh to retain the applied receipt. No real notes or paid models were used; temporary pages and the server were removed. No commit, deployment or release was made. Real-provider compatibility and complex-task quality still need evaluation.
-- At that iteration, entry prominence and proactive discovery were unchanged; the quiet-discovery iteration above supersedes that entry design. Tool catalog coverage does not imply autonomous authority or a persistent background agent.
+> Combine scattered ideas, add to existing notes, and rediscover related knowledge. Changes require your confirmation.
 
-### Previous organization iteration: merge notes and append tags (historical record)
+## 3. Current capabilities and boundaries
 
-- Standalone organization cards do not automatically create ordinary notes or “AI suggestion drafts.” Cards start collapsed; expanding reveals reasons, source excerpts, existing tags, merge order and consequences. Only explicit confirmation modifies notes; suggestions can also be dismissed.
-- Each merge uses 2–5 notes fully read in the current run, preserves bodies, attachments and tags in reviewed order, and creates the result in the first source's notebook. Sources enter trash and their shares are revoked; restoring sources is not a complete undo. The model must not recommend merging merely because notes share a broad topic, and execution does not rewrite or shorten content.
-- Each tag suggestion appends at most 5 tags, preferring existing vocabulary without replacing tags or bodies. Additions exceeding 24 tags are rejected rather than silently dropping existing tags. Each turn allows at most 3 proposals, expiring after 24 hours.
-- Confirmation checks this device's offline status and pending sync queue. One server transaction checks the account, completed turn, memory revision, source body revisions, modification times, notebooks and tags, then writes both notes and the execution receipt. Stale/dismissed proposals and changed sources cannot execute; repeated confirmation or reconnect retries return the same result.
-- Cards currently live in the preview workspace and can be reused in a later quiet “Discover” entry. A global default-off toggle, proactive discovery triggers, background generation and a quiet entry remain unimplemented; this iteration only adds user-requested organization. Existing AI SDK, note services and UI components are reused, with no new dependencies or persistent processes.
-- Browser checks against an isolated in-memory database covered tag additions, confirmed merging, opening results and persistent receipts after refresh. No user notes were modified and no paid model was called. Real-model judgment about which ideas belong together still needs evaluation.
-- All 50 focused tests, `bun run typecheck`, `bun run typecheck:mobile` and `bun run build:web` pass; the existing local-mirror dynamic-import warning remains.
-- This iteration's full shared-workspace regression reports 1307 passing and 1 failing: separate uncommitted plugin changes statically import the AI runtime and still fail the Worker lazy-loading gate. This iteration leaves those plugin files untouched and does not claim a clean full suite. Temporary browser fixtures and their server were removed; no commit, deployment or release was made.
-
-### Implementation budgets
-
-Entry hierarchy verification: built-in browser checks passed for desktop primary navigation, the 390px mobile web entry, standalone refresh, and browser back/forward. Chat/memory switching and the composer were checked with isolated empty fixtures; no real model was called and no personal memory was written. All 30 focused tests, web/mobile type checks, and the web build pass. The shared workspace's full suite reports 1287 passing and 1 failing: the same Worker AI runtime lazy-loading gate affected by the separate uncommitted plugin changes.
-
-| Item | Current constraint |
-| --- | --- |
-| New runtime dependencies / always-on processes / bundled models | 0 / 0 / 0 |
-| Stored memories / per-request memory context | 50 × 500 characters / 8,000 characters; Unicode segmentation, frequency-weighted matching and update recency, not semantic retrieval |
-| Stored history / one list / per-request history | 500 requests / latest 100 / at most 6 eligible prior turns, totaling at most 12,000 characters |
-| Input / response length | 4,000 / 16,000 characters |
-| Tools / note text | 28 available tools, at most 16 calls; 5 results per search/list; cumulative 12,000 characters of bodies/excerpts and 12,000 characters of other tool outputs |
-| Model steps / output / timeout | At most 8 steps; 2,048 output tokens per step (not the whole run); cancel after 60 seconds |
-| Concurrency / retries | 1 running request per account; 0 automatic model retries |
-
-### Verification and outstanding gates
-
-Initial API/storage/actual SDK tests with mock models cover account isolation, conflicts, atomic import capacity, forgetting/context invalidation, tool permissions, duplicate requests, partial-output recovery and UTF-8 stream parsing. Initial browser checks with an isolated in-memory database/fake model cover adding/correcting memories, chatting and disabling memory. No user-paid model calls or real notes were sent. At the initial handoff, the full non-E2E suite passed 1263 tests; this iteration's results are below.
-
-The initial web production build's standalone chat-component chunk was 9.62 kB, or 3.25 kB gzip. It excludes other shared-client/translation changes and is not the total installer delta. The existing local-mirror dynamic-import warning remains in the web build.
-
-### Second iteration (2026-09-03)
-
-- Use built-in `Intl.Segmenter` with NFKC normalization, common stop-word filtering and higher weights for uncommon terms. Chinese questions can match older relevant memories; English matches words rather than substrings such as Rust inside trust. No new dependency, embedding call or persistent index.
-- Preserve safe same-conversation continuity when long-term memory is off. Exclude other conversations, expired context revisions, failed turns and replies that may contain memory/note data. The 12,000-character history budget admits complete question/answer pairs; older content is not inserted around a newer pair that does not fit.
-- Memory preconditions, context invalidation and mutations share one database transaction. Stale versions, capacity failures, empty imports and fully duplicate imports no longer interrupt generation; successful edits/forgetting still cancel old-context requests. No new migration.
-- All 19 focused tests pass, as do web/mobile type checks and web/Worker builds. One full-suite run reported 1277 passing and 1 failing: another uncommitted change in the shared workspace statically imports `ai-runtime` from `plugin-research-routes.ts`, failing the Worker lazy-loading gate. This iteration leaves that plugin file untouched and does not claim a clean full suite.
-- A synthetic local Bun 1.3.14 microbenchmark with 50 memories and 50 retrievals measured approximately 0.14 ms median / 0.19 ms P95. This only checks local retrieval overhead, not actual Worker CPU, model recall accuracy or an Electron resource baseline. Real-model and cross-platform performance gates remain incomplete.
-
-Pre-commit verification: exclude the separate plugin changes, export this feature's staged snapshot to an isolated directory, install dependencies from the frozen lockfile, and revalidate. The full non-E2E suite reports **1269 passing, 0 failing**, including the Worker AI runtime lazy-loading gate. `bun run typecheck`, `bun run typecheck:mobile`, and `bun run build:web` also pass. This commit includes no plugin feature, dependency-manifest or lockfile changes; the shared workspace's plugin edits remain untouched.
-
-This is not full P0/P1 acceptance. Real-provider compatibility, personality consistency, adversarial injection and before/after Electron package/startup/RSS measurements remain release gates. Lazy-loading the component and keeping the SDK server-side do not imply zero package/memory growth. Relationship modeling, automatic memory candidates and proactive actions remain unimplemented.
-
-## 1. Product positioning and decision
-
-EdgeEver aims to become a personal agent whose long-term memory is grounded in the user's knowledge, not merely a notes product with AI buttons. Notes carry knowledge and evidence; a stable identity, understanding of the user, shared experiences, and trustworthy actions create the sense of a continuing companion.
-
-The core experience is remembering what matters, connecting past and present, keeping track of commitments, and accepting corrections. Personality should emerge through consistent, honest, considerate behavior, not simulated emotions or manufactured dependency.
-
-**Decision: reuse the existing AI SDK `ToolLoopAgent` and build EdgeEver-owned identity, relationship, memory, permission, and action domains. Constrain phase one to zero additional runtime dependencies; do not introduce Mastra, ElizaOS, or another database.**
-
-Lightweight, fast, and reliable are product requirements. Deepen personality and memory without turning the first release into a general-purpose agent platform. Identity, memories, and evidence should remain exportable, restorable, and usable after changing models, devices, or frameworks. Data portability does not guarantee identical expression across models; that needs evaluation.
-
-## 2. Existing foundations and missing capabilities
-
-Existing foundations:
-
-| Foundation | Reuse |
-| --- | --- |
-| `ai` and existing OpenAI-compatible / Anthropic / Google providers | Agent loop, model access, streaming; preserve BYOM without requiring a new gateway |
-| Zod | Domain data and tool input validation |
-| SQLite / D1 and existing storage adapters | Persistence, account isolation, retrieval; shared business logic across runtimes |
-| Rust desktop sidecar | Desktop local-data ownership and persistence adapter, without another LibSQL dependency |
-| Existing note search, API, revision history | Tool data access, answer citations, and the basis for later mutation audits |
-| Existing Croner and scheduled-task code | A foundation for later bounded reminders, not an existing durable task engine |
-| Plugin API and MCP server | Extension boundaries; an MCP server does not imply an external MCP client or its security controls already exist |
-
-Before implementation, consult the [README](../README.md), [model adapter](../apps/api/src/ai-runtime.ts), [shared storage contract](../apps/api/src/storage-contract.ts), [cross-runtime architecture](self-hosting-architecture.md), and [desktop packaging configuration](../apps/desktop/electron-builder.yml).
-
-The original text generation lacked personality memory. The preview adds basic conversation storage, explicit memory governance, read/propose permissions, confirmed execution and recovery; full capabilities and performance gates still follow the plan below. Zero new dependencies does not mean zero new code, model cost, or maintenance.
-
-## 3. Why this approach
-
-| Option | Strengths | Costs and decision |
+| Path | Current capability | Boundary |
 | --- | --- | --- |
-| AI SDK + EdgeEver domain layer | Reuses model adapters; composable; identity and data remain independent of a framework | Requires product-specific memory governance and permissions; selected for phase one |
-| Mastra | Integrated memory, workflows, approvals, orchestration, and observability | Additional dependency and runtime cost not yet justified by concrete requirements; defer |
-| ElizaOS Core | Personality/autonomous-agent concepts and plugin ecosystem align with the vision | Requires reconciling its memory, plugin, and host concepts with EdgeEver; defer while learning from its design |
-| A custom general-purpose agent/workflow framework | Maximum freedom | High maintenance risk; rejected. Reuse the AI SDK loop instead of rebuilding mature general capabilities |
+| Proactive discovery: connections | Resurface related older notes and explain their connection to new records | Sources required; no notification without a suitable result |
+| Proactive discovery: merge | Combine fragments of one idea while preserving text, attachments, and tags | Confirmation required; sources move to trash and their shares are revoked; no complete one-click undo promise |
+| Proactive discovery: append | Add a new fragment to an existing note while preserving the source and original target content | Currently limited to plain-text notes without attachments; no automatic rewriting of rich documents |
+| Optional conversation: note tools | 28 existing tools: 13 reads and 15 confirmed writes covering creation, import, editing, merging, moving, tags, trash, revision recovery, and notebook organization | Discovery does not propose all these operations; permanent deletion, public sharing, binary uploads, and system administration are not exposed |
 
-### Size and memory observations during selection
+“Conversation and personal memory” remains an optional settings entry. Conversation currently has independent note-access and memory controls, with note access off by default; these are not unified with the Agent-mode switch. This is the implementation state, not a requirement to select notebooks, and must not be presented as a single permission switch across the product.
 
-An exploratory test ran in a temporary directory on 2026-09-02: macOS ARM64, Node 26.3.1, Bun 1.3.14; `ai@7.0.58`, `@mastra/core@1.63.2`, `@mastra/memory@1.28.1`, and `@mastra/libsql@1.22.2`. These identify the tested versions, not future latest releases.
+“Note-operation capabilities” means reusing existing APIs and business services, not building another note system or granting unattended write authority to the model. Proactive tagging and other notification-based organization scenarios are not yet connected; the full tool catalog must not be advertised as proactive functionality.
 
-The test imported entry points, retained class/function references, and bundled with Bun `--target=node --minify`. `/usr/bin/time -l` measured startup peak RSS; direct ESM imports were measured separately. No model requests, real conversations, or complete storage paths were exercised.
+## 4. Personality and memory
 
-| Exploratory entry point | Single-file bundle (approximate, decimal) | Bundled process startup peak RSS (approximate, decimal) |
-| --- | --- | --- |
-| Empty Node | Negligible | 50 MB |
-| AI SDK `ToolLoopAgent` | 0.38 MB | This bundle was not measured; direct ESM control was about 72 MB |
-| Mastra Agent | 5.1 MB | 145 MB |
-| Mastra Agent + Memory | 6.1 MB | 172 MB |
+The long-term goal is for suggestions to reflect preferences, project context, shared decisions, and feedback. Personality and memory belong to EdgeEver's product data and behavior rules, not to a particular model; their value does not depend on adding a dedicated chat surface.
 
-Mastra Core reported an npm unpacked size of about 66.2 MB, including substantial source maps and declarations; this is not the installer delta. Direct ESM startup peaks were about 174–185 MB for Mastra Agent and 185–186 MB for Agent + Memory; a separate post-GC RSS snapshot was about 196 MB. Startup peak, instantaneous RSS, and long-term idle usage are different measurements.
+Implemented today:
 
-Limitations: scripts and raw outputs were not committed as a reproducible benchmark; capabilities were not equivalent, and Electron, Windows, and real agent workloads were not tested. gzip is not DMG/NSIS, and a tree-shaken bundle does not prove inclusion of dynamic assets or native dependencies. Do not infer guaranteed installer growth, resident memory, or performance ratios. The only conclusion is that additional framework cost warrants scrutiny; production metrics require new measurements.
+- A product-controlled stable identity, conversation continuity, and explicit cross-conversation memory in the optional conversation workspace.
+- Users manually add memories or save their own words through the UI, and can correct, forget, or suspend their use. The model cannot independently add or remove memories.
+- Small-scale retrieval using segmentation, weighted keywords, and update recency, without a vector index. Memory edits/forgetting invalidate old context; user-confirmed information must remain distinct from model inference.
+- Server-side storage isolated by workspace and user. Separate JSON export includes memories, chats, and organization records; import merges memories only, not chats or execution records.
 
-## 4. Phase-one scope and non-goals
+Not yet connected: proactive discovery does not read personal memory. Current notifications must not be described as understanding long-term preferences. Automatic memory candidates, relationship modeling, and suggestion adaptation based on long-term feedback are also unimplemented.
 
-Phase one includes only:
+The next priority is to test whether controlled memory improves relevance, not to expand personality settings. Connecting memory to discovery requires explicit user control, provenance, correction, and forgetting propagation; do not silently broaden memory use. Dismissing one notification should not directly become a lasting preference.
 
-- One user-visible agent and one stable default identity.
-- Explicit user preferences, goals, and a small set of shared experiences persisted across conversations.
-- Knowledge answers using existing note search, with important claims linked to evidence.
-- Explicit requests to remember information or review of model-proposed memory candidates.
-- A “What she remembers about me” interface for inspecting, correcting, forgetting, and managing sources.
-- Cancellation at any time; model or memory failures must not disrupt normal note operations.
+Deleting a note does not delete its text or snapshots in chats; forgetting a memory does not delete its source. This data is not yet included in note ZIP backups, desktop offline mirrors, or native mobile sync. Do not promise full cross-device recovery or deletion of exported files or provider-retained data.
 
-The product owns and versions the default identity. Leave room for user-selected names and communication style, but no character marketplace in phase one. The model must not rewrite core identity or permissions.
+## 5. Technical and reliability tradeoffs
 
-Exclude multi-agent systems, vector databases, knowledge graphs, background full-library scans, emotion simulation, general workflow engines, always-on autonomous loops, shell/computer control, automatic external messages/publication, and dynamic third-party agent plugin installation. Do not bundle local inference models with the client.
+### Reuse existing capabilities
 
-These are sequencing boundaries, not permanent product limits. Validate the experience of being remembered, understood, and able to correct the agent before adding proactive actions.
+Keep AI SDK `ToolLoopAgent` and existing model configuration; EdgeEver manages identity, memory, permissions, proposals, and execution receipts. Do not currently introduce Mastra, ElizaOS, a second database, or a custom general-purpose agent/workflow framework.
 
-## 5. Data and memory model
+Tool names and parameters come from the existing MCP catalog and use the same business executor. Add only Agent exposure policy, preview, and confirmation adaptation. Cloudflare and Docker share business logic. Agent UI and server-side AI runtimes load on demand; build tests inspect the entire startup dependency graph, including shared chunks.
 
-| Domain | Content and boundary |
-| --- | --- |
-| Identity | Name, purpose, values, expression, and relationship boundaries; controlled updates |
-| User model | Explicit preferences, projects, people, and goals; inferences are not facts |
-| Relationship / shared experiences | Joint decisions, user feedback, commitments, unfinished topics; no model-generated trust score grants permissions |
-| Working context | Current conversation, task, transient tool results; bounded by size and time |
-| Evidence | Original notes, messages, revisions, and action results; the factual source of knowledge |
+There are no new runtime dependencies, always-on autonomous processes, or bundled local models. No new dependencies does not mean zero package growth, memory use, model fees, or maintenance. Measure actual deltas rather than promising results from early, non-reproducible framework comparisons.
 
-Long-term memories should include instance/account scope, category, content, provenance, status, creation/update times, event time when known, sensitivity, user confirmation, and supersession links. Model confidence is a ranking hint, not a calibrated probability or an authorization signal.
+### Projects considered and why they were not adopted
 
-Conceptual tables may start with `agent_profiles`, `agent_memories`, and `agent_memory_sources`; add `agent_threads` and `agent_messages` if no reusable conversation store exists. Names and counts are not finalized SQL. Design indexes, account scope, sync conflicts, backup, and deletion semantics before adding incrementally numbered migrations. Never edit executed migrations or introduce another source of truth for notes.
+- [ElizaOS](https://github.com/elizaos/eliza): considered as a reference for personality, memory, and plugin-based agents. EdgeEver already has note storage, plugins, and permissions; adopting another agent runtime would require reconciling its memory, state, and plugin contracts. Current lightweight discovery and confirmed organization do not yet justify that adaptation cost. Retain design ideas without adopting the runtime.
+- [Mastra](https://github.com/mastra-ai/mastra): evaluated for its TypeScript agents, memory, workflows, and human approval capabilities. Model integration, the tool loop, and note execution already have reusable foundations, while current flows do not require full workflow orchestration. A framework would still require EdgeEver-specific permissions, version checks, and memory governance; the benefits do not yet justify additional dependencies and integration maintenance.
 
-### Memory lifecycle
+This is a provisional decision based on current scope and architecture, not a claim that either framework cannot be embedded in Electron or necessarily consumes excessive resources. Reevaluate if requirements outgrow the maintainable scope of the existing approach, using package-size, memory, and startup measurements from an actual integration.
 
-1. User messages or authorized tool results produce candidates; retrieved notes are not new system instructions.
-2. Validate evidence, account scope, sensitivity, duplicates, and conflicts; retain only information useful for future interactions.
-3. “Please remember” can authorize that specific memory. Automatic extraction is off by default; when enabled, only low-risk explicit facts qualify for automatic acceptance. Sensitive information is not saved automatically.
-4. Inferences await confirmation. Credentials and tokens must not enter memory. Do not promise perfect model-based sensitivity detection; let users disable extraction and exclude sources.
-5. User corrections take precedence. Superseded memories leave active retrieval and may retain explainable replacement links.
-6. Forgetting removes content from active memory and derived summaries/indexes, and prevents silent re-extraction from the same source. Deleting original chats or notes is a separate user choice; disclose backup retention and handling of deletion markers after restoration.
+### Bounded cost
 
-Deleted, invalid, or newly inaccessible sources require revalidation of dependent memories; they must not continue leaking the original content. Clear running context on account or instance switches. In-flight results must never be written to the newly selected account.
+- Proactive checks run only while the app is open, visible, online, free of pending sync changes, and idle for one minute. A cross-device limit allows at most one attempt per account per 24 hours; unchanged notes are skipped. This is not an always-running background service.
+- Each check selects a small set from recent records and keyword searches: at most six note bodies totaling 12,000 characters. One structured generation, at most 1,200 output tokens, cancellation after 60 seconds, and no automatic model retries.
+- Full conversations have separate tool-call, context, concurrency, and timeout budgets. Library-wide authorization does not mean putting the entire library into a prompt.
+- Selected content is sent to the user's configured default model provider. A check can incur charges without producing a visible suggestion. Keyword retrieval may miss semantic connections, and low-frequency checks do not guarantee timely discovery of every opportunity.
 
-### Retrieval and cost
+### Confirmation and recovery
 
-Assemble stable identity, a small user model, recent messages, a few relevant memories, and on-demand note search results. Start with existing search and category/project/time/status filters, not full-library prompts. Build real retrieval tests for Chinese, aliases, paraphrases, and temporal questions rather than assuming keyword search is sufficient forever.
+1. The model proposes; the server validates sources and arguments. For proactive merges/appends, the server constructs the arguments. Persist the exact operation, reason, and data versions; a proposal does not modify notes.
+2. Confirmation binds to that operation, without another model decision at execution. Check account, expiry, source versions, and sync state; expired proposals or changed data require regeneration.
+3. Reuse transactions, execution claims, and persistent receipts to prevent duplicate confirmation and concurrent overwrites. Recover or query outcomes after disconnection; generated text is not a success receipt, and uncertain writes must not be blindly replayed.
+4. Multi-batch operations may partially complete; cancellation does not roll back completed effects. The current workspace-cursor policy is conservative, so unrelated note changes may also invalidate other proposals.
 
-Bound tool steps, context size, response time, concurrency, summarization frequency, and model cost. Phase one uses an explicit memory-candidate tool instead of requiring another summarization call every turn. Later compression must preserve evidence and be evaluated for lost commitments and altered facts.
+Notes, memories, attachments, and tool results are untrusted data. They cannot change identity, grant permissions, or forge confirmation. Do not expose shell/computer control, automatic external messaging, or publication, or relax authorization because the Agent “knows the user.”
 
-## 6. Runtime and security boundaries
+Implementation entry points: [discovery](../apps/api/src/companion-discovery.ts), [conversation and memory retrieval](../apps/api/src/companion-runtime.ts), [tool catalog](../apps/api/src/companion-tool-catalog.ts), [confirmed execution](../apps/api/src/companion-tool-actions.ts).
 
-```text
-Client: chat, citations, memory management, approval/cancellation
-  → Authenticated transport (HTTP; narrow IPC only for local mode)
-  → Shared agent domain services: identity, context, permissions, audit
-  → AI SDK ToolLoopAgent: existing user model configuration
-  → Allowlisted tools: application validation → authorization → storage/business services → result
-```
+## 6. Outstanding validation and priorities
 
-Prefer the existing server-side model-credential and generation path. Do not add an always-on desktop process by default or put SDK credentials in the renderer. A local desktop agent is an optional execution mode requiring validation: only when local execution is needed should implementation choose an on-demand main-process module or isolated process and measure lifecycle, packaging, and permissions. Local knowledge storage does not mean remote model calls keep that knowledge on-device.
+- Build a real-note evaluation set: whether fragments belong to one idea, whether merging/appending is worthwhile, and whether connections are useful. Measure false positives, interruptions, acceptance, and harmful organization—not notification count or chat duration.
+- Validate structured outputs, tool calling, cancellation, source accuracy, and prompt-injection defenses with real models. Model failures must not disrupt ordinary note operations.
+- Measure installer size, cold start, CPU, RSS/heap, and model costs with the Agent disabled, idle, on first use, during sustained use, and after cancellation. Separate client and server measurements; use the [desktop performance baseline](desktop-performance-baseline.md).
+- Once current scenarios are reliable, evaluate memory-informed suggestions, proactive tagging, and consistent permissions across conversation and Agent mode. These document goals are not completed features.
+- Complete backup/recovery, deletion propagation, and cross-device experience. Automation, reminders, multiple agents, and heavier retrieval infrastructure are not in the current default scope; reconsider only when actual needs and measurements justify them.
 
-Cloudflare and Docker share business services with thin entry/driver adapters; do not rely on an in-process loop continuing after a Workers response. Desktop adapts the existing sidecar. Android and iOS initially reuse the protocol rather than implementing separate agent business logic. Offline note editing and access to synchronized data continue, but remote model unavailability must be explicit rather than presented as successful execution.
+Implementation changes must pass relevant tests, the full non-E2E suite, `bun run typecheck`, `bun run typecheck:mobile`, and `bun run build:web`. Passing tests does not establish suggestion quality or acceptable resource usage.
 
-Keep initial candidate tools below eight, for example `search_notes`, `read_note`, `propose_memory`, `list_relevant_memories`, `correct_memory`, and `forget_memory`. Corrections and deletion must bind to verifiable user intent/confirmation, not a model claim that permission was granted. The memory UI can call deterministic APIs directly without routing through a model.
-
-Note writes separate proposal from approved execution. Every tool needs input validation, account/object authorization, quotas, and audit. Approval binds to the concrete operation, arguments, and data version; expiry or changed content requires renewed confirmation. Tool results, notes, attachments, and memories are untrusted data: they cannot grant tools, change permissions, or become identity instructions.
-
-Database transactions and version checks prevent partial writes and overwriting concurrent edits. Stable operation IDs and execution records reduce duplicates. Transactions do not guarantee exactly-once effects in external services: query uncertain outcomes or ask the user instead of blindly retrying. Cancellation does not reverse completed side effects; report the completed portion.
-
-## 7. Reliability and product controls
-
-“What she remembers about me” should distinguish user-confirmed information, direct statements, and AI inferences; show evidence and change history; and support editing, confirmation, forgetting, pausing memory, and source exclusion. Personality must not manipulate intimacy or pressure users to keep interacting.
-
-Load agent UI on demand. With AI disabled, do not scan, poll, issue paid requests, or block startup, editing, search, or sync. Preserve chat drafts on failure and accurately report retrieval, memory persistence, and tool status. Generated text is not evidence that an action succeeded.
-
-Defer automation. Initially persist only necessary conversation and execution state, without building a general durable workflow engine. Future states such as `pending / running / awaiting_approval / completed / failed / cancelled` are only part of a recovery protocol; ownership, leases, timeouts, idempotency, version conflicts, and expired authorization still matter. Persisted state is not safe replay. Cross-device reminders also need deduplication, time zones, quiet hours, and missed-delivery policy.
-
-## 8. Phases and acceptance criteria
-
-### P0: baseline and read-only validation
-
-- Build a fixed conversation set covering preferences, corrections, long-term goals, joint decisions, commitments, and citations.
-- Validate tool calling, streaming, cancellation, and context budgets with existing providers. Incompatible models degrade explicitly to non-action chat.
-- Compare production package, startup, and idle metrics before/after implementation. Decide execution location and data scope first; do not create multiple packages merely for anticipated abstractions.
-
-### P1: manageable personality memory
-
-- Implement controlled identity, conversation storage, memory candidates, provenance, and the memory-management UI.
-- Validate cross-conversation recall, correction precedence, no recall after forgetting, source-deletion propagation, account isolation, and model switching.
-- Include new data in export/restore policy. If cross-device synchronization is not yet available, show device scope explicitly instead of implying continuous memory everywhere.
-- Proactive notifications and automatic note changes are not prerequisites for accepting this phase.
-
-### P2: controlled actions and limited initiative
-
-- Add change previews, approvals, version checks, and audit only after separate requirements are confirmed.
-- Then consider user-enabled reminders/reviews using existing scheduling, not an unbounded background agent.
-- Permit unattended execution only after repeated validation of recovery, deduplication, and cost limits.
-
-### Quality and resource gates
-
-- Initial constraints: zero new runtime dependencies, one user-visible agent, zero new always-on autonomous loops, and zero bundled local models. Table/tool counts are complexity budgets, not reasons to sacrifice isolation or correctness.
-- On the same machine/configuration, record package size, cold start, RSS/heap, CPU, network, and model usage with AI disabled, idle, first-run, sustained use, and after cancellation/failure. Separate peak from steady state and verify resources can be reclaimed.
-- Measure download size, installed size, renderer bundle, and server deployment separately. An SDK already present at the repository root does not make bundling it into desktop free.
-- Set numerical thresholds after the P0 baseline. Do not treat exploratory Node numbers as Electron guarantees or trade unbounded caching for apparent speed.
-- Test prompt injection, forged approvals, duplicate calls, concurrent edits, completion after cancellation, account switching, timeouts, and recovery. Repeatedly evaluate identity consistency, memory accuracy, and citation correctness with fixed models/configurations.
-- Implementation must pass repository-required `bun run typecheck`, `bun run typecheck:mobile`, `bun run build:web`, and relevant non-E2E tests. Record client performance against the [desktop performance baseline](desktop-performance-baseline.md).
-
-## 9. When to revisit the decision
-
-Reevaluate dependencies only when real use and measurements show a limitation: embeddings for inadequate recall; mature workflow/agent runtimes when recovery/orchestration exceeds maintainable scope; an MCP client and permission model when external tools become a requirement.
-
-Zero additional dependencies is a phase-one strategy, not a permanent ban. Never build a general framework just to preserve that number. For any new dependency, record user value, package/memory/cold-start deltas, platform support, licensing, maintenance, and an exit path. Avoid two competing agent loops, identities, or memory sources of truth.
-
-This delivery is the bounded preview above, without version changes or real-instance deployment. Next complete the P0 baseline and real-model evaluation before expanding P1, rather than implementing the entire document at once.
-
-## 10. References
-
-- [AI SDK Agent interface](https://ai-sdk.dev/docs/reference/ai-sdk-core/agent): verify APIs against the locked version's local docs/source before implementation instead of copying old examples.
-- [Mastra](https://github.com/mastra-ai/mastra) and [ElizaOS](https://github.com/elizaos/eliza): comparison candidates, not new project dependencies.
-- [Existing Notion AI research](notion-ai-feature-landscape.en-US.md): product background, not a commitment to replicate its features.
+Zero new dependencies is a current strategy, not a permanent prohibition. New dependencies must justify user value, resource deltas, maintenance costs, and an exit path; never reinvent a general framework merely to preserve a “zero dependencies” claim.
