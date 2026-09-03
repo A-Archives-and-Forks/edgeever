@@ -1,6 +1,10 @@
 import { createPluginCapabilities } from './plugin-capabilities';
 import type {
   CompanionMemory,
+  CompanionDiscoverySettings,
+  CompanionDiscoverySettingsInput,
+  CompanionDiscoveryItem,
+  CompanionAction,
   CompanionTurn,
   CompanionTurnInput,
   CompanionEvent,
@@ -731,6 +735,14 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
       }),
 
     listCompanionMemories: () => request<{ memories: CompanionMemory[] }>("/api/v1/companion/memories"),
+    getCompanionDiscoverySettings: () => request<{ settings: CompanionDiscoverySettings }>("/api/v1/companion/discovery/settings"),
+    saveCompanionDiscoverySettings: (input: CompanionDiscoverySettingsInput) => request<{ settings: CompanionDiscoverySettings }>("/api/v1/companion/discovery/settings", { method: "PUT", body: JSON.stringify(input) }),
+    listCompanionDiscoveries: () => request<{ items: CompanionDiscoveryItem[] }>("/api/v1/companion/discovery"),
+    checkCompanionDiscoveries: (locale: string, signal?: AbortSignal) => request<{ items: CompanionDiscoveryItem[] }>(`/api/v1/companion/discovery/check?locale=${encodeURIComponent(locale)}`, { method: "POST", body: "{}", signal }),
+    acknowledgeCompanionDiscovery: (id: string, dismiss = false) => request<{ ok: true }>(`/api/v1/companion/discovery/${encodeURIComponent(id)}/${dismiss ? "dismiss" : "seen"}`, { method: "POST", body: "{}" }),
+    listCompanionActions: () => request<{ actions: CompanionAction[] }>("/api/v1/companion/actions"),
+    applyCompanionAction: (id: string) => request<{ action: CompanionAction }>(`/api/v1/companion/actions/${encodeURIComponent(id)}/apply`, { method: "POST", body: "{}" }),
+    dismissCompanionAction: (id: string) => request<{ action: CompanionAction }>(`/api/v1/companion/actions/${encodeURIComponent(id)}/dismiss`, { method: "POST", body: "{}" }),
     saveCompanionMemory: (content: string, sourceTurnId?: string) => request<{ memory: CompanionMemory }>("/api/v1/companion/memories", {
       method: "POST", body: JSON.stringify({ content, sourceTurnId }),
     }),
@@ -742,7 +754,7 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
     getCompanionTurn: (id: string) => request<{ turn: CompanionTurn }>(`/api/v1/companion/turns/${encodeURIComponent(id)}`),
     cancelCompanionTurn: (id: string) => request<{ ok: true }>(`/api/v1/companion/turns/${encodeURIComponent(id)}/cancel`, { method: "POST", body: "{}" }),
     clearCompanionHistory: () => request<{ ok: true }>("/api/v1/companion/history", { method: "DELETE" }),
-    exportCompanion: () => request<{ version: 1; exportedAt: string; memories: CompanionMemory[]; turns: CompanionTurn[] }>("/api/v1/companion/export"),
+    exportCompanion: () => request<{ version: 1; exportedAt: string; memories: CompanionMemory[]; turns: CompanionTurn[]; actions: CompanionAction[] }>("/api/v1/companion/export"),
     importCompanionMemories: (memories: { content: string }[]) => request<{ memories: CompanionMemory[] }>("/api/v1/companion/import-memories", {
       method: "POST", body: JSON.stringify({ version: 1, memories }),
     }),

@@ -60,7 +60,7 @@ import {
   unauthorized,
 } from "./http-errors";
 import { audit } from "./audit";
-import { createId, isoNow } from "./entity-utils";
+import { clampNumber, createId, isoNow } from "./entity-utils";
 import {
   upsertMemoSearchDocumentStatement,
 } from "./memo-search-index";
@@ -91,7 +91,7 @@ import { registerMemoRoutes } from "./memo-routes";
 import { registerScheduledTaskRoutes } from "./scheduled-task-routes";
 import { registerBackupRoutes } from "./backup-routes";
 import { registerMcpRoutes } from "./mcp-routes";
-import { callMcpTool as callMcpToolService } from "./mcp-tool-service";
+import { executeWorkspaceTool } from "./mcp-tool-executor";
 import {
   createMemoEditSession,
   createMemoRecord,
@@ -475,22 +475,7 @@ export const callMcpTool = (
   auth: AuthContext,
   name: string,
   args: Record<string, unknown>,
-) => callMcpToolService(context, auth, name, args, {
-  clampNumber,
-  createMemoRecord,
-  deleteMemosRecord,
-  getCurrentWorkspaceIdentity,
-  getMemoDetail,
-  getMemoDetailRow,
-  getMemosForBulkAction,
-  importMemosRecord,
-  listMemosForMcp,
-  mergeMemosRecord,
-  moveMemosToNotebook,
-  restoreMemosRecord,
-  searchMemoSummaries,
-  updateMemoRecord,
-});
+) => executeWorkspaceTool(context, auth, name, args);
 
 const isDemoMode = (env: Bindings) => isDemoModeEnabled(env.EDGE_EVER_DEMO_MODE);
 const isLocalDemoSeedEnabled = (env: Bindings) =>
@@ -931,12 +916,4 @@ const resetDemoData = async (
     ).bind(leaseOwnerId).run();
     throw error;
   }
-};
-
-const clampNumber = (value: number, min: number, max: number) => {
-  if (Number.isNaN(value)) {
-    return min;
-  }
-
-  return Math.min(Math.max(value, min), max);
 };

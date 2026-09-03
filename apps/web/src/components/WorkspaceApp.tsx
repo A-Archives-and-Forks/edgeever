@@ -157,6 +157,8 @@ const EvernoteImportGuidePane = lazy(() =>
 const TagsPane = lazy(() => import("./TagsPane").then((module) => ({ default: module.TagsPane })));
 const TemplatesPane = lazy(() => import("./TemplatesPane").then((module) => ({ default: module.TemplatesPane })));
 const AiPromptsPane = lazy(() => import("./AiPromptsPane").then((module) => ({ default: module.AiPromptsPane })));
+const CompanionPane = lazy(() => import("./CompanionPane"));
+const CompanionDiscoveryHub = lazy(() => import("./CompanionDiscoveryHub"));
 const ExecutionCenterPane = lazy(() =>
   import("./execution/ExecutionCenterPane").then((module) => ({ default: module.ExecutionCenterPane }))
 );
@@ -374,18 +376,17 @@ const MobileBottomNav = ({
     >
       <div className="relative grid h-mobile-bottom-nav grid-cols-3 items-center">
         <MobileBottomNavButton active={activeItem === "home"} icon={<Home className="h-5 w-5" />} label={t("nav.home")} onClick={onHome} />
-        <div aria-hidden="true" />
-        <MobileBottomNavButton active={activeItem === "settings"} icon={<UserRound className="h-5 w-5" />} label={t("nav.mine")} onClick={onOpenSettings} />
         <button
-          className="absolute left-1/2 top-[-0.8rem] flex h-mobile-fab w-mobile-fab -translate-x-1/2 items-center justify-center rounded-full border-[5px] border-white bg-emerald-500 text-white shadow-[0_12px_26px_rgb(var(--brand-green-rgb)/0.32)] transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-200 disabled:opacity-70 disabled:hover:bg-emerald-200"
+          className="flex h-mobile-touch flex-col items-center justify-center gap-0.5 rounded-md text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           type="button"
-          title={createMemoLabel}
           aria-label={createMemoLabel}
           disabled={!canCreateMemo || isCreating}
           onClick={onCreateMemo}
         >
-          <Plus className="h-7 w-7" />
+          <Plus className="h-5 w-5" />
+          <span>{t("nav.createMemo")}</span>
         </button>
+        <MobileBottomNavButton active={activeItem === "settings"} icon={<UserRound className="h-5 w-5" />} label={t("nav.mine")} onClick={onOpenSettings} />
       </div>
     </nav>
   );
@@ -683,6 +684,7 @@ export const WorkspaceApp = ({
     navigatePlugins: navigateWorkspacePlugins,
     navigateTemplates: navigateWorkspaceTemplates,
     navigateAiPrompts: navigateWorkspaceAiPrompts,
+    navigateCompanion: navigateWorkspaceCompanion,
     navigateExecutionCenter: navigateWorkspaceExecutionCenter,
   } = useWorkspaceRoute();
   const localDataScope = useMemo(
@@ -694,13 +696,15 @@ export const WorkspaceApp = ({
   const isInitialPluginsRoute = route.isPlugins;
   const isInitialTemplatesRoute = route.isTemplates;
   const isInitialAiPromptsRoute = route.isAiPrompts;
+  const isInitialCompanionRoute = route.isCompanion;
+  const previousRouteWasCompanion = useRef(route.isCompanion);
   const isInitialExecutionCenterRoute = route.isExecutionCenter;
   const isInitialMobileEditorReturn = Boolean(route.mobileEditorReturnMemoId);
   const isTrashRoute = route.isTrash;
   const [rendererRecoveryMode, setRendererRecoveryMode] = useState(() =>
     Boolean(window.edgeeverDesktop?.recoveredAfterAbnormalExit) || isRendererRecoveryRequired()
   );
-  const [activePane, setActivePane] = useState<Pane>(() => ((isInitialSettingsRoute || isInitialPluginsRoute || isInitialTemplatesRoute || isInitialAiPromptsRoute || isInitialExecutionCenterRoute) && !isInitialMobileEditorReturn ? "editor" : "memos"));
+  const [activePane, setActivePane] = useState<Pane>(() => ((isInitialSettingsRoute || isInitialPluginsRoute || isInitialTemplatesRoute || isInitialAiPromptsRoute || isInitialCompanionRoute || isInitialExecutionCenterRoute) && !isInitialMobileEditorReturn ? "editor" : "memos"));
   const [memoView, setMemoView] = useState<MemoView>(() => (isTrashRoute ? "trash" : "notebook"));
   const {
     beginMemoSelection,
@@ -930,7 +934,7 @@ export const WorkspaceApp = ({
     setShortcutSettings,
     shortcutSettings,
   } = useWorkspacePreferences();
-  const [rightView, setRightView] = useState<"editor" | "settings" | "plugins" | "assets" | "tags" | "templates" | "ai-prompts" | "execution-center" | "evernote-migration">(() =>
+  const [rightView, setRightView] = useState<"editor" | "settings" | "plugins" | "assets" | "tags" | "templates" | "ai-prompts" | "companion" | "execution-center" | "evernote-migration">(() =>
     isInitialSettingsRoute
       ? "settings"
       : isInitialPluginsRoute
@@ -939,6 +943,8 @@ export const WorkspaceApp = ({
         ? "templates"
         : isInitialAiPromptsRoute
           ? "ai-prompts"
+          : isInitialCompanionRoute
+            ? "companion"
           : isInitialExecutionCenterRoute
             ? "execution-center"
           : "editor"
@@ -950,6 +956,8 @@ export const WorkspaceApp = ({
       ? "settings"
       : isInitialTemplatesRoute || isInitialAiPromptsRoute
         ? "templates"
+        : isInitialCompanionRoute && !isInitialMobileEditorReturn
+          ? "companion"
         : "home"
   );
   const [mobileSearchFocusToken, setMobileSearchFocusToken] = useState(0);
@@ -1119,10 +1127,11 @@ export const WorkspaceApp = ({
       mobileMoreOpen ||
       mobileSearchActive ||
       templatesOpen ||
-      rightView !== "editor" ||
       memoSelectionModeActive ||
-      visibleActivePane === "editor" ||
-      visibleActivePane === "notebooks"
+      // A routed workspace uses browser history, not a synthetic modal back layer.
+      (!route.isCompanion && rightView !== "companion" && (
+        rightView !== "editor" || visibleActivePane === "editor" || visibleActivePane === "notebooks"
+      ))
   );
   const mobilePullToRefreshActive = Boolean(
     !isDesktop &&
@@ -1269,6 +1278,8 @@ export const WorkspaceApp = ({
   }, []);
 
   useEffect(() => {
+    const returningFromCompanion = previousRouteWasCompanion.current;
+    previousRouteWasCompanion.current = route.isCompanion;
     if (route.isSettings) {
       skipNextHomeRouteSyncRef.current = false;
       setRightView("settings");
@@ -1301,6 +1312,14 @@ export const WorkspaceApp = ({
       return;
     }
 
+    if (route.isCompanion) {
+      skipNextHomeRouteSyncRef.current = false;
+      setRightView("companion");
+      setMobileBottomNavActive("companion");
+      setActivePane("editor");
+      return;
+    }
+
     if (route.isExecutionCenter) {
       skipNextHomeRouteSyncRef.current = false;
       setRightView("execution-center");
@@ -1317,7 +1336,8 @@ export const WorkspaceApp = ({
     setMemoView(isTrashRoute ? "trash" : "notebook");
     setRightView("editor");
     setMobileBottomNavActive("home");
-  }, [isTrashRoute, route.isSettings, route.isPlugins, route.isTemplates, route.isAiPrompts, route.isExecutionCenter]);
+    if (returningFromCompanion) setActivePane("memos");
+  }, [isTrashRoute, route.isSettings, route.isPlugins, route.isTemplates, route.isAiPrompts, route.isCompanion, route.isExecutionCenter]);
 
   useEffect(() => {
     if (window.edgeeverDesktop?.isAvailable) {
@@ -2508,6 +2528,14 @@ export const WorkspaceApp = ({
     setActivePane("editor");
   };
 
+  const handleOpenCompanion = () => {
+    clearHiddenMobileSearch();
+    navigateWorkspaceCompanion();
+    setRightView("companion");
+    setMobileBottomNavActive("companion");
+    setActivePane("editor");
+  };
+
   const handleOpenSettings = () => {
     clearHiddenMobileSearch();
     navigateWorkspaceSettings();
@@ -2695,6 +2723,11 @@ export const WorkspaceApp = ({
       return true;
     }
 
+    if (rightView === "companion") {
+      handleSelectAllMemos();
+      return true;
+    }
+
     if (rightView === "settings") {
       handleCloseSettings();
       return true;
@@ -2748,6 +2781,7 @@ export const WorkspaceApp = ({
     handleCloseSettings,
     handleCloseExecutionCenter,
     handleCloseTemplates,
+    handleSelectAllMemos,
     handleCancelMobileSearch,
 	    memoDeleteConfirmation,
 	    memoSelectionModeActive,
@@ -3019,6 +3053,8 @@ export const WorkspaceApp = ({
           ? t("templates.title")
         : rightView === "ai-prompts"
           ? t("aiPrompts.title")
+        : rightView === "companion"
+          ? t("companion.title")
         : rightView === "execution-center"
           ? t("executionHistory.centerTitle")
         : rightView === "evernote-migration"
@@ -3113,6 +3149,7 @@ export const WorkspaceApp = ({
                   onOpenAssets={handleOpenAssets}
                   onOpenTags={handleOpenTags}
                   onOpenTemplates={handleOpenTemplates}
+                  companionActive={rightView === "companion"}
                   pluginHost={pluginHost}
                   onOpenPluginManager={handleOpenPluginManager}
                   onOpenSettings={handleOpenSettings}
@@ -3287,6 +3324,8 @@ export const WorkspaceApp = ({
                 <m.div key={rightView} className="h-full min-h-0 min-w-0" {...paneEnterMotion}>
                   {rightView === "settings" ? (
                     <SettingsPane
+                    companionScope={localDataScope}
+                    onOpenCompanion={handleOpenCompanion}
                     onOpenExecutionCenter={handleOpenExecutionCenter}
                     onClose={handleCloseSettings}
                     onOpenTemplates={handleOpenTemplates}
@@ -3330,7 +3369,19 @@ export const WorkspaceApp = ({
                     onOpenExecutionCenter={handleOpenExecutionCenter}
                   />
                   ) : rightView === "ai-prompts" ? (
-                    <AiPromptsPane key={localDataScope} companionEnabled={authRequired && Boolean(user) && !demoMode} onClose={handleCloseAiPrompts} onOpenExecutionCenter={handleOpenExecutionCenter} />
+                    <AiPromptsPane key={localDataScope} onClose={handleCloseAiPrompts} onOpenExecutionCenter={handleOpenExecutionCenter} />
+                  ) : rightView === "companion" ? (
+                    <CompanionPane key={localDataScope} available={authRequired && Boolean(user) && !demoMode} onBack={handleSelectAllMemos} onOpenSettings={handleOpenSettings}
+                      beforeApply={async () => {
+                        const { assertCompanionChangesSynced } = await import("@/lib/companion-actions");
+                        await assertCompanionChangesSynced(localDataScope);
+                      }}
+                      onNotesChanged={async () => {
+                        const result = await refreshWorkspaceFromServer("manual");
+                        if ("skipped" in result && result.skipped) throw new Error("Workspace refresh was skipped.");
+                      }}
+                      onOpenNote={handleOpenPluginNote}
+                    />
                   ) : rightView === "execution-center" ? (
                     <ExecutionCenterPane currentDeviceId={scheduledTaskDeviceId} onClose={handleCloseExecutionCenter} />
                   ) : rightView === "evernote-migration" ? (
@@ -3539,6 +3590,13 @@ export const WorkspaceApp = ({
         options={requestedPluginPanel?.options}
         onClose={() => setRequestedPluginPanel(null)}
       />
+      {authRequired && Boolean(user) && !demoMode ? <Suspense fallback={null}>
+        <CompanionDiscoveryHub key={localDataScope} scope={localDataScope} onOpenNote={handleOpenPluginNote} onOpenSettings={handleOpenSettings}
+          onNotesChanged={async () => {
+            const result = await refreshWorkspaceFromServer("manual");
+            if ("skipped" in result && result.skipped) throw new Error("Workspace refresh was skipped.");
+          }} />
+      </Suspense> : null}
       {visibleActivePane !== "editor" && !memoSelectionModeActive && (
         <MobileBottomNav
           activeItem={mobileBottomNavActive}

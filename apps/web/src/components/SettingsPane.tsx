@@ -36,6 +36,7 @@ import { AiPromptsCard } from "./settings/AiPromptsCard";
 import { AiTagSuggestionPromptCard } from "./settings/AiTagSuggestionPromptCard";
 import { ThemeToggle } from "./ThemeToggle";
 import type { AuthUser } from "@edgeever/shared";
+import { CompanionDiscoverySettingsCard } from "./settings/CompanionDiscoverySettingsCard";
 import { contentEnterMotion } from "@/lib/motion";
 import { useDeployedUpdateNotice } from "@/hooks/useDeployedUpdateNotice";
 import { ExecutionCenterButton } from "@/components/execution/ExecutionCenterButton";
@@ -58,6 +59,8 @@ interface SettingsPaneProps {
   user: AuthUser | null;
   refreshWorkspaceAfterImport: () => Promise<void>;
   onOpenExecutionCenter: () => void;
+  companionScope: string;
+  onOpenCompanion: () => void;
 }
 
 // Slate and brand color variables already switch values with the root theme.
@@ -98,6 +101,8 @@ export const SettingsPane = ({
   user,
   refreshWorkspaceAfterImport,
   onOpenExecutionCenter,
+  companionScope,
+  onOpenCompanion,
 }: SettingsPaneProps) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabKey>("general");
@@ -232,6 +237,7 @@ export const SettingsPane = ({
         return (
           <SettingsGroup>
             <AiModelCard />
+            {authRequired && user && !demoMode ? <CompanionDiscoverySettingsCard scope={companionScope} onOpenCompanion={onOpenCompanion} /> : null}
             <McpConfigCard />
             <AiPromptsCard onOpenLibrary={onOpenAiPrompts} />
             <AdvancedPlayCard />
