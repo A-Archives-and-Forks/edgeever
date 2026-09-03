@@ -79,6 +79,7 @@ import {
   getResourceInsertionTarget,
   shouldSelectInsertedResources,
 } from "@/lib/resource-insertion-target";
+import { insertUploadedResources } from "@/lib/resource-insertion";
 import {
   createSlashCommandExtension,
   type SlashCommandActions,
@@ -112,7 +113,6 @@ import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_MAX_WIDTH_COLLAPSED } from "@/
 import {
   countMemoCharacters,
   docToMarkdown,
-  groupConsecutiveImagesIntoGalleries,
   MEMO_CONTENT_STYLE,
   markdownToDoc,
   MergeDivider,
@@ -1130,11 +1130,11 @@ const RichEditorPane = ({
           insertion.focus();
         }
         insertion
-          .insertContentAt(
+          .command(insertUploadedResources(
             safeInsertionTarget,
-            groupConsecutiveImagesIntoGalleries(content),
-            { updateSelection },
-          )
+            content,
+            updateSelection,
+          ))
           .run();
         if (!updateSelection) {
           // ProseMirror can still map a cursor at the document boundary to a
