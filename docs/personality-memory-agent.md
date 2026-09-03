@@ -6,6 +6,8 @@ Date: 2026-09-03. Status: an interactive preview is implemented in the workspace
 
 ## Current preview scope (2026-09-03)
 
+Worker lazy-loading fix (2026-09-03): the previously recorded full-suite failure is resolved. The plugin AI endpoint now imports `ai-runtime` only when generating. The build regression follows the entrypoint's complete static dependency graph, including shared chunks, and excludes AI runtimes and SDKs from startup while confirming they remain reachable on demand. Full non-E2E regression: 1,376 passed, zero failed; web/mobile type checks and the web build passed. No new dependency or migration.
+
 - Entry: Settings → AI integration → Agent mode. Off by default; enabling grants access to all notes in the current account, including child notebooks and future notes, without notebook selection. A small bell opens the discovery panel, without a primary navigation tab or system notifications. “Conversation and personal memory” in settings retains the optional `/companion` workspace. No native Android/iOS entry yet.
 - Requires a signed-in personal account on a non-demo instance with login enabled and reuses the configured default model. Disabling stops discovery and invalidates unconfirmed discovery actions. The optional conversation workspace keeps its independent per-turn note permission. The prompt library only manages note-processing templates.
 - One stable identity and an on-demand ToolLoopAgent. Users explicitly add memories or save their own words, correct/forget them and reuse them in new conversations. No automatic candidates, background full-library scanning or reminders. Note writes require individual confirmation; notes are not modified automatically.

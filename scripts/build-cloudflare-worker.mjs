@@ -77,7 +77,7 @@ export const buildCloudflareWorker = async () => {
     ...lazyModules.map((module) =>
       `[worker-build] on-demand module: ${(module.bytes / 1024).toFixed(2)} KiB`),
   ].join("\n"));
-  return { entry, sharedModules, lazyModules };
+  return { entry, sharedModules, lazyModules, metafile: result.metafile };
 };
 
 if (import.meta.main) {

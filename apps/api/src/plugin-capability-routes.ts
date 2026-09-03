@@ -4,7 +4,6 @@ import { bodyLimit } from 'hono/body-limit';
 import type { Hono } from 'hono';
 import type { AppEnv, Bindings } from './api-context';
 import { getAiSettings, loadDefaultAiModel, resolvePrimaryAiCredentialEncryptionKey } from './ai-service';
-import { generateAiText } from './ai-runtime';
 import { apiError } from './http-errors';
 import { getWorkspaceId, requireUser } from './request-auth';
 import { PUBLIC_NETWORK_TIMEOUT_MS, publicRequestHeaders, publicResponseHeaders, readPublicBody, validatePublicUrl } from './public-network-policy';
@@ -41,6 +40,8 @@ export function registerPluginCapabilityRoutes(app: Hono<AppEnv>, dependencies: 
       const signal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(120_000)]);
       if (dependencies.generate) return c.json(await dependencies.generate(input, signal));
       const model = await loadDefaultAiModel(c.env.storage.db, getWorkspaceId(c), c.env);
+      // Keep provider SDKs out of startup and non-AI plugin requests.
+      const { generateAiText } = await import('./ai-runtime');
       const output = await generateAiText({ model, system: input.system, prompt: input.prompt, maxOutputTokens: input.maxOutputTokens ?? 3000, abortSignal: signal });
       return c.json({ text: output.text });
     } catch { return apiError(c, 'plugin_ai_failed', 'AI generation failed or timed out. Check the default AI model configuration.', 502); }
