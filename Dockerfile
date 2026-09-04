@@ -24,7 +24,9 @@ RUN bun install --frozen-lockfile \
   --filter @edgeever/web
 
 FROM manifests AS production-dependencies
-RUN bun install --frozen-lockfile --production --filter edgeever
+RUN bun install --frozen-lockfile --production \
+  --filter edgeever \
+  --filter @edgeever/public-network
 
 FROM dependencies AS build
 COPY apps/api apps/api

@@ -71,7 +71,9 @@ describe("Docker release contract", () => {
     );
     expect(dockerfile).toContain("--filter @edgeever/web");
     expect(dockerfile).toContain("--filter @edgeever/public-network");
-    expect(dockerfile).toContain("--production --filter edgeever");
+    expect(dockerfile).toContain(
+      "--production \\\n  --filter edgeever \\\n  --filter @edgeever/public-network",
+    );
     expect(dockerfile).toContain("USER bun");
     expect(dockerfile).toContain('VOLUME ["/data"]');
     expect(dockerfile).toContain("HEALTHCHECK");
