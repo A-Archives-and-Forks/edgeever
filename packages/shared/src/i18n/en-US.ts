@@ -536,7 +536,7 @@ export const enUS = {
       source: "Source",
       installedAt: "Installed",
       permissions: "Permissions",
-      networkHosts: "Network hosts",
+      networkHosts: "Allowed websites",
     },
     updates: {
       check: "Check for updates",
@@ -550,7 +550,7 @@ export const enUS = {
       confirmDescription: "EdgeEver never installs updates automatically. Confirm to download and replace the current version while preserving its enabled state.",
       addedAccessDescription: "This version requests additional access. Review these changes before updating.",
       addedPermissions: "New permissions",
-      addedNetworkHosts: "New network hosts",
+      addedNetworkHosts: "Newly allowed websites",
       allowAndUpdate: "Allow and update",
     },
     noticeTitle: "Plugin",

@@ -536,7 +536,7 @@ export const zhCN = {
       source: "来源",
       installedAt: "安装时间",
       permissions: "权限",
-      networkHosts: "网络域名",
+      networkHosts: "允许访问的网站",
     },
     updates: {
       check: "检查更新",
@@ -550,7 +550,7 @@ export const zhCN = {
       confirmDescription: "EdgeEver 不会自动安装更新。确认后将下载并替换当前版本，原启用状态保持不变。",
       addedAccessDescription: "此版本请求了新的访问权限。请确认这些变化后再更新。",
       addedPermissions: "新增权限",
-      addedNetworkHosts: "新增网络域名",
+      addedNetworkHosts: "新增允许访问的网站",
       allowAndUpdate: "允许并更新",
     },
     noticeTitle: "插件",
