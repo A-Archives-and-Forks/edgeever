@@ -21,7 +21,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import type { EditorContentAlignment, ShortcutSettings } from "@/lib/app-helpers";
 import { WORKSPACE_PAGE_TITLE_CLASSNAME } from "@/lib/workspace-ui";
 import { cn } from "@/lib/utils";
-import { AdvancedPlayCard } from "./settings/AdvancedPlayCard";
 import { AccountInfoCard } from "./settings/AccountInfoCard";
 import { DataExportCard } from "./settings/DataExportCard";
 import { DesktopLocalDataCard } from "./settings/DesktopLocalDataCard";
@@ -34,7 +33,6 @@ import { PasswordCard } from "./settings/PasswordCard";
 import { UserManagementCard } from "./settings/UserManagementCard";
 import { ObjectStorageCard } from "./settings/ObjectStorageCard";
 import { AiModelCard } from "./settings/AiModelCard";
-import { AiPromptsCard } from "./settings/AiPromptsCard";
 import { AiTagSuggestionPromptCard } from "./settings/AiTagSuggestionPromptCard";
 import { ThemeToggle } from "./ThemeToggle";
 import type { AuthUser } from "@edgeever/shared";
@@ -267,8 +265,6 @@ export const SettingsPane = ({
           <SettingsGroup>
             <AiModelCard />
             <McpConfigCard />
-            <AiPromptsCard onOpenLibrary={onOpenAiPrompts} />
-            <AdvancedPlayCard />
           </SettingsGroup>
         );
       case "advanced":
