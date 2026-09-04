@@ -3882,6 +3882,9 @@ const RichEditorPane = ({
                 </Button>
               </IconTooltip>
             </div>
+            <span className="hidden truncate text-xs text-slate-400 sm:inline">
+              {t("editor.timestamps", { createdTime: createdLabel, updatedTime: updatedLabel })}
+            </span>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
@@ -4265,9 +4268,6 @@ const RichEditorPane = ({
                 markDirty();
               }}
             />
-            <span className="w-full px-1.5 text-xs leading-5 text-slate-400">
-              {t("editor.timestamps", { createdTime: createdLabel, updatedTime: updatedLabel })}
-            </span>
             {!readOnly && (
               <IconTooltip label={`${t(desktopReadingProtection ? "editor.disableReadingProtection" : "editor.enableReadingProtection")} (${formatShortcutBinding(shortcutSettings.toggleReadingProtection)})`}>
                 <Button
