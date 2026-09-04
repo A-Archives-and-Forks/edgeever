@@ -97,8 +97,6 @@ export const enUS = {
       "resultTitle": "Merged title: {{title}}",
       "existingTags": "Existing tags: {{tags}}",
       "addTags": "Add only: {{tags}}",
-      "mergeHelp": "Preserves full bodies and attachments in the order above, without AI rewriting or omissions, and keeps existing tags. The result goes into the first note's notebook. Originals move to Trash and their public shares are revoked. Originals can be restored from Trash; this is not a one-click undo of all merge effects. Suggestions expire after 24 hours.",
-      "tagHelp": "Only adds the listed tags to this note, without removing existing tags or changing its body. The note version is rechecked on confirmation. Suggestions expire after 24 hours.",
       "dismiss": "Dismiss suggestion",
       "openResult": "Open updated note",
       "conflict": "The notes, memory or suggestion state changed, or the suggestion expired. No new changes were applied. Request a fresh organization plan.",
