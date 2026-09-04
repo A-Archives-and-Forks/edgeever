@@ -60,6 +60,11 @@ import { EditorOutline } from "./EditorOutline";
 import { EditorTagPicker } from "./EditorTagPicker";
 import { useAiBubbleMenu } from "./editor/useAiBubbleMenu";
 import {
+  createEditorInstanceMemoIdentity,
+  reconcileEditorInstanceMemoIdentity,
+  remapEditorInstanceMemoIdentity,
+} from "./editor/editor-instance-identity";
+import {
   createMarkdownModeSnapshot,
   isMarkdownSourceUnchanged,
   resolveMarkdownModeContent,
@@ -838,6 +843,14 @@ const RichEditorPane = ({
   }
   const hydratingRef = useRef(false);
   const hydratedMemoIdRef = useRef<string | null>(null);
+  const editorInstanceMemoIdentityRef = useRef(
+    createEditorInstanceMemoIdentity(memo?.id ?? null),
+  );
+  editorInstanceMemoIdentityRef.current = reconcileEditorInstanceMemoIdentity(
+    editorInstanceMemoIdentityRef.current,
+    memo?.id ?? null,
+  );
+  const editorInstanceMemoKey = editorInstanceMemoIdentityRef.current.instanceKey;
   /** Last content source applied to the editor — used to skip redundant setContent. */
   const appliedEditorSourceKeyRef = useRef<string | null>(null);
   const editingMemoIdRef = useRef<string | null>(memo?.id ?? null);
@@ -870,6 +883,10 @@ const RichEditorPane = ({
       if (!nextMemoId || nextMemoId === currentMemo.id) return;
 
       const previousMemoId = currentMemo.id;
+      editorInstanceMemoIdentityRef.current = remapEditorInstanceMemoIdentity(
+        editorInstanceMemoIdentityRef.current,
+        mappings,
+      );
       memoRef.current = { ...currentMemo, id: nextMemoId };
       if (editingMemoIdRef.current === previousMemoId) editingMemoIdRef.current = nextMemoId;
       if (hydratedMemoIdRef.current === previousMemoId) {
@@ -1336,10 +1353,10 @@ const RichEditorPane = ({
       },
     },
   }, [
-    // A ProseMirror undo history belongs to exactly one memo. Reusing the same
-    // Editor instance across memo switches lets Ctrl/Cmd+Z undo the hydration
-    // transaction and restore another memo's entire document.
-    memo?.id,
+    // A ProseMirror undo history belongs to exactly one logical memo. A newly
+    // created memo keeps the same instance while its local id is remapped to a
+    // durable id; an actual memo switch still receives a fresh undo history.
+    editorInstanceMemoKey,
   ]);
 
   useEffect(() => {
