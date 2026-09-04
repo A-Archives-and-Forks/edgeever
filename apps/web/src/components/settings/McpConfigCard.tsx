@@ -372,8 +372,8 @@ export const McpConfigCard = () => {
         <CardHeader className="p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <KeyRound className="h-4 w-4 text-emerald-700" />
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <KeyRound className="h-4.5 w-4.5 text-emerald-700" />
                 {t("mcp.title")}
               </CardTitle>
               <CardDescription className="mt-1 text-xs text-slate-500">{t("mcp.description")}</CardDescription>
