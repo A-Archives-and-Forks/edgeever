@@ -114,7 +114,7 @@ import { ShareNoteImageDialog, type ShareNoteImageSource } from "./dialogs/Share
 import { AiAssistantDialog, type AiAssistantAnchor } from "./dialogs/AiAssistantDialog";
 import { api } from "@/lib/api";
 import { isDesktopResourceRuntime, stageDesktopResource, toDesktopResourceUrl } from "@/lib/desktop-resources";
-import { cn, formatDateTime, formatLocalizedDateTime, parseTagsText } from "@/lib/utils";
+import { cn, formatDateTime, parseTagsText } from "@/lib/utils";
 import { EDITOR_CONTENT_MAX_WIDTH, EDITOR_CONTENT_MAX_WIDTH_COLLAPSED } from "@/lib/workspace-ui";
 import {
   countMemoCharacters,
@@ -3639,9 +3639,7 @@ const RichEditorPane = ({
         ? "bg-emerald-50 text-emerald-700"
         : saveStateClassName;
 
-  const memoDateLocale = i18n.resolvedLanguage ?? i18n.language;
-  const createdLabel = formatLocalizedDateTime(memo.createdAt, memoDateLocale);
-  const updatedLabel = formatLocalizedDateTime(memo.updatedAt, memoDateLocale);
+  const updatedLabel = formatDateTime(memo.updatedAt);
   const currentNotebookLabel = notebookOptions.find((notebook) => notebook.id === memo.notebookId)?.name ?? t("editor.notebookFallback");
   const currentMarkdownForAi = getCurrentMarkdownForAi();
 
@@ -3883,7 +3881,7 @@ const RichEditorPane = ({
               </IconTooltip>
             </div>
             <span className="hidden truncate text-xs text-slate-400 sm:inline">
-              {t("editor.timestamps", { createdTime: createdLabel, updatedTime: updatedLabel })}
+              {t("editor.updatedAt", { time: updatedLabel })}
             </span>
           </div>
 

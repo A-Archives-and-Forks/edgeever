@@ -1427,7 +1427,6 @@ export const zhCN = {
     enableReadingProtection: "开启阅读保护",
     disableReadingProtection: "关闭阅读保护并进入编辑",
     updatedAt: "更新于 {{time}}",
-    timestamps: "创建于 {{createdTime}} · 更新于 {{updatedTime}}",
     done: "完成",
     uploadAttachment: "上传附件",
     collapseFormat: "收起格式",
