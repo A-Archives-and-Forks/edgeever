@@ -59,7 +59,15 @@ test("keeps AI runtimes and SDKs out of the entire Cloudflare Worker startup gra
       import { buildCloudflareWorker } from ${JSON.stringify(new URL("./build-cloudflare-worker.mjs", import.meta.url).href)};
       const { entry, metafile } = await buildCloudflareWorker();
       writeFileSync(${JSON.stringify(metadataPath)}, JSON.stringify({ entry, metafile: { outputs: metafile.outputs } }));
-    `], { cwd: resolve(import.meta.dir, ".."), encoding: "utf8" });
+    `], {
+      cwd: resolve(import.meta.dir, ".."),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        EDGE_EVER_DEPLOYMENT_TRIGGER: "github_release",
+        EDGE_EVER_DEPLOYMENT_METHOD: "github_actions",
+      },
+    });
     expect(result.error).toBeUndefined();
     expect(result.status, result.stderr).toBe(0);
     build = JSON.parse(readFileSync(metadataPath, "utf8"));
@@ -69,6 +77,9 @@ test("keeps AI runtimes and SDKs out of the entire Cloudflare Worker startup gra
   const { entry, metafile } = build;
   const startup = reachableOutputs(metafile.outputs, entry.path);
   const all = reachableOutputs(metafile.outputs, entry.path, true);
+  const startupSource = [...startup].map(path => readFileSync(resolve(import.meta.dir, "..", path), "utf8")).join("\n");
+  expect(startupSource).toContain("github_release");
+  expect(startupSource).toContain("github_actions");
   const inputsFor = paths => [...new Set([...paths].flatMap(path =>
     Object.entries(metafile.outputs[path].inputs)
       .filter(([, input]) => input.bytesInOutput > 0)

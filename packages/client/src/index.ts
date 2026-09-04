@@ -48,6 +48,7 @@ import type {
   SyncBootstrapResponse,
   SyncChange,
   SyncChangesResponse,
+  DeploymentMetadata,
 } from "@edgeever/shared";
 
 const MAX_SINGLE_REQUEST_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -101,6 +102,7 @@ export type InstanceHealth = {
   containerImageSource?: "official-ghcr" | "official-cn-mirror" | "custom" | "unknown" | string | null;
   authMode?: string | null;
   build?: string | null;
+  deployment?: DeploymentMetadata | null;
   migration?: string | null;
   storage?: {
     database?: "d1" | "sqlite" | string | null;

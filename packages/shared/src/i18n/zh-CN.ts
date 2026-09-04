@@ -919,7 +919,7 @@ export const zhCN = {
       custom: "自定义镜像",
       unknown: "未知",
     },
-    deployment: "自动部署方式",
+    deployment: "部署来源",
     deploymentTriggers: {
       github_release: "正式 Release 触发",
       main_push: "main 推送触发",

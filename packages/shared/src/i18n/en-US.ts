@@ -919,7 +919,7 @@ export const enUS = {
       custom: "Custom image",
       unknown: "Unknown",
     },
-    deployment: "Deployment",
+    deployment: "Deployment source",
     deploymentTriggers: {
       github_release: "GitHub Release trigger",
       main_push: "main push trigger",

@@ -46,6 +46,7 @@ import {
 } from "./backup-service";
 import { sha256, sha256Bytes } from "./hash-utils";
 import { INSTANCE_BUILD_ID } from "./instance-build";
+import { resolveInstanceDeploymentMetadata } from "./instance-deployment";
 import type {
   DatabaseAdapter,
   PreparedStatementAdapter,
@@ -221,6 +222,7 @@ app.get("/api/health", async (c) => {
       : {}),
     authMode,
     build: INSTANCE_BUILD_ID.slice(0, 12),
+    deployment: resolveInstanceDeploymentMetadata(c.env),
     migration: await getAppliedMigration(c.env),
     storage: {
       database: c.env.storage.diagnostics.database,
