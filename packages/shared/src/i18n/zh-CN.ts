@@ -716,6 +716,7 @@ export const zhCN = {
     saved: "模型服务已保存。",
     failed: "AI 模型操作失败。",
     encryptionKeyMissing: "加密保存 AI 凭据需要先启用实例认证；标准部署无需增加环境变量，高级部署可选用独立凭据密钥。",
+    privacyNotice: "请务必选用可信赖的模型服务商或 API 代理节点，避免个人隐私泄露。",
   },
   aiPrompts: {
     title: "指令库",

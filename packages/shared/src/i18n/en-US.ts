@@ -716,6 +716,7 @@ export const enUS = {
     saved: "Model service saved.",
     failed: "The AI model operation failed.",
     encryptionKeyMissing: "Encrypted AI credentials require instance authentication. Configure authentication first; an independent credential key is optional for advanced deployments.",
+    privacyNotice: "Please use trusted model providers or API proxies to protect your personal privacy.",
   },
   aiPrompts: {
     title: "Prompt library",
