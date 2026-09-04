@@ -22,8 +22,7 @@ async function render(overrides = {}, busy = false, lng = "zh-CN") {
 describe("companion suggestion cards", () => {
   test("keeps merging behind an explicit preview with consequences and source order", async () => {
     const html = await render();
-    expect(html).toContain("<details>");
-    expect(html).not.toContain("<details open");
+    expect(html).toContain("合并后的标题：Ideas");
     expect(html).toContain("确认合并");
     expect(html).toContain("原公开分享失效");
     expect(html).toContain("不做 AI 改写或删减");

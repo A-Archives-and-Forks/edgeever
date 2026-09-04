@@ -22,6 +22,7 @@ export const zhCN = {
       appendHelp: "将随手记的正文原样追加到目标笔记末尾，保留两篇原笔记；不自动删除或改写。本期仅对纯文字笔记生成此建议。",
       dismiss: "略过这条",
       kind: { insight: "知识关联 · 无需操作", merge: "整理建议 · 合并点子", append: "整理建议 · 补入已有笔记" },
+      types: { insight: "灵感关联", tag: "标签建议", merge: "合并建议", append: "补入建议", tool: "操作建议" },
       checkStatus: { quiet: "检查按需发生，可能产生模型费用；没有有价值的结果就保持安静。", ready: "最近一次检查已完成。", running: "正在检查相关笔记。", failed: "最近一次检查未完成。请检查默认模型和网络；同一轮检查不自动重试。" },
       transparency: {
         title: "猫爪状态",
@@ -38,6 +39,9 @@ export const zhCN = {
     },
     "actions": {
       "confirm": "确认",
+      "confirmMerge": "确认合并",
+      "confirmTags": "确认追加标签",
+      "confirmTool": "确认执行此操作",
       "receipt": "查看执行记录",
       "affected": "涉及 {{count}} 篇笔记",
       "toolHelp": "仅执行上面列出的参数，不会在确认时让 AI 重新决定。建议 24 小时后失效；生成方案后笔记或笔记本发生变化，需要重新生成。多次写入的操作不保证整体撤销，结果不确定时不会自动重跑。",

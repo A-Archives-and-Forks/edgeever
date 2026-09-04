@@ -22,6 +22,7 @@ export const enUS = {
       appendHelp: "Appends the fragment's original text to the target note and keeps both notes. No automatic deletion or rewriting. Currently suggested for plain-text notes only.",
       dismiss: "Skip this",
       kind: { insight: "Knowledge connection · No action needed", merge: "Suggestion · Combine ideas", append: "Suggestion · Add to an existing note" },
+      types: { insight: "Insight", tag: "Tags", merge: "Merge", append: "Append", tool: "Action" },
       checkStatus: { quiet: "Checks happen as needed and may incur model charges. No useful result means no notification.", ready: "The latest check completed.", running: "Checking related notes.", failed: "The latest check did not finish. Check your default model and connection; this attempt is not retried automatically." },
       transparency: {
         title: "Paw status",
@@ -38,6 +39,9 @@ export const enUS = {
     },
     "actions": {
       "confirm": "Confirm",
+      "confirmMerge": "Confirm merge",
+      "confirmTags": "Confirm additional tags",
+      "confirmTool": "Confirm this operation",
       "receipt": "View execution record",
       "affected": "Affects {{count}} notes",
       "toolHelp": "Only the listed arguments will execute; AI does not decide again at confirmation. Suggestions expire after 24 hours. Note or notebook changes require a fresh proposal. Multi-write operations do not guarantee a complete rollback; uncertain results are never automatically replayed.",
