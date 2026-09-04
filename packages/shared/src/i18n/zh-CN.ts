@@ -29,7 +29,7 @@ export const zhCN = {
         lastCheck: "最近检查",
         neverChecked: "尚未检查",
         nextCheck: "下次检查",
-        nextCheckEnabled: "笔记有新变化、应用空闲，且距上次检查至少 24 小时后",
+        nextCheckEnabled: "笔记有新变化、停止操作 3 分钟，且距上次检查至少 24 小时后",
         nextCheckDisabled: "启用后才会检查",
         scope: "每次只选取当前账户中少量相关笔记交给默认模型。没有有价值的结果时保持安静；任何笔记改动都需要你确认。",
         latest: "最近发现",

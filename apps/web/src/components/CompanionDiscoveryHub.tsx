@@ -19,6 +19,8 @@ import { assertCompanionChangesSynced } from "@/lib/companion-actions";
 import { discoveryFeedKey, discoverySettingsKey, useCompanionDiscoverySettings } from "@/hooks/useCompanionDiscovery";
 import { CompanionActionCard } from "./CompanionActionCard";
 
+const DISCOVERY_IDLE_DELAY_MS = 3 * 60_000;
+
 export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChanged, onOpenSettings }: {
   scope: string; onOpenNote: (id: string, notebookId: string) => void; onNotesChanged: () => Promise<void>; onOpenSettings: () => void;
 }) {
@@ -39,16 +41,23 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
     if (!enabled) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let running = false;
+    let attemptedSinceWorkspaceChange = false;
     const stop = new AbortController();
     const check = async () => {
-      if (running || stop.signal.aborted || document.visibilityState !== "visible" || !navigator.onLine) return;
-      if (lastCheckAt.current && Date.now() - Date.parse(lastCheckAt.current) < 86400000) return;
+      if (running || attemptedSinceWorkspaceChange || stop.signal.aborted || document.visibilityState !== "visible" || !navigator.onLine) return;
+      if (lastCheckAt.current && Date.now() - Date.parse(lastCheckAt.current) < 86400000) {
+        attemptedSinceWorkspaceChange = true;
+        return;
+      }
       running = true;
       try {
         await assertCompanionChangesSynced(scope);
         if (stop.signal.aborted) return;
         const result = await api.checkCompanionDiscoveries(i18n.resolvedLanguage ?? "en-US", stop.signal);
-        if (!stop.signal.aborted) client.setQueryData(discoveryFeedKey(scope), result.items);
+        if (!stop.signal.aborted) {
+          attemptedSinceWorkspaceChange = true;
+          client.setQueryData(discoveryFeedKey(scope), result.items);
+        }
       } catch { /* Quiet by design; check status is visible inside the panel. */ }
       finally {
         running = false;
@@ -57,15 +66,21 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
     };
     const schedule = () => {
       clearTimeout(timer);
-      if (document.visibilityState === "visible" && navigator.onLine) timer = setTimeout(() => void check(), 60_000);
+      if (!attemptedSinceWorkspaceChange && document.visibilityState === "visible" && navigator.onLine) {
+        timer = setTimeout(() => void check(), DISCOVERY_IDLE_DELAY_MS);
+      }
     };
-    const events = ["keydown", "pointerdown", "input", "online", "edgeever:sync-queue-changed", "edgeever:memo-detail-refreshed"];
-    events.forEach(name => window.addEventListener(name, schedule));
+    const activityEvents = ["keydown", "pointerdown", "input", "online"];
+    const workspaceChangeEvents = ["edgeever:sync-queue-changed", "edgeever:memo-detail-refreshed"];
+    const scheduleAfterWorkspaceChange = () => { attemptedSinceWorkspaceChange = false; schedule(); };
+    activityEvents.forEach(name => window.addEventListener(name, schedule));
+    workspaceChangeEvents.forEach(name => window.addEventListener(name, scheduleAfterWorkspaceChange));
     document.addEventListener("visibilitychange", schedule);
     schedule();
     return () => {
       clearTimeout(timer); stop.abort();
-      events.forEach(name => window.removeEventListener(name, schedule));
+      activityEvents.forEach(name => window.removeEventListener(name, schedule));
+      workspaceChangeEvents.forEach(name => window.removeEventListener(name, scheduleAfterWorkspaceChange));
       document.removeEventListener("visibilitychange", schedule);
     };
   }, [enabled, settings.data?.version, scope, i18n.resolvedLanguage, client]);
@@ -240,4 +255,3 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
     </div>
   </article>;
 }
-

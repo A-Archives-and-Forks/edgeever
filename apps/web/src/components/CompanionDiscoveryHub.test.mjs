@@ -76,6 +76,9 @@ describe("quiet discovery UI", () => {
   test("checks are event-driven, sync-gated and cancel on cleanup", () => {
     const source = readFileSync(new URL("./CompanionDiscoveryHub.tsx", import.meta.url), "utf8");
     expect(source).not.toContain("setInterval"); expect(source).not.toContain("new Notification");
+    expect(source).toContain("const DISCOVERY_IDLE_DELAY_MS = 3 * 60_000");
+    expect(source).toContain("attemptedSinceWorkspaceChange");
+    expect(source).toContain("scheduleAfterWorkspaceChange");
     expect(source).toContain('document.visibilityState !== "visible"'); expect(source).toContain("await assertCompanionChangesSynced(scope)");
     expect(source).toContain("stop.abort()"); expect(source).toContain("IntersectionObserver");
   });

@@ -29,7 +29,7 @@ export const enUS = {
         lastCheck: "Last check",
         neverChecked: "Not checked yet",
         nextCheck: "Next check",
-        nextCheckEnabled: "After notes change, the app is idle, and at least 24 hours have passed since the last check",
+        nextCheckEnabled: "After notes change, 3 minutes without activity, and at least 24 hours since the last check",
         nextCheckDisabled: "Checks begin after Paw mode is enabled",
         scope: "Each check sends only a small selection of relevant notes from this account to the default model. It stays quiet without a useful result, and every note change requires your approval.",
         latest: "Latest discovery",

@@ -123,7 +123,7 @@ This is a provisional decision based on current scope and architecture, not a cl
 
 ### Bounded cost
 
-- Proactive checks run only while the app is open, visible, online, free of pending sync changes, and idle for one minute. A cross-device limit allows at most one attempt per account per 24 hours; unchanged notes are skipped. This is not an always-running background service.
+- Proactive checks run only while the app is open, visible, online, free of pending sync changes, and inactive for three minutes. A cross-device limit allows at most one attempt per account per 24 hours; unchanged notes are skipped. After one completed check, the client makes no further request in that session until another note or sync change occurs. This is not an always-running background service.
 - Each check selects a small set from recent records and keyword searches: at most six note bodies totaling 12,000 characters. One structured generation, at most 1,200 output tokens, cancellation after 60 seconds, and no automatic model retries.
 - Full conversations have separate tool-call, context, concurrency, and timeout budgets. Library-wide authorization does not mean putting the entire library into a prompt.
 - Selected content is sent to the user's configured default model provider. A check can incur charges without producing a visible suggestion. Keyword retrieval may miss semantic connections, and low-frequency checks do not guarantee timely discovery of every opportunity.
