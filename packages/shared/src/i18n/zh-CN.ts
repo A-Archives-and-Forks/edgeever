@@ -517,7 +517,6 @@ export const zhCN = {
     settings: {
       title: "插件设置",
       open: "打开 {{name}} 的设置",
-      description: "配置仅保存在当前设备，不会跨设备同步。插件停用时也可以编辑；留空的已配置密钥会保持不变。",
       loadFailed: "无法读取插件设置：{{message}}",
       retry: "重新读取",
       saveFailed: "保存未完成，请检查并重试：{{message}}",

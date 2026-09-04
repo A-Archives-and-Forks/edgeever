@@ -517,7 +517,6 @@ export const enUS = {
     settings: {
       title: "Plugin settings",
       open: "Open settings for {{name}}",
-      description: "Settings are stored on this device only and do not sync across devices. You can edit them while the plugin is disabled. Leave configured secrets blank to keep them unchanged.",
       loadFailed: "Could not load plugin settings: {{message}}",
       retry: "Reload settings",
       saveFailed: "Saving did not complete. Check your settings and try again: {{message}}",
