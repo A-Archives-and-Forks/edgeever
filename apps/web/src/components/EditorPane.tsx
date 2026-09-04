@@ -61,6 +61,7 @@ import { EditorTagPicker } from "./EditorTagPicker";
 import { useAiBubbleMenu } from "./editor/useAiBubbleMenu";
 import {
   createEditorInstanceMemoIdentity,
+  isEditorInstanceHydratedForMemo,
   reconcileEditorInstanceMemoIdentity,
   remapEditorInstanceMemoIdentity,
 } from "./editor/editor-instance-identity";
@@ -866,6 +867,11 @@ const RichEditorPane = ({
     memo?.id ?? null,
   );
   const editorInstanceMemoKey = editorInstanceMemoIdentityRef.current.instanceKey;
+  const editorIsHydratedForCurrentMemo = isEditorInstanceHydratedForMemo(
+    editorInstanceMemoIdentityRef.current,
+    hydratedEditorMemoId,
+    memo?.id ?? null,
+  );
   /** Last content source applied to the editor — used to skip redundant setContent. */
   const appliedEditorSourceKeyRef = useRef<string | null>(null);
   const editingMemoIdRef = useRef<string | null>(memo?.id ?? null);
@@ -1228,7 +1234,7 @@ const RichEditorPane = ({
     content: memo
       ? resolveMemoContentDoc(memo.contentJson, memo.contentMarkdown)
       : { type: "doc", content: [{ type: "paragraph" }] },
-    editable: Boolean(memo && !effectiveReadOnly && hydratedEditorMemoId === memo.id),
+    editable: Boolean(memo && !effectiveReadOnly && editorIsHydratedForCurrentMemo),
     editorProps: {
       attributes: {
         class: "edgeever-note-rich-editor prose prose-slate max-w-none focus:outline-none min-h-[240px] px-4 py-3 sm:px-7 lg:min-h-[180px]",
@@ -2429,7 +2435,15 @@ const RichEditorPane = ({
 
   useEffect(() => {
     if (isEditorReady(editor)) {
-      editor.setEditable(Boolean(memo && !effectiveReadOnly && hydratedEditorMemoId === memo.id));
+      editor.setEditable(Boolean(
+        memo
+        && !effectiveReadOnly
+        && isEditorInstanceHydratedForMemo(
+          editorInstanceMemoIdentityRef.current,
+          hydratedEditorMemoId,
+          memo.id,
+        )
+      ));
     }
   }, [editor, effectiveReadOnly, hydratedEditorMemoId, memo]);
 
