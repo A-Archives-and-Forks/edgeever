@@ -22,11 +22,9 @@ export function CompanionToolActionCard({ action, busy, onApply, onDismiss, onOp
   const special = ["merge_memos", "trash_memos", "rename_tag", "delete_tag", "update_memo", "restore_memo_revision"].includes(name);
   return <Card className="shadow-none" aria-label={title}>
     <CardHeader className="p-3"><CardTitle className="text-sm">{title}</CardTitle>
-      <CardDescription className="break-words">{action.plan.reason}</CardDescription></CardHeader>
+      <CardDescription className="line-clamp-3 break-words">{action.plan.reason}</CardDescription></CardHeader>
     <CardContent className="space-y-3 p-3 pt-0 text-sm">
-      {action.status === "pending" ? <details>
-        <summary className="cursor-pointer rounded text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("companion.actions.review")}</summary>
-        <div className="mt-3 space-y-3">
+      {action.status === "pending" ? <div className="space-y-3">
           {action.preview?.affectedCount ? <p>{t("companion.actions.affected", { count: action.preview.affectedCount })}</p> : null}
           {action.notes.map(note => <div key={note.id}>
             <Button variant="ghost" size="sm" className="h-auto max-w-full whitespace-normal break-words text-left" disabled={busy}
@@ -39,12 +37,11 @@ export function CompanionToolActionCard({ action, busy, onApply, onDismiss, onOp
           </div>)}</dl>
           {special ? <p className="text-xs text-destructive">{t(`companion.actions.effects.${name}`)}</p> : null}
           <p className="text-xs text-muted-foreground">{t("companion.actions.toolHelp")}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onClick={() => onApply(action)}>{t("companion.actions.confirmTool")}</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(action)}>{t("companion.actions.dismiss")}</Button>
-          </div>
-        </div>
-      </details> : <p role="status" className="text-xs text-muted-foreground">{t(`companion.actions.status.${action.status}`)}</p>}
+      </div> : <p role="status" className="text-xs text-muted-foreground">{t(`companion.actions.status.${action.status}`)}</p>}
+      {action.status === "pending" ? <div className="flex flex-wrap gap-2 border-t pt-3">
+        <Button size="sm" disabled={busy} onClick={() => onApply(action)}>{t("companion.actions.confirm")}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(action)}>{t("companion.actions.dismiss")}</Button>
+      </div> : null}
       {action.status === "applied" && action.resultMemoId && action.resultNotebookId ? <Button variant="outline" size="sm" disabled={busy}
         onClick={() => onOpenNote(action.resultMemoId!, action.resultNotebookId!)}>{t("companion.actions.openResult")}</Button> : null}
       {action.status === "applied" && action.result ? <details><summary className="cursor-pointer">{t("companion.actions.receipt")}</summary>

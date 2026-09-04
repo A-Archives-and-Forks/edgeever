@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { CompanionAction, CompanionDiscoveryItem } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api, ApiRequestError } from "@/lib/api";
 import { assertCompanionChangesSynced } from "@/lib/companion-actions";
@@ -120,7 +120,7 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
       </Tooltip>
     </TooltipProvider>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto p-5 sm:p-6">
+      <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto p-5 sm:p-6">
         <DialogHeader className="space-y-2 pb-1">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20 dark:bg-emerald-950/50 dark:text-emerald-400 dark:ring-emerald-500/30">
@@ -137,9 +137,6 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
               ) : null}
             </div>
           </div>
-          <DialogDescription className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-            {t("companion.discovery.panelDescription")}
-          </DialogDescription>
         </DialogHeader>
         {error ? (
           <div role="alert" className="rounded-lg border border-red-200 bg-red-50/50 p-2.5 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
@@ -165,17 +162,11 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
           onApply={apply} onDismiss={() => dismiss(item)} onOpenNote={openNote}
           onSeen={() => { void api.acknowledgeCompanionDiscovery(item.id).then(() => client.setQueryData<CompanionDiscoveryItem[]>(discoveryFeedKey(scope),
             current => current?.map(entry => entry.id === item.id ? { ...entry, seen: true } : entry))).catch(() => {}); }} />)}</div>
-        <div className="mt-2 flex flex-col gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-500/70" />
-            <span className="line-clamp-2 sm:line-clamp-1">
-              {t(`companion.discovery.checkStatus.${settings.data?.lastStatus ?? "quiet"}`)}
-            </span>
-          </div>
+        <div className="mt-2 flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 shrink-0 self-end sm:self-auto gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            className="h-8 shrink-0 gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
             onClick={() => { setOpen(false); onOpenSettings(); }}
           >
             <Settings className="h-3.5 w-3.5" />
@@ -228,8 +219,8 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
         </span>
       ) : null}
     </div>
-    <h3 className="break-words text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100">{item.title}</h3>
-    {!item.action ? <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.body}</p> : null}
+    <h3 className="line-clamp-1 break-words text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100">{item.title}</h3>
+    {!item.action ? <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.body}</p> : null}
     {item.kind === "append" ? <p className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-2.5 text-xs leading-relaxed text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">{t("companion.discovery.appendHelp")}</p> : null}
     {item.action ? <CompanionActionCard action={item.action} busy={busy} onApply={onApply} onDismiss={onDismiss} onOpenNote={onOpenNote} />
       : item.sources.length > 0 ? (
@@ -248,10 +239,10 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
           ))}
         </div>
       ) : null}
-    <div className="flex items-center justify-end border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
+    {!item.action ? <div className="flex items-center justify-end border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
       <Button size="sm" variant="ghost" disabled={busy} onClick={onDismiss} className="h-7 px-2 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
         {t("companion.discovery.dismiss")}
       </Button>
-    </div>
+    </div> : null}
   </article>;
 }

@@ -17,12 +17,10 @@ export function CompanionActionCard({ action, busy, onApply, onDismiss, onOpenNo
   return <Card className="shadow-none" aria-label={t(merge ? "companion.actions.merge" : "companion.actions.tag")}>
     <CardHeader className="p-3">
       <CardTitle className="text-sm">{t(merge ? "companion.actions.merge" : "companion.actions.tag")}</CardTitle>
-      <CardDescription className="break-words">{action.plan.reason}</CardDescription>
+      <CardDescription className="line-clamp-3 break-words">{action.plan.reason}</CardDescription>
     </CardHeader>
     <CardContent className="space-y-3 p-3 pt-0 text-sm">
-      {action.status === "pending" ? <details>
-        <summary className="cursor-pointer rounded text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">{t("companion.actions.review")}</summary>
-        <div className="mt-3 space-y-3">
+      {action.status === "pending" ? <div className="space-y-3">
           {action.plan.kind === "merge" ? <p className="break-words font-medium">{t("companion.actions.resultTitle", { title: action.plan.title })}</p> : null}
           <ol className="list-inside list-decimal space-y-3">
             {action.notes.map(note => <li key={note.id}>
@@ -33,12 +31,11 @@ export function CompanionActionCard({ action, busy, onApply, onDismiss, onOpenNo
           </ol>
           {action.plan.kind === "tag" ? <p className="break-words text-emerald-700">{t("companion.actions.addTags", { tags: action.plan.tags.join(" · ") })}</p> : null}
           <p className="text-xs leading-relaxed text-slate-600">{t(merge ? "companion.actions.mergeHelp" : "companion.actions.tagHelp")}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onClick={() => onApply(action)}>{t(merge ? "companion.actions.confirmMerge" : "companion.actions.confirmTags")}</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(action)}>{t("companion.actions.dismiss")}</Button>
-          </div>
-        </div>
-      </details> : <p role="status" className="text-xs text-slate-500">{t(`companion.actions.status.${action.status}`)}</p>}
+      </div> : <p role="status" className="text-xs text-slate-500">{t(`companion.actions.status.${action.status}`)}</p>}
+      {action.status === "pending" ? <div className="flex flex-wrap gap-2 border-t border-slate-200/60 pt-3 dark:border-slate-800">
+        <Button size="sm" disabled={busy} onClick={() => onApply(action)}>{t("companion.actions.confirm")}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(action)}>{t("companion.actions.dismiss")}</Button>
+      </div> : null}
       {action.status === "applied" && action.resultMemoId ? <Button size="sm" variant="outline" disabled={busy} onClick={() => onOpenNote(action.resultMemoId!, action.notes[0].notebookId)}>{t("companion.actions.openResult")}</Button> : null}
     </CardContent>
   </Card>;
