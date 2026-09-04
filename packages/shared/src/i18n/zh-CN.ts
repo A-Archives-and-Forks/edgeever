@@ -1615,6 +1615,8 @@ export const zhCN = {
   },
   editorToolbar: {
     toolbar: "编辑器工具栏",
+    showMore: "显示更多编辑工具",
+    showLess: "收起编辑器工具栏",
     paragraph: "正文",
     heading1: "标题 1",
     heading2: "标题 2",

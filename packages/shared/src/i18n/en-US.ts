@@ -1617,6 +1617,8 @@ export const enUS = {
   },
   editorToolbar: {
     toolbar: "Editor toolbar",
+    showMore: "Show more editing tools",
+    showLess: "Collapse editor toolbar",
     paragraph: "Body",
     heading1: "Heading 1",
     heading2: "Heading 2",
