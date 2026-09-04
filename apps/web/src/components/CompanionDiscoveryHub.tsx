@@ -3,17 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   ArrowUpRight,
-  FilePlus,
   FileText,
-  GitMerge,
   PawPrint,
   Settings,
-  Sparkles,
-  Tag,
 } from "lucide-react";
 import type { CompanionAction, CompanionDiscoveryItem } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { api, ApiRequestError } from "@/lib/api";
 import { assertCompanionChangesSynced } from "@/lib/companion-actions";
@@ -140,9 +136,6 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
               </div>
             </div>
           </div>
-          <DialogDescription className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {t("companion.discovery.panelDescription")}
-          </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 space-y-3.5 overflow-y-auto px-5 py-4">
           {error ? (
@@ -170,10 +163,7 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
             onSeen={() => { void api.acknowledgeCompanionDiscovery(item.id).then(() => client.setQueryData<CompanionDiscoveryItem[]>(discoveryFeedKey(scope),
               current => current?.map(entry => entry.id === item.id ? { ...entry, seen: true } : entry))).catch(() => {}); }} />)}
         </div>
-        <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-5 py-2.5 text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-500">
-          <span className="max-w-[320px] truncate">
-            {t("companion.discovery.tagline")}
-          </span>
+        <div className="flex justify-end border-t border-slate-100 bg-slate-50/50 px-5 py-2.5 dark:border-slate-800 dark:bg-slate-900/50">
           <Button
             size="sm"
             variant="ghost"
@@ -212,47 +202,13 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
       })
     : null;
 
-  const typeBadge = (() => {
-    if (item.kind === "insight") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-950/40 dark:text-sky-300 dark:ring-sky-500/30">
-          <Sparkles className="h-3 w-3" />
-          {t("companion.discovery.types.insight", { defaultValue: "灵感关联" })}
-        </span>
-      );
-    }
-    if (item.kind === "merge" || item.action?.plan.kind === "merge") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-500/30">
-          <GitMerge className="h-3 w-3" />
-          {t("companion.discovery.types.merge", { defaultValue: "合并建议" })}
-        </span>
-      );
-    }
-    if (item.kind === "append") {
-      return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-500/30">
-          <FilePlus className="h-3 w-3" />
-          {t("companion.discovery.types.append", { defaultValue: "补入建议" })}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-500/30">
-        <Tag className="h-3 w-3" />
-        {t("companion.discovery.types.tag", { defaultValue: "标签建议" })}
-      </span>
-    );
-  })();
-
   return (
     <article
       ref={ref}
       className="group relative flex flex-col gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-slate-700"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {typeBadge}
+        <div className="min-w-0">
           <h3 className="line-clamp-1 break-words text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100">
             {item.title}
           </h3>

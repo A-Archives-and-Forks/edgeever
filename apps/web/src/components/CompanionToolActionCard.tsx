@@ -95,7 +95,7 @@ export function CompanionToolActionCard({ action, busy, onApply, onDismiss, onOp
               className="h-7 gap-1 px-3 text-xs"
             >
               <Check className="h-3 w-3" />
-              {t("companion.actions.confirmTool", { defaultValue: t("companion.actions.confirm") })}
+              {t("companion.actions.confirm")}
             </Button>
           </div>
         </div>

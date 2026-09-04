@@ -108,9 +108,7 @@ export function CompanionActionCard({ action, busy, onApply, onDismiss, onOpenNo
               className="h-7 gap-1 px-3 text-xs"
             >
               {merge ? <GitMerge className="h-3 w-3" /> : <Check className="h-3 w-3" />}
-              {t(merge ? "companion.actions.confirmMerge" : "companion.actions.confirmTags", {
-                defaultValue: t("companion.actions.confirm"),
-              })}
+              {t("companion.actions.confirm")}
             </Button>
           </div>
         </div>
