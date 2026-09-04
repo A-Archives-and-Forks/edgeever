@@ -81,5 +81,6 @@ describe("quiet discovery UI", () => {
     expect(source).toContain("scheduleAfterWorkspaceChange");
     expect(source).toContain('document.visibilityState !== "visible"'); expect(source).toContain("await assertCompanionChangesSynced(scope)");
     expect(source).toContain("stop.abort()"); expect(source).toContain("IntersectionObserver");
+    expect(source).not.toContain("companion.discovery.kind.");
   });
 });

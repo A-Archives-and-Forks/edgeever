@@ -4,11 +4,8 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowUpRight,
   FileText,
-  Layers,
   PawPrint,
-  PlusCircle,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import type { CompanionAction, CompanionDiscoveryItem } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
@@ -194,12 +191,6 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
     return () => observer.disconnect();
   }, [open, item.seen]);
 
-  const kindIcons = {
-    insight: Sparkles,
-    merge: Layers,
-    append: PlusCircle,
-  };
-  const KindIcon = kindIcons[item.kind] || Sparkles;
   const formattedDate = item.createdAt
     ? new Date(item.createdAt).toLocaleDateString(i18n.resolvedLanguage?.startsWith("zh") ? "zh-CN" : "en-US", {
         month: "numeric",
@@ -208,17 +199,7 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
     : null;
 
   return <article ref={ref} className="group relative flex flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 transition-colors hover:border-slate-300 hover:bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-slate-700">
-    <div className="flex items-center justify-between gap-2">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/60 bg-emerald-50/80 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-        <KindIcon className="h-3 w-3" />
-        <span>{t(`companion.discovery.kind.${item.kind}`)}</span>
-      </span>
-      {formattedDate ? (
-        <span className="text-[11px] text-slate-400 dark:text-slate-500">
-          {formattedDate}
-        </span>
-      ) : null}
-    </div>
+    {formattedDate ? <span className="self-end text-[11px] text-slate-400 dark:text-slate-500">{formattedDate}</span> : null}
     <h3 className="line-clamp-1 break-words text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100">{item.title}</h3>
     {!item.action ? <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-300">{item.body}</p> : null}
     {item.kind === "append" ? <p className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-2.5 text-xs leading-relaxed text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">{t("companion.discovery.appendHelp")}</p> : null}
