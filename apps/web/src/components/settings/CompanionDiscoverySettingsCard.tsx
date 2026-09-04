@@ -3,6 +3,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Sparkles, ShieldCheck, ChevronRight, Clock, Activity, MessageSquareText } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  SETTINGS_CARD_DESCRIPTION_CLASSNAME,
+  SETTINGS_CARD_HEADER_CLASSNAME,
+  SETTINGS_CARD_ICON_CLASSNAME,
+  SETTINGS_CARD_TITLE_CLASSNAME,
+} from "./settings-ui";
 import { Switch } from "@/components/ui/switch";
 import { api, ApiRequestError } from "@/lib/api";
 import { discoveryFeedKey, discoverySettingsKey, useCompanionDiscoverySettings } from "@/hooks/useCompanionDiscovery";
@@ -59,17 +65,19 @@ export function CompanionDiscoverySettingsCard({ scope, onOpenCompanion, onOpenA
 
   return (
     <Card className="shadow-none">
-      <CardHeader className="p-4 sm:p-5">
+      <CardHeader className={SETTINGS_CARD_HEADER_CLASSNAME}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 space-y-1.5">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <CardTitle className="text-sm font-semibold sm:text-base">{t("companion.discovery.settingsTitle")}</CardTitle>
+              <CardTitle className={SETTINGS_CARD_TITLE_CLASSNAME}>
+                <Sparkles className={SETTINGS_CARD_ICON_CLASSNAME} />
+                {t("companion.discovery.settingsTitle")}
+              </CardTitle>
               <span className="inline-flex items-center rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-300">
                 Beta
               </span>
             </div>
-            <CardDescription className="text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-400">
+            <CardDescription className={SETTINGS_CARD_DESCRIPTION_CLASSNAME}>
               {t("companion.discovery.description")}
             </CardDescription>
           </div>

@@ -12,6 +12,14 @@ import {
 } from "@/components/settings/ai-provider-options";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  SETTINGS_CARD_DESCRIPTION_CLASSNAME,
+  SETTINGS_CARD_HEADER_CLASSNAME,
+  SETTINGS_CARD_ICON_CLASSNAME,
+  SETTINGS_CARD_TITLE_CLASSNAME,
+  SETTINGS_ITEM_DESCRIPTION_CLASSNAME,
+  SETTINGS_ITEM_TITLE_CLASSNAME,
+} from "./settings-ui";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
@@ -109,15 +117,15 @@ export const AiModelCard = () => {
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded} asChild>
       <Card className="w-full min-w-0 overflow-hidden shadow-none">
-        <CardHeader className="p-4 sm:p-5">
+        <CardHeader className={SETTINGS_CARD_HEADER_CLASSNAME}>
           <CollapsibleTrigger asChild>
             <button className="flex w-full min-w-0 items-start justify-between gap-3 text-left" type="button">
               <span className="min-w-0">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Sparkles className="h-4.5 w-4.5 text-emerald-700" />
+                <CardTitle className={SETTINGS_CARD_TITLE_CLASSNAME}>
+                  <Sparkles className={SETTINGS_CARD_ICON_CLASSNAME} />
                   {t("aiModel.title")}
                 </CardTitle>
-                <CardDescription className="mt-1 text-xs text-slate-500">{t("aiModel.description")}</CardDescription>
+                <CardDescription className={SETTINGS_CARD_DESCRIPTION_CLASSNAME}>{t("aiModel.description")}</CardDescription>
               </span>
               <ChevronDown className={cn("mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform", expanded && "rotate-180")} />
             </button>
@@ -136,14 +144,14 @@ export const AiModelCard = () => {
                 ) : null}
 
                 <section className="grid gap-2">
-                  <span className="text-sm font-semibold text-slate-600">
+                  <span className="text-xs font-semibold text-slate-500">
                     {t("aiModel.defaultSettingsTitle")}
                   </span>
                   <div className="overflow-hidden rounded-lg border border-slate-200/70 bg-slate-50/50 divide-y divide-slate-200/70">
                     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-800">{t("aiModel.defaultModel")}</div>
-                        <div className="mt-0.5 text-xs leading-5 text-slate-500">{t("aiModel.defaultModelHint")}</div>
+                        <div className={SETTINGS_ITEM_TITLE_CLASSNAME}>{t("aiModel.defaultModel")}</div>
+                        <div className={SETTINGS_ITEM_DESCRIPTION_CLASSNAME}>{t("aiModel.defaultModelHint")}</div>
                       </div>
                       <div className="w-56 max-w-[60%] shrink-0 sm:w-72">
                         <Select
@@ -165,8 +173,8 @@ export const AiModelCard = () => {
                     </div>
                     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-800">{t("settings.aiStreamingTitle")}</div>
-                        <div className="mt-0.5 text-xs leading-5 text-slate-500">{t("settings.aiStreamingDescription")}</div>
+                        <div className={SETTINGS_ITEM_TITLE_CLASSNAME}>{t("settings.aiStreamingTitle")}</div>
+                        <div className={SETTINGS_ITEM_DESCRIPTION_CLASSNAME}>{t("settings.aiStreamingDescription")}</div>
                       </div>
                       <Switch
                         className="shrink-0"
@@ -190,7 +198,7 @@ export const AiModelCard = () => {
                 <section className="grid gap-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-600">
+                      <span className="text-xs font-semibold text-slate-500">
                         {t("aiModel.servicesTitle")}
                       </span>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">

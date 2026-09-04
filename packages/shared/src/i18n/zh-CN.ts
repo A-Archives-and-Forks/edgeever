@@ -373,6 +373,7 @@ export const zhCN = {
     title: "我的",
     subtitle: "个人偏好、系统信息、MCP Token 与登录会话",
     preferences: "偏好设置",
+    preferencesDescription: "自定义界面显示、编辑器排版与快捷键操作偏好。",
     languageTitle: "界面语言",
     languageDescription: "切换产品界面的显示语言。",
     systemLanguage: "跟随系统",

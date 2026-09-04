@@ -373,6 +373,7 @@ export const enUS = {
     title: "Me",
     subtitle: "Preferences, system info, MCP tokens, and sign-in session",
     preferences: "Preferences",
+    preferencesDescription: "Customize interface appearance, editor typography, and shortcut preferences.",
     languageTitle: "Interface language",
     languageDescription: "Change the display language for the product UI.",
     systemLanguage: "Follow system",
