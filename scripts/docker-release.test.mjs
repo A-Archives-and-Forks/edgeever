@@ -70,6 +70,7 @@ describe("Docker release contract", () => {
       "COPY --from=build /app/release-summary.json ./release-summary.json",
     );
     expect(dockerfile).toContain("--filter @edgeever/web");
+    expect(dockerfile).toContain("--filter @edgeever/public-network");
     expect(dockerfile).toContain("--production --filter edgeever");
     expect(dockerfile).toContain("USER bun");
     expect(dockerfile).toContain('VOLUME ["/data"]');

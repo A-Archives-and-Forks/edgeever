@@ -20,6 +20,7 @@ FROM manifests AS dependencies
 RUN bun install --frozen-lockfile \
   --filter edgeever \
   --filter @edgeever/api \
+  --filter @edgeever/public-network \
   --filter @edgeever/web
 
 FROM manifests AS production-dependencies
