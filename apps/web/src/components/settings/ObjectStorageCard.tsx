@@ -74,8 +74,8 @@ export const ObjectStorageCard = ({ demoMode }: { demoMode: boolean }) => {
   };
 
   const errorMessage = (error: unknown) => {
-    if (error instanceof ApiRequestError && error.code === "object_storage_encryption_key_missing") {
-      return t("objectStorage.encryptionKeyMissing");
+    if (error instanceof ApiRequestError && error.code === "object_storage_authentication_required") {
+      return t("objectStorage.authenticationRequired");
     }
     return error instanceof Error ? error.message : t("objectStorage.failed");
   };
@@ -121,7 +121,7 @@ export const ObjectStorageCard = ({ demoMode }: { demoMode: boolean }) => {
               <div className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                 {!encryptionConfigured ? (
                   <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />{t("objectStorage.encryptionKeyMissing")}
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />{t("objectStorage.authenticationRequired")}
                   </p>
                 ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">

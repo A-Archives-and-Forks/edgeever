@@ -658,7 +658,7 @@ export const zhCN = {
     testSucceeded: "上传、读取和删除测试均已通过。",
     saved: "对象存储设置已保存。",
     failed: "对象存储操作失败。",
-    encryptionKeyMissing: "保存第三方密钥前，请先为 Worker 配置至少 32 个字符的 EDGE_EVER_STORAGE_ENCRYPTION_KEY Secret。",
+    authenticationRequired: "保存第三方存储凭据前，请先启用实例认证。",
     switchHint: "切换只影响后续上传；已有附件仍从原存储读取，不会自动迁移。",
     demoDisabled: "演示实例不允许修改对象存储。",
   },

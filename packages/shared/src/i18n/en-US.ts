@@ -658,7 +658,7 @@ export const enUS = {
     testSucceeded: "Upload, read, and delete checks passed.",
     saved: "Object storage settings saved.",
     failed: "The object storage operation failed.",
-    encryptionKeyMissing: "Configure an EDGE_EVER_STORAGE_ENCRYPTION_KEY Worker Secret of at least 32 characters before saving third-party credentials.",
+    authenticationRequired: "Enable instance authentication before saving third-party storage credentials.",
     switchHint: "Switching only affects new uploads. Existing attachments remain in their original store and are not migrated automatically.",
     demoDisabled: "Object storage cannot be changed on the demo instance.",
   },
