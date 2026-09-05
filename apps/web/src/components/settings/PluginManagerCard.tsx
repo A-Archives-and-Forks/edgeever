@@ -198,16 +198,16 @@ const PluginDetailView = ({
         <PluginSettingsSection key={`${id}:${manifest.version}`} host={host} manifest={manifest} />
       ) : (
         <>
-          <dl className="grid gap-3 rounded-lg bg-slate-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-400">
             {[
               [t("plugins.details.type"), manifest.type],
               [t("plugins.details.version"), `v${manifest.version}`],
               [t("plugins.details.source"), t(`plugins.sources.${sourceKey}`)],
               [t("plugins.details.installedAt"), new Date(extension.installedAt).toLocaleString(i18n.language)],
             ].map(([label, value]) => (
-              <div key={label} className="min-w-0">
-                <dt className="text-xs text-slate-400">{label}</dt>
-                <dd className="mt-1 truncate font-medium text-slate-700">{value}</dd>
+              <div key={label} className="flex min-w-0 items-center gap-1.5">
+                <dt>{label}</dt>
+                <dd className="truncate text-slate-500">{value}</dd>
               </div>
             ))}
           </dl>
