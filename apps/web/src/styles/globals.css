@@ -506,10 +506,14 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
 
 .edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body {
   cursor: crosshair;
-  opacity: 0.88;
+  pointer-events: none;
 }
 
-.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node:hover .x6-port-body,
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.x6-node-selected .x6-port-body {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body:hover,
 .edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-available-magnet {
   filter: drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.28));

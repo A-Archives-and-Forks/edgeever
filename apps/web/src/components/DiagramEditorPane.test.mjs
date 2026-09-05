@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("./DiagramEditorPane.tsx", import.meta.url), "utf8");
+const globalStyles = readFileSync(new URL("../styles/globals.css", import.meta.url), "utf8");
 
 describe("diagram editor keyboard workflow", () => {
   test("supports direct node editing without routing keystrokes through the side panel", () => {
@@ -36,6 +37,15 @@ describe("diagram editor keyboard workflow", () => {
 });
 
 describe("diagram editor canvas surface", () => {
+  test("autosaves diagram changes without a persistent save button", () => {
+    expect(source).toContain("EDITOR_LOCAL_SAVE_DELAY_MS");
+    expect(source).toContain("window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS)");
+    expect(source).toContain("[dirty, dirtyVersion, editSessionReady, readOnly, saveFailed, saving]");
+    expect(source).toContain("!readOnly && saveFailed");
+    expect(source).toContain('t("diagram.retrySave")');
+    expect(source).not.toContain('<Save className="h-4 w-4" />');
+  });
+
   test("uses a clean grid-free canvas for both diagram types", () => {
     expect(source).toContain("grid: false");
     expect(source).toContain("graph.clearGrid();");
@@ -60,6 +70,13 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("allowMulti: false");
     expect(source).toContain("sourceCell.id !== targetCell.id");
     expect(source).toContain("data-diagram-kind={document.kind}");
+  });
+
+  test("shows connection handles only on selected flowchart nodes", () => {
+    expect(globalStyles).toContain('.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.x6-node-selected .x6-port-body');
+    expect(globalStyles).toContain("pointer-events: none");
+    expect(globalStyles).toContain("pointer-events: auto");
+    expect(globalStyles).not.toContain('.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node:hover .x6-port-body');
   });
 
   test("turns a connection dropped on blank canvas into a connected-node picker", () => {

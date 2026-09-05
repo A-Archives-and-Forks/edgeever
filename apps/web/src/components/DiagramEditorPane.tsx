@@ -13,7 +13,7 @@ import {
   Link2,
   Maximize2,
   Redo2,
-  Save,
+  RefreshCw,
   Trash2,
   Undo2,
   ZoomIn,
@@ -47,6 +47,7 @@ import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
 import type { EdgeEverRepository } from "@/lib/repository";
 import { cn } from "@/lib/utils";
+import { EDITOR_LOCAL_SAVE_DELAY_MS } from "@/lib/app-helpers";
 
 type DiagramEditorPaneProps = {
   memo: MemoDetail;
@@ -375,9 +376,11 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
   const [selectedNodeLabel, setSelectedNodeLabel] = useState("");
   const [hasSelection, setHasSelection] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [dirtyVersion, setDirtyVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editSessionReady, setEditSessionReady] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
@@ -446,6 +449,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     savedSnapshotRef.current = document ? diagramEditorSnapshot(memo.title ?? "", document) : "";
     setDirty(false);
     setSaveError(null);
+    setSaveFailed(false);
     editSessionRef.current = null;
     setEditSessionReady(false);
     if (readOnly || isLocalMemoId(memo.id) || isBrowserOffline() || window.edgeeverDesktop?.isAvailable) {
@@ -551,7 +555,9 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     const markDirty = () => {
       if (!readOnly) {
         const currentDocument = graphToDocument(graph, document.kind, themeRef.current);
-        setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(titleRef.current, currentDocument));
+        const hasChanges = savedSnapshotRef.current !== diagramEditorSnapshot(titleRef.current, currentDocument);
+        setDirty(hasChanges);
+        if (hasChanges) setDirtyVersion((current) => current + 1);
       }
       updateHistory();
     };
@@ -1143,10 +1149,12 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     if (!graph || !document || !editSession || readOnly || saving) return;
     setSaving(true);
     setSaveError(null);
+    setSaveFailed(false);
     try {
       const nextDocument = graphToDocument(graph, document.kind, themeRef.current);
       const markdown = serializeDiagramDocument(nextDocument);
       const nextTitle = titleRef.current;
+      const nextSnapshot = diagramEditorSnapshot(nextTitle, nextDocument);
       const result = await repository.updateMemo(currentMemo, {
         expectedRevision: currentMemo.revision,
         expectedContentHash: currentMemo.contentHash,
@@ -1157,18 +1165,32 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
         tags: currentMemo.tags,
       });
       memoRef.current = result.memo;
-      savedSnapshotRef.current = diagramEditorSnapshot(nextTitle, nextDocument);
-      setDirty(false);
-      graph.cleanHistory();
-      setHistoryState({ undo: false, redo: false });
-      await onSaved(result.memo);
+      savedSnapshotRef.current = nextSnapshot;
+      const currentSnapshot = diagramEditorSnapshot(
+        titleRef.current,
+        graphToDocument(graph, document.kind, themeRef.current),
+      );
+      const hasNewChanges = currentSnapshot !== nextSnapshot;
+      setDirty(hasNewChanges);
+      if (!hasNewChanges) {
+        graph.cleanHistory();
+        setHistoryState({ undo: false, redo: false });
+        await onSaved(result.memo);
+      }
     } catch (error) {
+      setSaveFailed(true);
       setSaveError(error instanceof Error ? error.message : t("diagram.saveError"));
     } finally {
       setSaving(false);
     }
   };
   saveRef.current = () => { void save(); };
+
+  useEffect(() => {
+    if (readOnly || !dirty || saving || !editSessionReady || saveFailed) return;
+    const timer = window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [dirty, dirtyVersion, editSessionReady, readOnly, saveFailed, saving]);
 
   if (!document) return null;
   const kindLabel = document.kind === "mind-map" ? t("diagram.mindMap") : t("diagram.flowchart");
@@ -1197,6 +1219,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
             const nextTitle = event.target.value;
             titleRef.current = nextTitle;
             setTitle(nextTitle);
+            setDirtyVersion((current) => current + 1);
             const graph = graphRef.current;
             if (graph) {
               setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
@@ -1206,12 +1229,12 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
             }
           }}
         />
-        <span className={cn("hidden text-xs sm:block", saveError ? "text-rose-600" : dirty ? "text-amber-600" : "text-slate-400")}>{saveError ?? (dirty ? t("diagram.unsaved") : t("diagram.saved"))}</span>
+        <span className={cn("hidden text-xs sm:block", saveError ? "text-rose-600" : "text-slate-400")}>{saveError ?? (dirty || saving ? t("diagram.saving") : t("diagram.saved"))}</span>
         <ThemeToggle />
-        {!readOnly && (
-          <Button variant="solid" size="sm" disabled={!dirty || saving || !editSessionReady} onClick={() => void save()}>
-            <Save className="h-4 w-4" />
-            {saving ? t("diagram.saving") : t("diagram.save")}
+        {!readOnly && saveFailed && (
+          <Button variant="soft" size="sm" disabled={saving || !editSessionReady} onClick={() => void save()}>
+            <RefreshCw className="h-4 w-4" />
+            {t("diagram.retrySave")}
           </Button>
         )}
       </header>
