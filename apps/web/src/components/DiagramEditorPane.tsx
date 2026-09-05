@@ -645,7 +645,20 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     if (isMindMap && parent?.isNode()) {
       graph.addEdge(edgeMetadata({ id: createId("branch"), source: parent.id, target: id }, document.kind, themeRef.current));
     }
+    if (isMindMap) {
+      const positions = computeDiagramLayout(
+        graphToDocument(graph, document.kind, themeRef.current),
+        requestedSibling && selected?.isNode()
+          ? { insertedNodeId: id, insertAfterNodeId: selected.id }
+          : {},
+      );
+      for (const graphNode of graph.getNodes()) {
+        const position = positions[graphNode.id];
+        if (position) graphNode.position(position.x, position.y);
+      }
+    }
     graph.stopBatch("add");
+    graph.cleanSelection();
     graph.select(node);
     setSelectedNodeId(id);
     setSelectedNodeLabel(node.getData<NodeData>().label);

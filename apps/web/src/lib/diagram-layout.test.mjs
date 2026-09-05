@@ -16,6 +16,39 @@ describe("diagram auto layout", () => {
     expect(compactMindMapNodeSize("A much longer topic label", false).width).toBeLessThanOrEqual(156);
   });
 
+  test("inserts a sibling after the selected branch and pushes following subtrees down", () => {
+    const document = createDefaultDiagramDocument("mind-map");
+    document.nodes.push(
+      { id: "topic-1-child", parentId: "topic-1", label: "Child 1", x: 400, y: 60, width: 92, height: 36, shape: "topic" },
+      { id: "topic-1-child-2", parentId: "topic-1", label: "Child 2", x: 400, y: 112, width: 92, height: 36, shape: "topic" },
+      { id: "topic-new", parentId: "topic-root", label: "New", x: 256, y: 89, width: 92, height: 36, shape: "topic" },
+    );
+    document.edges.push(
+      { id: "branch-child", source: "topic-1", target: "topic-1-child" },
+      { id: "branch-child-2", source: "topic-1", target: "topic-1-child-2" },
+      { id: "branch-new", source: "topic-root", target: "topic-new" },
+    );
+
+    const positions = computeDiagramLayout(document, {
+      insertedNodeId: "topic-new",
+      insertAfterNodeId: "topic-1",
+    });
+    const orderedSiblings = ["topic-1", "topic-new", "topic-2", "topic-3"];
+    for (let index = 1; index < orderedSiblings.length; index += 1) {
+      const previous = document.nodes.find((node) => node.id === orderedSiblings[index - 1]);
+      expect(positions[orderedSiblings[index]].y).toBeGreaterThanOrEqual(
+        positions[orderedSiblings[index - 1]].y + previous.height + 16,
+      );
+    }
+    expect(positions["topic-1-child"].x).toBeGreaterThan(positions["topic-1"].x);
+    const selectedSubtreeBottom = Math.max(
+      positions["topic-1"].y + 36,
+      positions["topic-1-child"].y + 36,
+      positions["topic-1-child-2"].y + 36,
+    );
+    expect(positions["topic-new"].y).toBeGreaterThanOrEqual(selectedSubtreeBottom + 16);
+  });
+
   test("orders a connected flow from left to right and keeps detached nodes finite", () => {
     const document = createDefaultDiagramDocument("flowchart");
     document.nodes.push({ id: "detached", label: "Detached", x: 0, y: 0, width: 140, height: 52, shape: "process" });

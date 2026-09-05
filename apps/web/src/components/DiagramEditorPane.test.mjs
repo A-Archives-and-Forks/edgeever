@@ -15,6 +15,7 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).toContain('insertNodeRef.current("sibling"');
     expect(source).toContain('graph.bindKey("tab"');
     expect(source).toContain('insertNodeRef.current("child"');
+    expect(source).toContain("graph.cleanSelection();\n    graph.select(node);");
   });
 });
 
