@@ -358,6 +358,7 @@ export const enUS = {
       title: "Sync details",
       description: "Failed items remain safely stored on this device and no longer prevent changes from other devices from reaching the desktop app.",
       empty: "There are no sync items that need attention.",
+      globalFailure: "Desktop sync process failed",
       attempts: "Attempted {{count}} times",
       unknownError: "Unknown sync error",
       errorCode: "Error code: {{code}}",

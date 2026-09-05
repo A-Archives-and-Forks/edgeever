@@ -358,6 +358,7 @@ export const zhCN = {
       title: "同步详情",
       description: "失败项会安全保留在本地；它们不会再阻止其他设备上的更改同步到此桌面端。",
       empty: "当前没有需要处理的同步项。",
+      globalFailure: "桌面同步流程失败",
       attempts: "已尝试 {{count}} 次",
       unknownError: "未知同步错误",
       errorCode: "错误代码：{{code}}",
