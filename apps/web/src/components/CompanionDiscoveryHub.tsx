@@ -1,3 +1,4 @@
+import { companionMemoryText } from "@/lib/companion-memory";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -34,7 +35,6 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const locked = useRef(false);
-  const lastCheckAt = useRef(settings.data?.lastCheckAt); lastCheckAt.current = settings.data?.lastCheckAt;
   const items = feed.data ?? [];
 
   useEffect(() => {
@@ -45,10 +45,6 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
     const stop = new AbortController();
     const check = async () => {
       if (running || attemptedSinceWorkspaceChange || stop.signal.aborted || document.visibilityState !== "visible" || !navigator.onLine) return;
-      if (lastCheckAt.current && Date.now() - Date.parse(lastCheckAt.current) < 86400000) {
-        attemptedSinceWorkspaceChange = true;
-        return;
-      }
       running = true;
       try {
         await assertCompanionChangesSynced(scope);
@@ -71,7 +67,7 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
       }
     };
     const activityEvents = ["keydown", "pointerdown", "input", "online"];
-    const workspaceChangeEvents = ["edgeever:sync-queue-changed", "edgeever:memo-detail-refreshed"];
+    const workspaceChangeEvents = ["edgeever:sync-queue-changed", "edgeever:memo-detail-refreshed", "edgeever:companion-memory-changed"];
     const scheduleAfterWorkspaceChange = () => { attemptedSinceWorkspaceChange = false; schedule(); };
     activityEvents.forEach(name => window.addEventListener(name, schedule));
     workspaceChangeEvents.forEach(name => window.addEventListener(name, scheduleAfterWorkspaceChange));
@@ -162,6 +158,7 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
             </div>
           ) : null}
           {items.map(item => <DiscoveryCard key={item.id} item={item} busy={busy} open={open}
+            onFeedback={() => void perform(async () => { await api.rememberCompanionDiscoveryFeedback(item.id); window.dispatchEvent(new Event("edgeever:companion-memory-changed")); })}
             onApply={apply} onDismiss={() => dismiss(item)} onOpenNote={openNote}
             onSeen={() => { void api.acknowledgeCompanionDiscovery(item.id).then(() => client.setQueryData<CompanionDiscoveryItem[]>(discoveryFeedKey(scope),
               current => current?.map(entry => entry.id === item.id ? { ...entry, seen: true } : entry))).catch(() => {}); }} />)}
@@ -182,9 +179,9 @@ export default function CompanionDiscoveryHub({ scope, onOpenNote, onNotesChange
   </>;
 }
 
-function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSeen }: {
+function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSeen, onFeedback }: {
   item: CompanionDiscoveryItem; busy: boolean; open: boolean; onApply: (action: CompanionAction) => void;
-  onDismiss: () => void; onOpenNote: (id: string, notebookId: string) => void; onSeen: () => void;
+  onFeedback: () => void; onDismiss: () => void; onOpenNote: (id: string, notebookId: string) => void; onSeen: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const ref = useRef<HTMLElement>(null);
@@ -221,6 +218,15 @@ function DiscoveryCard({ item, busy, open, onApply, onDismiss, onOpenNote, onSee
         ) : null}
       </CardHeader>
       <CardContent className="space-y-3 p-0">
+        {item.action?.status === "pending" ? <details className="text-xs text-slate-500">
+          <summary className="cursor-pointer">{t("companion.learning.feedback")}</summary>
+          <p className="my-2">{t("companion.learning.feedbackHelp")}</p>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onFeedback}>{t("companion.learning.feedback")}</Button>
+        </details> : null}
+        {item.memories?.length ? <details className="text-xs text-slate-500">
+          <summary className="cursor-pointer">{t("companion.learning.basedOn")}</summary>
+          <ul className="mt-2 space-y-1">{item.memories.map(memory => <li key={memory.id}>{companionMemoryText(memory, t)}</li>)}</ul>
+        </details> : null}
         {!item.action ? (
           <p className="line-clamp-4 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-300">
             {item.body}
