@@ -69,6 +69,12 @@ type FlowQuickCreateState = {
   left: number;
   top: number;
 };
+type FlowPointerDragState = {
+  sourceNodeId: string;
+  sourcePort: FlowPort;
+  startClientX: number;
+  startClientY: number;
+};
 type NodeEditorState = {
   nodeId: string;
   originalValue: string;
@@ -224,10 +230,10 @@ const nodeMetadata = (
     },
     ...(kind === "flowchart" ? { ports: {
       groups: {
-        top: { position: "top", attrs: { circle: { r: 5, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        right: { position: "right", attrs: { circle: { r: 5, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        bottom: { position: "bottom", attrs: { circle: { r: 5, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        left: { position: "left", attrs: { circle: { r: 5, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
+        top: { position: "top", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
+        right: { position: "right", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
+        bottom: { position: "bottom", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
+        left: { position: "left", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
       },
       items: ["top", "right", "bottom", "left"].map((group) => ({ id: group, group })),
     } } : {}),
@@ -390,6 +396,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
   const [flowQuickCreate, setFlowQuickCreate] = useState<FlowQuickCreateState | null>(null);
   const flowQuickCreateRef = useRef<FlowQuickCreateState | null>(null);
+  const flowPointerDragRef = useRef<FlowPointerDragState | null>(null);
   const nodeEditorRef = useRef<NodeEditorState | null>(null);
 
   const beginNodeEdit = useCallback((node: Node) => {
@@ -606,6 +613,31 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       }
       if (draft?.quickConnectDraft && draft.restoreHistory) graph.enableHistory();
     });
+    const showFlowQuickCreate = (
+      edge: Edge,
+      sourceNodeId: string,
+      sourcePort: FlowPort | undefined,
+      point: { x: number; y: number },
+      restoreHistory: boolean,
+    ) => {
+      if (!containerRef.current) return;
+      const overlayPoint = graph.localToGraph(point);
+      const popupWidth = 246;
+      const popupHeight = 112;
+      const nextQuickCreate: FlowQuickCreateState = {
+        draftEdgeId: edge.id,
+        restoreHistory,
+        sourceNodeId,
+        sourcePort,
+        x: point.x,
+        y: point.y,
+        left: Math.max(12, Math.min(overlayPoint.x + 12, containerRef.current.clientWidth - popupWidth - 12)),
+        top: Math.max(12, Math.min(overlayPoint.y + 12, containerRef.current.clientHeight - popupHeight - 12)),
+      };
+      flowQuickCreateRef.current = nextQuickCreate;
+      setFlowQuickCreate(nextQuickCreate);
+      if (restoreHistory) graph.enableHistory();
+    };
     graph.on("edge:connected", ({ edge, isNew, type, currentCell, currentPort, currentPoint }) => {
       if (document.kind !== "flowchart" || !isNew || type !== "target") return;
       const sourceNodeId = edge.getSourceCellId();
@@ -639,23 +671,65 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
         removeDraft();
         return;
       }
-      const overlayPoint = graph.localToGraph(currentPoint);
-      const popupWidth = 246;
-      const popupHeight = 112;
-      const nextQuickCreate: FlowQuickCreateState = {
-        draftEdgeId: edge.id,
-        restoreHistory: Boolean(draft?.restoreHistory),
+      showFlowQuickCreate(
+        edge,
         sourceNodeId,
-        sourcePort: "port" in source && typeof source.port === "string" ? source.port as FlowPort : undefined,
-        x: currentPoint.x,
-        y: currentPoint.y,
-        left: Math.max(12, Math.min(overlayPoint.x + 12, containerRef.current.clientWidth - popupWidth - 12)),
-        top: Math.max(12, Math.min(overlayPoint.y + 12, containerRef.current.clientHeight - popupHeight - 12)),
-      };
-      flowQuickCreateRef.current = nextQuickCreate;
-      setFlowQuickCreate(nextQuickCreate);
-      if (nextQuickCreate.restoreHistory) graph.enableHistory();
+        "port" in source && typeof source.port === "string" ? source.port as FlowPort : undefined,
+        currentPoint,
+        Boolean(draft?.restoreHistory),
+      );
     });
+    const handleFlowPointerDown = (event: PointerEvent) => {
+      if (document.kind !== "flowchart" || readOnly || event.button !== 0) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const port = target?.closest(".x6-port-body");
+      const node = target?.closest(".x6-node");
+      const sourcePort = port?.getAttribute("port") as FlowPort | null;
+      const sourceNodeId = node?.getAttribute("data-cell-id");
+      if (!sourcePort || !sourceNodeId) return;
+      flowPointerDragRef.current = {
+        sourceNodeId,
+        sourcePort,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+      };
+    };
+    const handleFlowPointerUp = (event: PointerEvent) => {
+      const pointerDrag = flowPointerDragRef.current;
+      flowPointerDragRef.current = null;
+      if (!pointerDrag || document.kind !== "flowchart" || readOnly) return;
+      if (Math.hypot(event.clientX - pointerDrag.startClientX, event.clientY - pointerDrag.startClientY) < 8) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".x6-port-body") || target?.closest(".x6-node")) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const bounds = container.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) return;
+      const clientPoint = { x: event.clientX, y: event.clientY };
+      window.setTimeout(() => {
+        if (graphRef.current !== graph || flowQuickCreateRef.current) return;
+        const point = graph.clientToLocal(clientPoint);
+        const existingDraft = graph.getEdges().find((candidate) => candidate.getData<{ quickConnectDraft?: boolean }>()?.quickConnectDraft);
+        const restoreHistory = existingDraft
+          ? Boolean(existingDraft.getData<{ restoreHistory?: boolean }>()?.restoreHistory)
+          : graph.isHistoryEnabled();
+        if (!existingDraft && restoreHistory) graph.disableHistory();
+        const draftEdge = existingDraft ?? graph.addEdge({
+          ...edgeMetadata(
+            { id: createId("edge"), source: pointerDrag.sourceNodeId, target: "" },
+            document.kind,
+            themeRef.current,
+            appearanceRef.current,
+          ),
+          source: { cell: pointerDrag.sourceNodeId, port: pointerDrag.sourcePort },
+          target: point,
+          data: { quickConnectDraft: true, restoreHistory },
+        });
+        showFlowQuickCreate(draftEdge, pointerDrag.sourceNodeId, pointerDrag.sourcePort, point, restoreHistory);
+      }, 0);
+    };
+    containerRef.current.addEventListener("pointerdown", handleFlowPointerDown, true);
+    window.addEventListener("pointerup", handleFlowPointerUp, true);
     graph.bindKey(["backspace", "delete"], (event) => {
       event.preventDefault();
       if (!removeGraphSelection(graph)) return;
@@ -714,6 +788,9 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     });
     graphRef.current = graph;
     return () => {
+      containerRef.current?.removeEventListener("pointerdown", handleFlowPointerDown, true);
+      window.removeEventListener("pointerup", handleFlowPointerUp, true);
+      flowPointerDragRef.current = null;
       nodeEditorRef.current = null;
       graphRef.current = null;
       graph.dispose();

@@ -506,7 +506,7 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
 
 .edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body {
   cursor: crosshair;
-  opacity: 0.72;
+  opacity: 0.88;
 }
 
 .edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node:hover .x6-port-body,

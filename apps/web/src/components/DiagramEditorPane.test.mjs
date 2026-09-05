@@ -46,6 +46,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('createConnectedFlowNode("terminator")');
     expect(source).toContain("draftEdgeId: edge.id");
     expect(source).toContain("removeFlowDraftEdge");
+    expect(source).toContain('addEventListener("pointerdown", handleFlowPointerDown, true)');
+    expect(source).toContain('addEventListener("pointerup", handleFlowPointerUp, true)');
+    expect(source).toContain("graph.clientToLocal(clientPoint)");
     expect(source).toContain('graph.startBatch("quick-create")');
   });
 
