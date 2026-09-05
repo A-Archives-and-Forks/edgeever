@@ -254,6 +254,7 @@
       "dependencies": {
         "@tiptap/core": "3.31.0",
         "@tiptap/extension-image": "3.31.0",
+        "@tiptap/extension-link": "3.31.0",
         "@tiptap/extension-list": "3.31.0",
         "@tiptap/extension-mathematics": "3.31.0",
         "@tiptap/extension-table": "3.31.0",
