@@ -23,6 +23,9 @@ import {
   Download,
   ExternalLink,
   RotateCcw,
+  FileText,
+  Network,
+  Workflow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -39,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotebookTreeItem } from "./NotebookTreeItem";
 import { cn } from "@/lib/utils";
-import type { Notebook, AuthUser } from "@edgeever/shared";
+import type { Notebook, AuthUser, DiagramKind } from "@edgeever/shared";
 import type { NotebookNode, NotebookDropPosition, NotebookSortMode } from "@/lib/app-helpers";
 import type { SyncQueueSummary } from "@/lib/sync-queue";
 import {
@@ -392,7 +395,7 @@ export const NotebookPane = ({
   onOpenTrash: () => void;
   onEmptyTrash: () => void;
   onOpenSettings: () => void;
-  onCreateMemo: () => void;
+  onCreateMemo: (kind?: DiagramKind) => void;
   canCreateMemo: boolean;
   isCreatingMemo: boolean;
   syncSummary: SyncQueueSummary;
@@ -558,7 +561,7 @@ export const NotebookPane = ({
             type="button"
             title={t("notebookPane.newMemo")}
             aria-label={t("notebookPane.newMemo")}
-            onClick={onCreateMemo}
+            onClick={() => onCreateMemo()}
             disabled={!canCreateMemo || isCreatingMemo}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_8px_18px_rgb(var(--brand-green-rgb)/0.28)] transition-transform duration-200 group-hover:scale-105">
@@ -566,6 +569,34 @@ export const NotebookPane = ({
             </span>
             <span className="min-w-0 truncate text-sm font-semibold text-slate-950">{t("notebookPane.newMemo")}</span>
           </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex h-14 w-14 shrink-0 items-center justify-center border-l border-slate-200 text-slate-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                aria-label={t("diagram.createType")}
+                disabled={!canCreateMemo || isCreatingMemo}
+              >
+                <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
+                  {[0, 1, 2, 3].map((item) => <span key={item} className="h-1.5 w-1.5 rounded-[2px] border border-current" />)}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={8} className="w-52">
+              <DropdownMenuItem onSelect={() => onCreateMemo()}>
+                <FileText className="h-4 w-4" />
+                {t("diagram.normalNote")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onCreateMemo("mind-map")}>
+                <Network className="h-4 w-4" />
+                {t("diagram.mindMap")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onCreateMemo("flowchart")}>
+                <Workflow className="h-4 w-4" />
+                {t("diagram.flowchart")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
