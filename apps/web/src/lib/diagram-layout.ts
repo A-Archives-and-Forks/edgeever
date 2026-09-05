@@ -21,6 +21,14 @@ export const compactMindMapNodeSize = (label: string, isRoot: boolean) => ({
   height: isRoot ? 42 : 36,
 });
 
+export const compactFlowchartNodeSize = (shape: DiagramDocument["nodes"][number]["shape"]) => (
+  shape === "decision"
+    ? { width: 104, height: 64 }
+    : shape === "terminator"
+      ? { width: 104, height: 40 }
+      : { width: 112, height: 40 }
+);
+
 const computeMindMapLayout = (
   document: DiagramDocument,
   options: DiagramLayoutOptions,
@@ -118,8 +126,8 @@ export const computeDiagramLayout = (
   const layoutGraph = new graphlib.Graph();
   layoutGraph.setGraph({
     rankdir: "LR",
-    ranksep: 130,
-    nodesep: 56,
+    ranksep: 96,
+    nodesep: 40,
     marginx: 32,
     marginy: 32,
   });

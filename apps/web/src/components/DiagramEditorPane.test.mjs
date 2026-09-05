@@ -17,13 +17,38 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).toContain('insertNodeRef.current("child"');
     expect(source).toContain("graph.cleanSelection();\n    graph.select(node);");
   });
+
+  test("supports a complete flowchart keyboard workflow", () => {
+    expect(source).toContain('openFlowQuickCreateRef.current = openFlowQuickCreate');
+    expect(source).toContain('graph.bindKey("tab"');
+    expect(source).toContain('graph.bindKey(["meta+d", "ctrl+d"]');
+    expect(source).toContain('graph.startBatch("duplicate")');
+    expect(source).toContain('graph.bindKey(["up", "down", "left", "right"');
+    expect(source).toContain('graph.bindKey("0"');
+    expect(source).toContain('graph.bindKey("1"');
+    expect(source).toContain('"1": "process", "2": "decision", "3": "terminator"');
+    expect(source).toContain('t("diagram.quickCreateShortcuts")');
+  });
+
+  test("continues from text editing into the flowchart node picker", () => {
+    expect(source).toContain('else openFlowQuickCreateRef.current(editedNode)');
+  });
 });
 
 describe("diagram editor canvas surface", () => {
-  test("keeps alignment grids for flowcharts without adding visual noise to mind maps", () => {
-    expect(source).toContain('grid: document.kind === "flowchart" ? diagramGrid(documentTheme, appearance) : false');
-    expect(source).toContain('if (kind === "flowchart") graph.drawGrid(diagramGrid(theme, appearance));');
-    expect(source).toContain("else graph.clearGrid();");
+  test("uses a clean grid-free canvas for both diagram types", () => {
+    expect(source).toContain("grid: false");
+    expect(source).toContain("graph.clearGrid();");
+    expect(source).not.toContain("diagramGrid");
+    expect(source).not.toContain("graph.drawGrid");
+  });
+
+  test("uses straight flowchart edges and presents the content smaller at the left", () => {
+    expect(source).toContain('connector: { name: kind === "mind-map" ? "smooth" : "normal" }');
+    expect(source).toContain('router: "normal"');
+    expect(source).not.toContain('name: "manhattan"');
+    expect(source).toContain('maxScale: document.kind === "flowchart" ? 0.84 : 1');
+    expect(source).toContain("fitDiagramContent(graph, document, containerRef.current);");
   });
 
   test("exposes flowchart-only connection handles with safe connection rules", () => {

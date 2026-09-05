@@ -41,7 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppearanceTheme } from "@/components/ThemeProvider";
 import { api } from "@/lib/api";
-import { compactMindMapNodeSize, computeDiagramLayout } from "@/lib/diagram-layout";
+import { compactFlowchartNodeSize, compactMindMapNodeSize, computeDiagramLayout } from "@/lib/diagram-layout";
 import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-theme";
 import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
@@ -98,37 +98,19 @@ const oppositeFlowPort = (port?: FlowPort): FlowPort | undefined => port ? ({
   left: "right",
 } as const)[port] : undefined;
 
-const flowNodeSize = (shape: DiagramNodeShape) => (
-  shape === "decision" ? { width: 132, height: 84 } : { width: 140, height: 52 }
-);
-
 const removeFlowDraftEdge = (graph: Graph, edge: Edge, restoreHistory: boolean) => {
   if (graph.isHistoryEnabled()) graph.disableHistory();
   graph.removeCell(edge);
   if (restoreHistory) graph.enableHistory();
 };
 
-const diagramGrid = (theme: DiagramTheme, appearance: DiagramAppearance) => {
-  const palette = resolveDiagramPalette(theme, appearance);
-  return {
-    visible: true,
-    type: "doubleMesh" as const,
-    args: [
-      { color: palette.grid, thickness: 1 },
-      { color: palette.gridStrong, thickness: 1, factor: 5 },
-    ],
-  };
-};
-
 const applyDiagramSurface = (
   graph: Graph,
   theme: DiagramTheme,
-  kind: DiagramDocument["kind"],
   appearance: DiagramAppearance,
 ) => {
   graph.drawBackground({ color: resolveDiagramPalette(theme, appearance).canvas });
-  if (kind === "flowchart") graph.drawGrid(diagramGrid(theme, appearance));
-  else graph.clearGrid();
+  graph.clearGrid();
 };
 
 const prepareExportSvg = (background: string) => (svg: SVGSVGElement) => {
@@ -174,7 +156,7 @@ const nodeEditorState = (
     top: topLeft.y,
     width: bottomRight.x - topLeft.x,
     height: bottomRight.y - topLeft.y,
-    fontSize: 14 * graph.scale().sx,
+    fontSize: (data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
     color: String(attrs.label.fill),
     background: String(attrs.body.fill),
     borderColor: String(attrs.body.stroke),
@@ -199,7 +181,7 @@ const nodeAttrs = (
       ry: isTerminator ? 24 : 11,
       ...(shape === "decision" ? { refPoints: "0,10 10,0 20,10 10,20" } : {}),
     },
-    label: { fill: isAccent ? palette.topicText : palette.nodeText, fontSize: 14, fontWeight: isAccent ? 650 : 500 },
+    label: { fill: isAccent ? palette.topicText : palette.nodeText, fontSize: shape === "topic" ? 14 : 13, fontWeight: isAccent ? 650 : 500 },
   };
 };
 
@@ -215,7 +197,7 @@ const nodeMetadata = (
   const palette = resolveDiagramPalette(theme, appearance);
   const size = node.shape === "topic"
     ? compactMindMapNodeSize(node.label, isRootTopic)
-    : { width: node.width, height: node.height };
+    : compactFlowchartNodeSize(node.shape);
   return {
     id: node.id,
     shape: isDecision ? "polygon" : "rect",
@@ -251,8 +233,8 @@ const edgeMetadata = (
     id: edge.id,
     source: { cell: edge.source },
     target: { cell: edge.target },
-    router: kind === "flowchart" ? { name: "manhattan", args: { padding: 20 } } : undefined,
-    connector: { name: kind === "mind-map" ? "smooth" : "rounded", args: { radius: 10 } },
+    router: undefined,
+    connector: { name: kind === "mind-map" ? "smooth" : "normal" },
     attrs: {
       line: {
         stroke: kind === "mind-map" ? palette.mindMapEdge : palette.flowEdge,
@@ -314,19 +296,23 @@ const diagramEditorSnapshot = (title: string, document: DiagramDocument) => JSON
     theme: document.theme ?? "brand",
     nodes: document.nodes.map((node) => node.shape === "topic"
       ? { ...node, ...compactMindMapNodeSize(node.label, !node.parentId) }
-      : node),
+      : { ...node, ...compactFlowchartNodeSize(node.shape) }),
   },
 });
 
 const fitDiagramContent = (graph: Graph, document: DiagramDocument, container: HTMLElement | null, padding = 32) => {
-  graph.zoomToFit({ padding, maxScale: 1 });
-  if (document.kind !== "mind-map" || !container) return;
-  const root = graph.getNodes().find((node) => !node.getData<NodeData>()?.parentId);
-  if (!root) return;
-  const rootLeft = graph.localToGraph(root.getBBox().topLeft).x;
-  const desiredLeft = Math.max(36, Math.min(96, container.clientWidth * 0.08));
+  graph.zoomToFit({ padding, maxScale: document.kind === "flowchart" ? 0.84 : 1 });
+  if (!container) return;
+  const anchor = document.kind === "mind-map"
+    ? graph.getNodes().find((node) => !node.getData<NodeData>()?.parentId)
+    : graph.getNodes().reduce<Node | null>((leftmost, node) => (
+        !leftmost || node.getBBox().x < leftmost.getBBox().x ? node : leftmost
+      ), null);
+  if (!anchor) return;
+  const contentLeft = graph.localToGraph(anchor.getBBox().topLeft).x;
+  const desiredLeft = Math.max(32, Math.min(72, container.clientWidth * 0.055));
   const translation = graph.translate();
-  graph.translate(translation.tx + desiredLeft - rootLeft, translation.ty);
+  graph.translate(translation.tx + desiredLeft - contentLeft, translation.ty);
 };
 
 const applyGraphPalette = (
@@ -361,7 +347,7 @@ const applyGraphPalette = (
         edge.attr("body/stroke", palette.nodeStroke);
       }
     }
-    applyDiagramSurface(graph, theme, kind, appearance);
+    applyDiagramSurface(graph, theme, appearance);
   } finally {
     if (historyEnabled) graph.enableHistory();
   }
@@ -373,6 +359,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
   const containerRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<Graph | null>(null);
   const insertNodeRef = useRef<(relation: MindMapInsertRelation, baseNodeId?: string) => void>(() => undefined);
+  const openFlowQuickCreateRef = useRef<(node: Node) => void>(() => undefined);
   const memoRef = useRef(memo);
   const editSessionRef = useRef<MemoEditSession | null>(null);
   const saveRef = useRef<() => void>(() => undefined);
@@ -508,7 +495,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       autoResize: true,
       async: true,
       background: { color: palette.canvas },
-      grid: document.kind === "flowchart" ? diagramGrid(documentTheme, appearance) : false,
+      grid: false,
       panning: { enabled: true, eventTypes: ["leftMouseDown", "mouseWheel"] },
       mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: 0.3, maxScale: 2.5 },
       interacting: !readOnly,
@@ -521,8 +508,8 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
         allowMulti: false,
         highlight: document.kind === "flowchart",
         snap: { radius: 24 },
-        router: document.kind === "flowchart" ? "manhattan" : "normal",
-        connector: document.kind === "mind-map" ? "smooth" : "rounded",
+        router: "normal",
+        connector: document.kind === "mind-map" ? "smooth" : "normal",
         validateConnection: ({ sourceCell, targetCell, sourcePort, targetPort }) => {
           if (document.kind !== "flowchart" || !sourceCell || !sourcePort) return false;
           if (!targetCell) return true;
@@ -558,8 +545,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     graph.addNodes(document.nodes.map((node) => nodeMetadata(node, documentTheme, document.kind, appearance)));
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance)));
     graph.cleanHistory();
-    if (document.kind === "mind-map") fitDiagramContent(graph, document, containerRef.current);
-    else graph.centerContent();
+    fitDiagramContent(graph, document, containerRef.current);
 
     const updateHistory = () => setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     const markDirty = () => {
@@ -623,7 +609,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       if (!containerRef.current) return;
       const overlayPoint = graph.localToGraph(point);
       const popupWidth = 246;
-      const popupHeight = 112;
+      const popupHeight = 132;
       const nextQuickCreate: FlowQuickCreateState = {
         draftEdgeId: edge.id,
         restoreHistory,
@@ -638,6 +624,31 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       setFlowQuickCreate(nextQuickCreate);
       if (restoreHistory) graph.enableHistory();
     };
+    const openFlowQuickCreate = (sourceNode: Node) => {
+      dismissFlowQuickCreate();
+      const sourceBounds = sourceNode.getBBox();
+      const nextSize = compactFlowchartNodeSize("process");
+      const sourcePort: FlowPort = "right";
+      const point = {
+        x: sourceBounds.x + sourceBounds.width + 96 + nextSize.width / 2,
+        y: sourceBounds.y + sourceBounds.height / 2,
+      };
+      const restoreHistory = graph.isHistoryEnabled();
+      if (restoreHistory) graph.disableHistory();
+      const draftEdge = graph.addEdge({
+        ...edgeMetadata(
+          { id: createId("edge"), source: sourceNode.id, target: "" },
+          document.kind,
+          themeRef.current,
+          appearanceRef.current,
+        ),
+        source: { cell: sourceNode.id, port: sourcePort },
+        target: point,
+        data: { quickConnectDraft: true, restoreHistory },
+      });
+      showFlowQuickCreate(draftEdge, sourceNode.id, sourcePort, point, restoreHistory);
+    };
+    openFlowQuickCreateRef.current = openFlowQuickCreate;
     graph.on("edge:connected", ({ edge, isNew, type, currentCell, currentPort, currentPoint }) => {
       if (document.kind !== "flowchart" || !isNew || type !== "target") return;
       const sourceNodeId = edge.getSourceCellId();
@@ -751,13 +762,73 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
         beginNodeEdit(selected);
       }
     });
-    if (document.kind === "mind-map") {
-      graph.bindKey("tab", (event) => {
-        event.preventDefault();
-        const selected = graph.getSelectedCells().find((cell) => cell.isNode());
+    graph.bindKey("tab", (event) => {
+      event.preventDefault();
+      const selected = graph.getSelectedCells().find((cell) => cell.isNode());
+      if (document.kind === "mind-map") {
         insertNodeRef.current("child", selected?.id);
+      } else if (selected?.isNode()) {
+        openFlowQuickCreate(selected);
+      }
+    });
+    if (document.kind === "flowchart") {
+      graph.bindKey(["meta+d", "ctrl+d"], (event) => {
+        event.preventDefault();
+        const selectedNodes = graph.getSelectedCells().filter((cell): cell is Node => cell.isNode());
+        if (selectedNodes.length === 0) return;
+        graph.startBatch("duplicate");
+        const duplicates = selectedNodes.map((node) => {
+          const data = node.getData<NodeData>();
+          const position = node.getPosition();
+          return graph.addNode(nodeMetadata({
+            id: createId("node"),
+            label: data?.label ?? t("diagram.newStep"),
+            x: position.x + 24,
+            y: position.y + 24,
+            width: node.getSize().width,
+            height: node.getSize().height,
+            shape: data?.shape ?? "process",
+          }, themeRef.current, document.kind, appearanceRef.current));
+        });
+        graph.stopBatch("duplicate");
+        graph.cleanSelection();
+        duplicates.forEach((node) => graph.select(node));
+        const lastNode = duplicates.at(-1);
+        setSelectedNodeId(lastNode?.id ?? null);
+        setSelectedNodeLabel(lastNode?.getData<NodeData>()?.label ?? "");
+        setHasSelection(duplicates.length > 0);
       });
     }
+    const nudgeSelection = (event: KeyboardEvent) => {
+      const selectedNodes = graph.getSelectedCells().filter((cell): cell is Node => cell.isNode());
+      if (selectedNodes.length === 0) return;
+      event.preventDefault();
+      const distance = event.shiftKey ? 10 : 1;
+      const movement = {
+        ArrowUp: { dx: 0, dy: -distance },
+        ArrowDown: { dx: 0, dy: distance },
+        ArrowLeft: { dx: -distance, dy: 0 },
+        ArrowRight: { dx: distance, dy: 0 },
+      }[event.key];
+      if (!movement) return;
+      graph.startBatch("nudge");
+      selectedNodes.forEach((node) => node.translate(movement.dx, movement.dy));
+      graph.stopBatch("nudge");
+    };
+    graph.bindKey(["up", "down", "left", "right", "shift+up", "shift+down", "shift+left", "shift+right"], nudgeSelection);
+    graph.bindKey("0", (event) => {
+      event.preventDefault();
+      fitDiagramContent(graph, document, containerRef.current);
+    });
+    graph.bindKey("1", (event) => {
+      event.preventDefault();
+      graph.zoomTo(1);
+    });
+    graph.bindKey("esc", (event) => {
+      if (!flowQuickCreateRef.current) return;
+      event.preventDefault();
+      dismissFlowQuickCreate();
+    });
     graph.bindKey(["meta+z", "ctrl+z"], (event) => {
       event.preventDefault();
       graph.undo();
@@ -772,7 +843,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
         graphToDocument(graph, document.kind, themeRef.current),
       ));
     });
-    graph.bindKey(["meta+shift+z", "ctrl+shift+z"], (event) => {
+    graph.bindKey(["meta+shift+z", "ctrl+shift+z", "ctrl+y"], (event) => {
       event.preventDefault();
       graph.redo();
       applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current);
@@ -791,6 +862,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       containerRef.current?.removeEventListener("pointerdown", handleFlowPointerDown, true);
       window.removeEventListener("pointerup", handleFlowPointerUp, true);
       flowPointerDragRef.current = null;
+      openFlowQuickCreateRef.current = () => undefined;
       nodeEditorRef.current = null;
       graphRef.current = null;
       graph.dispose();
@@ -918,7 +990,7 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
       dismissFlowQuickCreate();
       return;
     }
-    const size = flowNodeSize(shape);
+    const size = compactFlowchartNodeSize(shape);
     const id = createId("node");
     const label = shape === "decision"
       ? t("diagram.newDecision")
@@ -1156,7 +1228,12 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
               </Tooltip>
             ) : (
               <>
-                <Button size="sm" variant="soft" onClick={() => addNode("process")}><Box className="h-4 w-4" />{t("diagram.addStep")}</Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="soft" onClick={() => addNode("process")}><Box className="h-4 w-4" />{t("diagram.addStep")}</Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("diagram.flowchartShortcuts")}</TooltipContent>
+                </Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button size="sm" variant="ghost" aria-label={t("diagram.addDecision")} onClick={() => addNode("decision")}><Diamond className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{t("diagram.addDecision")}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button size="sm" variant="ghost" aria-label={t("diagram.addTerminator")} onClick={() => addNode("terminator")}><Circle className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{t("diagram.addTerminator")}</TooltipContent></Tooltip>
                 <span className="hidden items-center gap-1.5 px-2 text-xs text-slate-500 xl:flex"><Link2 className="h-3.5 w-3.5" />{t("diagram.connectHint")}</span>
@@ -1207,27 +1284,38 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
               role="dialog"
               aria-label={t("diagram.quickCreateTitle")}
               onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.preventDefault();
-                dismissFlowQuickCreate();
-                containerRef.current?.focus({ preventScroll: true });
+                const shape = ({ "1": "process", "2": "decision", "3": "terminator" } as const)[event.key as "1" | "2" | "3"];
+                if (shape) {
+                  event.preventDefault();
+                  createConnectedFlowNode(shape);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  dismissFlowQuickCreate();
+                  containerRef.current?.focus({ preventScroll: true });
+                }
               }}
             >
               <div className="px-1.5 pb-1.5 text-xs font-medium text-slate-500">{t("diagram.quickCreateTitle")}</div>
               <div className="grid grid-cols-3 gap-1">
-                <Button autoFocus className="h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addStep")} onClick={() => createConnectedFlowNode("process")}>
+                <Button autoFocus className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addStep")} onClick={() => createConnectedFlowNode("process")}>
+                  <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">1</kbd>
                   <Box className="h-6 w-6" />
                   {t("diagram.addStep")}
                 </Button>
-                <Button className="h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addDecision")} onClick={() => createConnectedFlowNode("decision")}>
+                <Button className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addDecision")} onClick={() => createConnectedFlowNode("decision")}>
+                  <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">2</kbd>
                   <Diamond className="h-6 w-6" />
                   {t("diagram.addDecision")}
                 </Button>
-                <Button className="h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addTerminator")} onClick={() => createConnectedFlowNode("terminator")}>
+                <Button className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addTerminator")} onClick={() => createConnectedFlowNode("terminator")}>
+                  <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">3</kbd>
                   <Circle className="h-6 w-6" />
                   {t("diagram.addTerminator")}
                 </Button>
               </div>
+              <div className="px-1.5 pt-1 text-[11px] text-slate-400">{t("diagram.quickCreateShortcuts")}</div>
             </div>
           ) : null}
           {nodeEditor ? (
@@ -1270,10 +1358,15 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
                   }
                   return;
                 }
-                if (event.key === "Tab" && document.kind === "mind-map") {
+                if (event.key === "Tab") {
                   event.preventDefault();
                   const editedNode = finishNodeEdit();
-                  if (editedNode) requestAnimationFrame(() => insertNodeRef.current("child", editedNode.id));
+                  if (editedNode) {
+                    requestAnimationFrame(() => {
+                      if (document.kind === "mind-map") insertNodeRef.current("child", editedNode.id);
+                      else openFlowQuickCreateRef.current(editedNode);
+                    });
+                  }
                 }
               }}
             />

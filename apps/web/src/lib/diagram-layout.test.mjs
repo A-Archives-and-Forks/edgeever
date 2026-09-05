@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createDefaultDiagramDocument } from "@edgeever/shared";
-import { compactMindMapNodeSize, computeDiagramLayout } from "./diagram-layout.ts";
+import { compactFlowchartNodeSize, compactMindMapNodeSize, computeDiagramLayout } from "./diagram-layout.ts";
 
 describe("diagram auto layout", () => {
   test("places mind-map children to the right of their root", () => {
@@ -57,5 +57,11 @@ describe("diagram auto layout", () => {
     expect(positions["flow-process"].x).toBeLessThan(positions["flow-end"].x);
     expect(Number.isFinite(positions.detached.x)).toBeTrue();
     expect(Number.isFinite(positions.detached.y)).toBeTrue();
+  });
+
+  test("uses compact flowchart nodes with aligned process and terminator centers", () => {
+    expect(compactFlowchartNodeSize("process")).toEqual({ width: 112, height: 40 });
+    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 104, height: 40 });
+    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 104, height: 64 });
   });
 });

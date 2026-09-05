@@ -150,9 +150,9 @@ export const createDefaultDiagramDocument = (kind: DiagramKind): DiagramDocument
     schemaVersion: DIAGRAM_SCHEMA_VERSION,
     kind,
     nodes: [
-      { id: "flow-start", label: "开始", x: 100, y: 180, width: 120, height: 48, shape: "terminator" },
-      { id: "flow-process", label: "处理步骤", x: 340, y: 180, width: 140, height: 56, shape: "process" },
-      { id: "flow-end", label: "结束", x: 600, y: 180, width: 120, height: 48, shape: "terminator" },
+      { id: "flow-start", label: "开始", x: 80, y: 180, width: 104, height: 40, shape: "terminator" },
+      { id: "flow-process", label: "处理步骤", x: 256, y: 180, width: 112, height: 40, shape: "process" },
+      { id: "flow-end", label: "结束", x: 440, y: 180, width: 104, height: 40, shape: "terminator" },
     ],
     edges: [
       { id: "flow-edge-1", source: "flow-start", target: "flow-process" },
