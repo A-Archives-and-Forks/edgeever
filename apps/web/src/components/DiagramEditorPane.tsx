@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Export, Graph, History, Keyboard, Selection, type Edge, type Node } from "@antv/x6";
 import {
-  ArrowLeft,
   Box,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   Circle,
+  CircleAlert,
+  Copy,
   Diamond,
   Download,
   FileCode2,
   FileImage,
   GitBranch,
+  History as HistoryIcon,
   LayoutDashboard,
   Link2,
+  LoaderCircle,
   Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  Pencil,
   Redo2,
   RefreshCw,
+  RotateCcw,
   Trash2,
   Undo2,
   ZoomIn,
@@ -35,26 +45,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppConfirmDialog } from "@/components/dialogs/ConfirmDialogs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RevisionHistoryDialog } from "@/components/dialogs/RevisionHistoryDialog";
+import { ShareMemoDialog } from "@/components/dialogs/ShareMemoDialog";
+import { ClipboardCopyNotice } from "@/components/ClipboardCopyNotice";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAppearanceTheme } from "@/components/ThemeProvider";
 import { api } from "@/lib/api";
+import { EDITOR_LOCAL_SAVE_DELAY_MS } from "@/lib/app-helpers";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { compactFlowchartNodeSize, compactMindMapNodeSize, computeDiagramLayout } from "@/lib/diagram-layout";
 import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-theme";
 import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
 import type { EdgeEverRepository } from "@/lib/repository";
-import { cn } from "@/lib/utils";
-import { EDITOR_LOCAL_SAVE_DELAY_MS } from "@/lib/app-helpers";
+import { cn, formatDateTime } from "@/lib/utils";
 
 type DiagramEditorPaneProps = {
   memo: MemoDetail;
   repository: EdgeEverRepository;
   readOnly: boolean;
+  desktopFocusMode: boolean;
+  hasNextMemo: boolean;
+  hasPreviousMemo: boolean;
   onBackToList: () => void;
+  onDeleted: (memoId: string) => Promise<void>;
+  onOpenNextMemo: () => void;
+  onOpenPreviousMemo: () => void;
+  onPermanentDeleted: (memoId: string) => Promise<void>;
+  onRestored: (memoId: string) => Promise<void>;
   onSaved: (memo: MemoDetail) => Promise<void>;
+  onSaveAsTemplate: (memo: MemoDetail, name: string) => Promise<void>;
+  onToggleDesktopFocusMode: () => void;
 };
 
 type NodeData = { label: string; shape: DiagramNodeShape; parentId?: string };
@@ -354,7 +378,23 @@ const applyGraphPalette = (
   }
 };
 
-export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, onSaved }: DiagramEditorPaneProps) => {
+export const DiagramEditorPane = ({
+  memo,
+  repository,
+  readOnly,
+  desktopFocusMode,
+  hasNextMemo,
+  hasPreviousMemo,
+  onBackToList,
+  onDeleted,
+  onOpenNextMemo,
+  onOpenPreviousMemo,
+  onPermanentDeleted,
+  onRestored,
+  onSaved,
+  onSaveAsTemplate,
+  onToggleDesktopFocusMode,
+}: DiagramEditorPaneProps) => {
   const { t } = useTranslation();
   const { resolvedTheme } = useAppearanceTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -381,6 +421,10 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
   const [editSessionReady, setEditSessionReady] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [memoIdCopyNotice, setMemoIdCopyNotice] = useState<"copied" | "error" | null>(null);
+  const memoIdCopyTimerRef = useRef<number | null>(null);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
@@ -440,7 +484,14 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     setNodeEditor(null);
     setTheme(documentTheme);
     themeRef.current = documentTheme;
+    setHistoryOpen(false);
+    setShareOpen(false);
+    setMemoIdCopyNotice(null);
   }, [documentTheme, memo.id]);
+
+  useEffect(() => () => {
+    if (memoIdCopyTimerRef.current !== null) window.clearTimeout(memoIdCopyTimerRef.current);
+  }, []);
 
   useEffect(() => {
     memoRef.current = memo;
@@ -1192,51 +1243,205 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
     return () => window.clearTimeout(timer);
   }, [dirty, dirtyVersion, editSessionReady, readOnly, saveFailed, saving]);
 
+  const handleCopyMemoId = async () => {
+    if (isLocalMemoId(memo.id)) return;
+    const copied = await copyTextToClipboard(memo.id);
+    setMemoIdCopyNotice(copied ? "copied" : "error");
+    if (memoIdCopyTimerRef.current !== null) window.clearTimeout(memoIdCopyTimerRef.current);
+    memoIdCopyTimerRef.current = window.setTimeout(() => {
+      setMemoIdCopyNotice(null);
+      memoIdCopyTimerRef.current = null;
+    }, copied ? 2200 : 3000);
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!document || readOnly) return;
+    const name = window.prompt(t("templates.templateNamePrompt"), titleRef.current);
+    if (!name?.trim()) return;
+    const currentDocument = graphRef.current
+      ? graphToDocument(graphRef.current, document.kind, themeRef.current)
+      : document;
+    const markdown = serializeDiagramDocument(currentDocument);
+    void onSaveAsTemplate({
+      ...memoRef.current,
+      title: titleRef.current,
+      contentJson: markdownToDoc(diagramFallbackMarkdown(currentDocument)),
+      contentMarkdown: markdown,
+    }, name.trim());
+  };
+
   if (!document) return null;
   const kindLabel = document.kind === "mind-map" ? t("diagram.mindMap") : t("diagram.flowchart");
+  const updatedLabel = formatDateTime(memo.updatedAt);
+  const currentMarkdown = historyOpen
+    ? serializeDiagramDocument(graphRef.current ? graphToDocument(graphRef.current, document.kind, themeRef.current) : document)
+    : memo.contentMarkdown;
 
   return (
     <TooltipProvider>
       <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-slate-200 px-3 py-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="icon" variant="ghost" aria-label={t("diagram.back")} onClick={() => dirty ? setConfirmDiscardOpen(true) : onBackToList()}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("diagram.back")}</TooltipContent>
-        </Tooltip>
-        <div className="hidden rounded-full border border-[var(--brand-green-border)] bg-[var(--brand-green-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-green-text)] sm:block">{kindLabel}</div>
-        <input
-          className="min-w-0 flex-1 bg-transparent px-2 text-base font-semibold text-slate-950 outline-none placeholder:text-slate-400 disabled:text-slate-600"
-          value={title}
-          disabled={readOnly}
-          maxLength={160}
-          placeholder={kindLabel}
-          aria-label={t("diagram.title")}
-          onChange={(event) => {
-            const nextTitle = event.target.value;
-            titleRef.current = nextTitle;
-            setTitle(nextTitle);
-            setDirtyVersion((current) => current + 1);
-            const graph = graphRef.current;
-            if (graph) {
-              setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
-                nextTitle,
-                graphToDocument(graph, document.kind, themeRef.current),
-              ));
-            }
-          }}
-        />
-        <span className={cn("hidden text-xs sm:block", saveError ? "text-rose-600" : "text-slate-400")}>{saveError ?? (dirty || saving ? t("diagram.saving") : t("diagram.saved"))}</span>
-        <ThemeToggle />
-        {!readOnly && saveFailed && (
-          <Button variant="soft" size="sm" disabled={saving || !editSessionReady} onClick={() => void save()}>
-            <RefreshCw className="h-4 w-4" />
-            {t("diagram.retrySave")}
-          </Button>
-        )}
+      <header className="shrink-0 border-b border-slate-200 bg-white">
+        <div className="flex min-h-12 items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button className="lg:hidden" size="icon" variant="ghost" aria-label={t("diagram.back")} onClick={() => dirty ? setConfirmDiscardOpen(true) : onBackToList()}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("diagram.back")}</TooltipContent>
+            </Tooltip>
+            <div className="hidden items-center gap-1 sm:flex lg:hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" aria-label={t("editor.previousMemo")} onClick={onOpenPreviousMemo} disabled={!hasPreviousMemo}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("editor.previousMemo")}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" aria-label={t("editor.nextMemo")} onClick={onOpenNextMemo} disabled={!hasNextMemo}>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("editor.nextMemo")}</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="hidden items-center gap-1 lg:flex">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant={desktopFocusMode ? "soft" : "ghost"} aria-label={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")} aria-pressed={desktopFocusMode} onClick={onToggleDesktopFocusMode}>
+                    {desktopFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t(desktopFocusMode ? "editor.exitFocusMode" : "editor.focusMode")}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" aria-label={t("editor.previousMemo")} onClick={onOpenPreviousMemo} disabled={!hasPreviousMemo}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("editor.previousMemo")}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" aria-label={t("editor.nextMemo")} onClick={onOpenNextMemo} disabled={!hasNextMemo}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("editor.nextMemo")}</TooltipContent>
+              </Tooltip>
+            </div>
+            <span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <span className={cn(
+              "inline-flex max-w-[5.5rem] truncate rounded-full px-2 py-1 text-[11px] font-medium sm:hidden",
+              saveError ? "bg-rose-50 text-rose-700" : dirty || saving ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700",
+            )} role="status" aria-live="polite">
+              {saveError ?? (dirty || saving ? t("diagram.saving") : t("diagram.saved"))}
+            </span>
+            <span className={cn(
+              "hidden items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium sm:inline-flex",
+              saveError ? "bg-rose-50 text-rose-700" : dirty || saving ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700",
+            )} role="status" aria-live="polite">
+              {saveError ? <CircleAlert className="h-3 w-3" /> : dirty || saving ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              {saveError ?? (dirty || saving ? t("diagram.saving") : t("diagram.saved"))}
+            </span>
+            {!readOnly && saveFailed && (
+              <Button variant="soft" size="sm" disabled={saving || !editSessionReady} onClick={() => void save()}>
+                <RefreshCw className="h-4 w-4" />
+                {t("diagram.retrySave")}
+              </Button>
+            )}
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label={t("editor.moreAria")}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 border border-slate-200 bg-white py-1 shadow-md">
+                <DropdownMenuItem disabled={isLocalMemoId(memo.id)} onClick={() => void handleCopyMemoId()}>
+                  <Copy className="h-4 w-4 text-slate-500" />
+                  {t(isLocalMemoId(memo.id) ? "editor.copyNoteIdAfterSync" : "editor.copyNoteId")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                  <HistoryIcon className="h-4 w-4 text-slate-500" />
+                  {t("editor.versionHistory")}
+                </DropdownMenuItem>
+                {!readOnly && (
+                  <DropdownMenuItem disabled={isLocalMemoId(memo.id)} onClick={() => setShareOpen(true)}>
+                    <Link2 className="h-4 w-4 text-slate-500" />
+                    {t(isLocalMemoId(memo.id) ? "sharing.afterSync" : "sharing.action")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => exportDiagram("png")}>
+                  <FileImage className="h-4 w-4 text-slate-500" />
+                  {t("diagram.exportPng")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportDiagram("svg")}>
+                  <FileCode2 className="h-4 w-4 text-slate-500" />
+                  {t("diagram.exportSvg")}
+                </DropdownMenuItem>
+                {!readOnly && (
+                  <DropdownMenuItem onClick={handleSaveAsTemplate}>
+                    <Pencil className="h-4 w-4 text-slate-500" />
+                    {t("templates.saveAsTemplate")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {readOnly ? (
+                  <>
+                    <DropdownMenuItem onClick={() => void onRestored(memo.id)}>
+                      <RotateCcw className="h-4 w-4 text-slate-500" />
+                      {t("editor.restoreMemo")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-rose-700 focus:text-rose-700" onClick={() => void onPermanentDeleted(memo.id)}>
+                      <Trash2 className="h-4 w-4" />
+                      {t("editor.deleteForever")}
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem className="text-rose-700 focus:text-rose-700" onClick={() => void onDeleted(memo.id)}>
+                    <Trash2 className="h-4 w-4" />
+                    {t("editor.deleteMemo")}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-7">
+          <input
+            className="min-w-0 flex-1 bg-transparent text-xl font-semibold text-slate-950 outline-none placeholder:text-slate-400 disabled:text-slate-600 sm:text-2xl"
+            value={title}
+            disabled={readOnly}
+            maxLength={160}
+            placeholder={kindLabel}
+            aria-label={t("diagram.title")}
+            onChange={(event) => {
+              const nextTitle = event.target.value;
+              titleRef.current = nextTitle;
+              setTitle(nextTitle);
+              setDirtyVersion((current) => current + 1);
+              const graph = graphRef.current;
+              if (graph) {
+                setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
+                  nextTitle,
+                  graphToDocument(graph, document.kind, themeRef.current),
+                ));
+              }
+            }}
+          />
+          <div className="shrink-0 rounded-full border border-[var(--brand-green-border)] bg-[var(--brand-green-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--brand-green-text)]">{kindLabel}</div>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -1405,6 +1610,24 @@ export const DiagramEditorPane = ({ memo, repository, readOnly, onBackToList, on
             onCancel={() => setConfirmDiscardOpen(false)}
             onConfirm={onBackToList}
           />
+        ) : null}
+        {historyOpen ? (
+          <RevisionHistoryDialog
+            memo={memo}
+            repository={repository}
+            currentMarkdown={currentMarkdown}
+            onClose={() => setHistoryOpen(false)}
+            onRestored={async (restoredMemo) => {
+              setHistoryOpen(false);
+              await onSaved(restoredMemo);
+            }}
+          />
+        ) : null}
+        <ShareMemoDialog memoId={memo.id} open={shareOpen} onOpenChange={setShareOpen} />
+        {memoIdCopyNotice ? (
+          <ClipboardCopyNotice status={memoIdCopyNotice}>
+            {t(memoIdCopyNotice === "copied" ? "editor.noteIdCopied" : "editor.noteIdCopyFailed", { id: memo.id })}
+          </ClipboardCopyNotice>
         ) : null}
       </div>
     </TooltipProvider>

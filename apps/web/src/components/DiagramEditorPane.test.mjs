@@ -37,6 +37,20 @@ describe("diagram editor keyboard workflow", () => {
 });
 
 describe("diagram editor canvas surface", () => {
+  test("uses the common note header and capability-aware more menu", () => {
+    expect(source).toContain('<span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>');
+    expect(source).not.toContain('t("editor.updatedAt", { time: updatedLabel })');
+    expect(source).toContain("onToggleDesktopFocusMode");
+    expect(source).toContain("onOpenPreviousMemo");
+    expect(source).toContain("onOpenNextMemo");
+    expect(source).toContain('aria-label={t("editor.moreAria")}');
+    expect(source).toContain('t("editor.versionHistory")');
+    expect(source).toContain('"sharing.afterSync" : "sharing.action"');
+    expect(source).toContain('t("templates.saveAsTemplate")');
+    expect(source).toContain("<RevisionHistoryDialog");
+    expect(source).toContain("<ShareMemoDialog");
+  });
+
   test("autosaves diagram changes without a persistent save button", () => {
     expect(source).toContain("EDITOR_LOCAL_SAVE_DELAY_MS");
     expect(source).toContain("window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS)");

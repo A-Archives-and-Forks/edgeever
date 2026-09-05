@@ -3881,7 +3881,7 @@ const RichEditorPane = ({
               </IconTooltip>
             </div>
             <span className="hidden truncate text-xs text-slate-400 sm:inline">
-              {t("editor.updatedAt", { time: updatedLabel })}
+              {updatedLabel}
             </span>
           </div>
 

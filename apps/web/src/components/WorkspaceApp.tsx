@@ -3420,9 +3420,35 @@ export const WorkspaceApp = ({
                           memo={selectedMemo}
                           repository={repository}
                           readOnly={memoView === "trash" || selectedMemo.isDeleted}
+                          desktopFocusMode={desktopFocusModeActive}
+                          hasNextMemo={Boolean(nextMemoId)}
+                          hasPreviousMemo={Boolean(previousMemoId)}
                           onBackToList={() => {
                             clearPendingCreatedMemo();
                             setActivePane("memos");
+                          }}
+                          onDeleted={async (memoId) => {
+                            deleteMemoMutation.mutate({ memoId, permanent: false });
+                          }}
+                          onOpenNextMemo={() => {
+                            if (nextMemoId) {
+                              clearPendingCreatedMemo();
+                              setCreatedMemoEditId(null);
+                              setSelectedMemoId(nextMemoId);
+                            }
+                          }}
+                          onOpenPreviousMemo={() => {
+                            if (previousMemoId) {
+                              clearPendingCreatedMemo();
+                              setCreatedMemoEditId(null);
+                              setSelectedMemoId(previousMemoId);
+                            }
+                          }}
+                          onPermanentDeleted={async (memoId) => {
+                            setMemoDeleteConfirmation({ kind: "single", memoIds: [memoId], permanent: true });
+                          }}
+                          onRestored={async (memoId) => {
+                            await restoreMemoMutation.mutateAsync(memoId);
                           }}
                           onSaved={async (memo) => {
                             await putLocalMemo(localDataScope, memo);
@@ -3433,6 +3459,8 @@ export const WorkspaceApp = ({
                               queryClient.invalidateQueries({ queryKey: ["notebooks"], refetchType: "inactive" }),
                             ]);
                           }}
+                          onSaveAsTemplate={handleSaveAsTemplate}
+                          onToggleDesktopFocusMode={toggleDesktopFocusMode}
                         />
                       ) : (
                       <EditorPane
