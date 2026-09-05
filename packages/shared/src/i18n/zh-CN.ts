@@ -244,6 +244,7 @@ export const zhCN = {
     mindMap: "思维导图",
     flowchart: "流程图",
     createType: "选择笔记类型",
+    moreTypes: "更多类型",
     back: "返回笔记列表",
     title: "图表标题",
     canvas: "{{type}}画布",

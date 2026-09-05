@@ -244,6 +244,7 @@ export const enUS = {
     mindMap: "Mind map",
     flowchart: "Flowchart",
     createType: "Choose note type",
+    moreTypes: "More types",
     back: "Back to note list",
     title: "Diagram title",
     canvas: "{{type}} canvas",
