@@ -22,6 +22,15 @@ test("keeps the desktop create-note control compact with one neutral outline", (
   expect(source).not.toContain('title={t("notebookPane.newMemo")}');
 });
 
+test("marks diagram note types as beta without labeling regular notes", () => {
+  const createTypeMenu = source.split('<DropdownMenuContent align="start" sideOffset={8} className="w-52">')[1]?.split("</DropdownMenuContent>")[0];
+  const regularNoteItem = createTypeMenu?.split('onSelect={() => onCreateMemo()}>')[1]?.split("</DropdownMenuItem>")[0];
+  const betaBadgeCount = createTypeMenu?.match(/<DiagramBetaBadge \/>/g)?.length;
+
+  expect(regularNoteItem).not.toContain("DiagramBetaBadge");
+  expect(betaBadgeCount).toBe(2);
+});
+
 describe("NotebookPane client downloads", () => {
   test("keeps macOS and Windows downloads visible in the desktop runtime", () => {
     expect(source).toContain('t("pwa.sidebarMac") || "macOS"');
