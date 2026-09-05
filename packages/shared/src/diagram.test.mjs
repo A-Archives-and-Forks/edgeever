@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createDefaultDiagramDocument, parseDiagramDocument, serializeDiagramDocument } from "./diagram.ts";
+import { createDefaultDiagramDocument, diagramDocumentToMermaid, diagramFallbackMarkdown, parseDiagramDocument, serializeDiagramDocument } from "./diagram.ts";
+import { markdownToDoc } from "./content.ts";
 
 describe("diagram document", () => {
   test("round-trips unicode labels through the Markdown compatibility envelope", () => {
@@ -9,10 +10,33 @@ describe("diagram document", () => {
     expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
   });
 
-  test("keeps a readable Markdown fallback", () => {
+  test("persists a Mermaid fallback that native app viewers can render", () => {
     const markdown = serializeDiagramDocument(createDefaultDiagramDocument("flowchart"));
     expect(markdown).toContain("# 流程图");
-    expect(markdown).toContain("- 处理步骤");
+    expect(markdown).toContain("```mermaid\nflowchart TD");
+    expect(markdown).toContain('n1["处理步骤"]');
+
+    const doc = markdownToDoc(markdown);
+    expect(doc.content?.some((node) => node.type === "codeBlock" && node.attrs?.language === "mermaid")).toBe(true);
+  });
+
+  test("escapes labels and emits the mind-map hierarchy as a portable flowchart", () => {
+    const document = createDefaultDiagramDocument("mind-map");
+    document.nodes[0].label = '核心 <主题> "A&B"';
+    const source = diagramDocumentToMermaid(document);
+    expect(source).toContain("flowchart LR");
+    expect(source).toContain("核心 &lt;主题&gt; &quot;A&amp;B&quot;");
+    expect(source).toContain("n0 --> n1");
+  });
+
+  test("round-trips architecture components, boundaries, and semantic connections", () => {
+    const document = createDefaultDiagramDocument("architecture");
+    const parsed = parseDiagramDocument(serializeDiagramDocument(document));
+    expect(parsed).toEqual(document);
+    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.nodes.find((node) => node.id === "api").parentId).toBe("system");
+    expect(parsed.edges.find((edge) => edge.id === "request").kind).toBe("request");
+    expect(diagramFallbackMarkdown(document)).toContain("# 架构图");
   });
 
   test("rejects malformed and dangling graph data", () => {
@@ -28,5 +52,9 @@ describe("diagram document", () => {
     const invalidTheme = createDefaultDiagramDocument("mind-map");
     invalidTheme.theme = "neon";
     expect(parseDiagramDocument(serializeDiagramDocument(invalidTheme))).toBeNull();
+
+    const architecture = createDefaultDiagramDocument("architecture");
+    architecture.nodes.find((node) => node.id === "api").parentId = "database";
+    expect(parseDiagramDocument(serializeDiagramDocument(architecture))).toBeNull();
   });
 });
