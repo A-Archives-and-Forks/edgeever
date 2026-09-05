@@ -499,6 +499,10 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   box-shadow: 0 2px 10px rgb(104 214 176 / 0.22) !important;
 }
 
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-widget-selection-box-node {
+  pointer-events: none !important;
+}
+
 .edgeever-diagram-canvas .x6-port-body {
   opacity: 0;
   transition: opacity 120ms ease, filter 120ms ease;
@@ -509,19 +513,30 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   pointer-events: none;
 }
 
-.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.edgeever-flow-node-active .x6-port-body {
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .edgeever-flow-port-hit-area {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+}
+
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .edgeever-flow-port-dot {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: filter 120ms ease, transform 120ms ease;
+}
+
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.edgeever-flow-node-active .edgeever-flow-port-dot {
   fill: var(--brand-green) !important;
   stroke: var(--workspace-editor) !important;
   stroke-width: 2px !important;
   filter: drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.3));
-  opacity: 1;
-  pointer-events: auto;
 }
 
-.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body:hover,
-.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-available-magnet {
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body:hover .edgeever-flow-port-dot,
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-available-magnet + .edgeever-flow-port-dot {
   filter: drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.28));
-  opacity: 1;
+  transform: scale(1.12);
 }
 
 /* Curated reading themes should feel like part of the note canvas in dark

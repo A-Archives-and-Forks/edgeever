@@ -116,6 +116,10 @@ type NodeEditorState = {
 };
 
 const FLOW_ACTIVE_NODE_CLASS = "edgeever-flow-node-active";
+const FLOW_PORT_HIT_RADIUS = 14;
+const FLOW_PORT_DOT_RADIUS = 7;
+const FLOW_QUICK_CREATE_WIDTH = 330;
+const FLOW_QUICK_CREATE_HEIGHT = 132;
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const oppositeFlowPort = (port?: FlowPort): FlowPort | undefined => port ? ({
   top: "bottom",
@@ -139,16 +143,17 @@ const setFlowNodePortsActive = (graph: Graph, node: Node, active: boolean) => {
     view.container.querySelectorAll<SVGElement>(".x6-port-body").forEach((port) => {
       port.style.setProperty("opacity", active ? "1" : "0", "important");
       port.style.setProperty("pointer-events", active ? "auto" : "none", "important");
+      const dot = port.querySelector<SVGElement>(".edgeever-flow-port-dot") ?? port;
       if (active) {
-        port.style.setProperty("fill", "var(--brand-green)", "important");
-        port.style.setProperty("stroke", "var(--workspace-editor)", "important");
-        port.style.setProperty("stroke-width", "2px", "important");
-        port.style.setProperty("filter", "drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.3))");
+        dot.style.setProperty("fill", "var(--brand-green)", "important");
+        dot.style.setProperty("stroke", "var(--workspace-editor)", "important");
+        dot.style.setProperty("stroke-width", "2px", "important");
+        dot.style.setProperty("filter", "drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.3))");
       } else {
-        port.style.removeProperty("fill");
-        port.style.removeProperty("stroke");
-        port.style.removeProperty("stroke-width");
-        port.style.removeProperty("filter");
+        dot.style.removeProperty("fill");
+        dot.style.removeProperty("stroke");
+        dot.style.removeProperty("stroke-width");
+        dot.style.removeProperty("filter");
       }
     });
     return true;
@@ -241,6 +246,33 @@ const nodeAttrs = (
   };
 };
 
+const flowPortGroup = (
+  position: FlowPort,
+  palette: ReturnType<typeof resolveDiagramPalette>,
+) => ({
+  position,
+  markup: [
+    { tagName: "circle", selector: "hitArea", className: "edgeever-flow-port-hit-area" },
+    { tagName: "circle", selector: "circle", className: "edgeever-flow-port-dot" },
+  ],
+  attrs: {
+    hitArea: {
+      r: FLOW_PORT_HIT_RADIUS,
+      magnet: true,
+      fill: "transparent",
+      stroke: "transparent",
+      pointerEvents: "all",
+    },
+    circle: {
+      r: FLOW_PORT_DOT_RADIUS,
+      stroke: palette.topicStroke,
+      fill: palette.canvas,
+      strokeWidth: 2,
+      pointerEvents: "none",
+    },
+  },
+});
+
 const nodeMetadata = (
   node: DiagramDocument["nodes"][number],
   theme: DiagramTheme,
@@ -268,10 +300,10 @@ const nodeMetadata = (
     },
     ...(kind === "flowchart" ? { ports: {
       groups: {
-        top: { position: "top", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        right: { position: "right", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        bottom: { position: "bottom", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
-        left: { position: "left", attrs: { circle: { r: 7, magnet: true, stroke: palette.topicStroke, fill: palette.canvas, strokeWidth: 2 } } },
+        top: flowPortGroup("top", palette),
+        right: flowPortGroup("right", palette),
+        bottom: flowPortGroup("bottom", palette),
+        left: flowPortGroup("left", palette),
       },
       items: ["top", "right", "bottom", "left"].map((group) => ({ id: group, group })),
     } } : {}),
@@ -706,8 +738,6 @@ export const DiagramEditorPane = ({
     ) => {
       if (!containerRef.current) return;
       const overlayPoint = graph.localToGraph(point);
-      const popupWidth = 246;
-      const popupHeight = 132;
       const nextQuickCreate: FlowQuickCreateState = {
         draftEdgeId: edge.id,
         restoreHistory,
@@ -715,8 +745,8 @@ export const DiagramEditorPane = ({
         sourcePort,
         x: point.x,
         y: point.y,
-        left: Math.max(12, Math.min(overlayPoint.x + 12, containerRef.current.clientWidth - popupWidth - 12)),
-        top: Math.max(12, Math.min(overlayPoint.y + 12, containerRef.current.clientHeight - popupHeight - 12)),
+        left: Math.max(12, Math.min(overlayPoint.x + 12, containerRef.current.clientWidth - FLOW_QUICK_CREATE_WIDTH - 12)),
+        top: Math.max(12, Math.min(overlayPoint.y + 12, containerRef.current.clientHeight - FLOW_QUICK_CREATE_HEIGHT - 12)),
       };
       flowQuickCreateRef.current = nextQuickCreate;
       setFlowQuickCreate(nextQuickCreate);
@@ -1279,10 +1309,10 @@ export const DiagramEditorPane = ({
   saveRef.current = () => { void save(); };
 
   useEffect(() => {
-    if (readOnly || !dirty || saving || !editSessionReady || saveFailed) return;
+    if (readOnly || !dirty || nodeEditor !== null || saving || !editSessionReady || saveFailed) return;
     const timer = window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [dirty, dirtyVersion, editSessionReady, readOnly, saveFailed, saving]);
+  }, [dirty, dirtyVersion, editSessionReady, nodeEditor, readOnly, saveFailed, saving]);
 
   const handleCopyMemoId = async () => {
     if (isLocalMemoId(memo.id)) return;
@@ -1548,7 +1578,7 @@ export const DiagramEditorPane = ({
           <div ref={containerRef} className="edgeever-diagram-canvas absolute inset-0 touch-none outline-none" data-diagram-appearance={resolvedTheme} data-diagram-kind={document.kind} data-diagram-theme={theme} tabIndex={0} aria-label={t("diagram.canvas", { type: kindLabel })} />
           {flowQuickCreate ? (
             <div
-              className="absolute z-30 w-[246px] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+              className="absolute z-30 w-[330px] max-w-[calc(100%-24px)] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
               style={{ left: flowQuickCreate.left, top: flowQuickCreate.top }}
               role="dialog"
               aria-label={t("diagram.quickCreateTitle")}
@@ -1566,25 +1596,25 @@ export const DiagramEditorPane = ({
                 }
               }}
             >
-              <div className="px-1.5 pb-1.5 text-xs font-medium text-slate-500">{t("diagram.quickCreateTitle")}</div>
+              <div className="whitespace-nowrap px-1.5 pb-1.5 text-xs font-medium text-slate-500">{t("diagram.quickCreateTitle")}</div>
               <div className="grid grid-cols-3 gap-1">
-                <Button autoFocus className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addStep")} onClick={() => createConnectedFlowNode("process")}>
+                <Button autoFocus className="relative h-16 min-w-0 flex-col gap-1 whitespace-nowrap px-2 text-xs" variant="ghost" aria-label={t("diagram.addStep")} onClick={() => createConnectedFlowNode("process")}>
                   <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">1</kbd>
                   <Box className="h-6 w-6" />
                   {t("diagram.addStep")}
                 </Button>
-                <Button className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addDecision")} onClick={() => createConnectedFlowNode("decision")}>
+                <Button className="relative h-16 min-w-0 flex-col gap-1 whitespace-nowrap px-2 text-xs" variant="ghost" aria-label={t("diagram.addDecision")} onClick={() => createConnectedFlowNode("decision")}>
                   <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">2</kbd>
                   <Diamond className="h-6 w-6" />
                   {t("diagram.addDecision")}
                 </Button>
-                <Button className="relative h-16 flex-col gap-1 text-xs" variant="ghost" aria-label={t("diagram.addTerminator")} onClick={() => createConnectedFlowNode("terminator")}>
+                <Button className="relative h-16 min-w-0 flex-col gap-1 whitespace-nowrap px-2 text-xs" variant="ghost" aria-label={t("diagram.addTerminator")} onClick={() => createConnectedFlowNode("terminator")}>
                   <kbd className="absolute right-1.5 top-1 text-[10px] font-normal text-slate-400">3</kbd>
                   <Circle className="h-6 w-6" />
                   {t("diagram.addTerminator")}
                 </Button>
               </div>
-              <div className="px-1.5 pt-1 text-[11px] text-slate-400">{t("diagram.quickCreateShortcuts")}</div>
+              <div className="whitespace-nowrap px-1.5 pt-1 text-[11px] text-slate-400">{t("diagram.quickCreateShortcuts")}</div>
             </div>
           ) : null}
           {nodeEditor ? (
