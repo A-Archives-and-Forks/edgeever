@@ -23,10 +23,10 @@ export const compactMindMapNodeSize = (label: string, isRoot: boolean) => ({
 
 export const compactFlowchartNodeSize = (shape: DiagramDocument["nodes"][number]["shape"]) => (
   shape === "decision"
-    ? { width: 104, height: 64 }
+    ? { width: 116, height: 72 }
     : shape === "terminator"
-      ? { width: 104, height: 40 }
-      : { width: 112, height: 40 }
+      ? { width: 116, height: 44 }
+      : { width: 124, height: 44 }
 );
 
 const computeMindMapLayout = (

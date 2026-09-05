@@ -115,6 +115,7 @@ type NodeEditorState = {
   borderColor: string;
 };
 
+const FLOW_ACTIVE_NODE_CLASS = "edgeever-flow-node-active";
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const oppositeFlowPort = (port?: FlowPort): FlowPort | undefined => port ? ({
   top: "bottom",
@@ -127,6 +128,36 @@ const removeFlowDraftEdge = (graph: Graph, edge: Edge, restoreHistory: boolean) 
   if (graph.isHistoryEnabled()) graph.disableHistory();
   graph.removeCell(edge);
   if (restoreHistory) graph.enableHistory();
+};
+
+const setFlowNodePortsActive = (graph: Graph, node: Node, active: boolean) => {
+  const apply = () => {
+    const view = graph.findViewByCell(node);
+    if (!view) return false;
+    if (active) view.addClass(FLOW_ACTIVE_NODE_CLASS);
+    else view.removeClass(FLOW_ACTIVE_NODE_CLASS);
+    view.container.querySelectorAll<SVGElement>(".x6-port-body").forEach((port) => {
+      port.style.setProperty("opacity", active ? "1" : "0", "important");
+      port.style.setProperty("pointer-events", active ? "auto" : "none", "important");
+      if (active) {
+        port.style.setProperty("fill", "var(--brand-green)", "important");
+        port.style.setProperty("stroke", "var(--workspace-editor)", "important");
+        port.style.setProperty("stroke-width", "2px", "important");
+        port.style.setProperty("filter", "drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.3))");
+      } else {
+        port.style.removeProperty("fill");
+        port.style.removeProperty("stroke");
+        port.style.removeProperty("stroke-width");
+        port.style.removeProperty("filter");
+      }
+    });
+    return true;
+  };
+  if (!apply()) window.requestAnimationFrame(apply);
+};
+
+const setOnlyFlowNodePortsActive = (graph: Graph, activeNode?: Node) => {
+  graph.getNodes().forEach((node) => setFlowNodePortsActive(graph, node, node.id === activeNode?.id));
 };
 
 const applyDiagramSurface = (
@@ -615,6 +646,7 @@ export const DiagramEditorPane = ({
     const clearSelectionAfterHistory = () => {
       applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current);
       graph.cleanSelection();
+      if (document.kind === "flowchart") setOnlyFlowNodePortsActive(graph);
       setSelectedNodeId(null);
       setSelectedNodeLabel("");
       setHasSelection(false);
@@ -627,9 +659,16 @@ export const DiagramEditorPane = ({
     graph.on("history:change", updateHistory);
     graph.on("history:undo", clearSelectionAfterHistory);
     graph.on("history:redo", clearSelectionAfterHistory);
+    graph.on("node:selected", ({ node }: { node: Node }) => {
+      if (document.kind === "flowchart") setFlowNodePortsActive(graph, node, true);
+    });
+    graph.on("node:unselected", ({ node }: { node: Node }) => {
+      if (document.kind === "flowchart") setFlowNodePortsActive(graph, node, false);
+    });
     graph.on("node:click", ({ node }: { node: Node }) => {
       const data = node.getData<NodeData>();
       dismissFlowQuickCreate();
+      if (document.kind === "flowchart") setOnlyFlowNodePortsActive(graph, node);
       containerRef.current?.focus({ preventScroll: true });
       setSelectedNodeId(node.id);
       setSelectedNodeLabel(data?.label ?? "");
@@ -638,12 +677,14 @@ export const DiagramEditorPane = ({
     graph.on("node:dblclick", ({ node }: { node: Node }) => beginNodeEdit(node));
     graph.on("edge:click", () => {
       dismissFlowQuickCreate();
+      if (document.kind === "flowchart") setOnlyFlowNodePortsActive(graph);
       setSelectedNodeId(null);
       setSelectedNodeLabel("");
       setHasSelection(true);
     });
     graph.on("blank:click", () => {
       dismissFlowQuickCreate();
+      if (document.kind === "flowchart") setOnlyFlowNodePortsActive(graph);
       setSelectedNodeId(null);
       setSelectedNodeLabel("");
       setHasSelection(false);

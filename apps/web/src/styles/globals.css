@@ -509,7 +509,11 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   pointer-events: none;
 }
 
-.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.x6-node-selected .x6-port-body {
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.edgeever-flow-node-active .x6-port-body {
+  fill: var(--brand-green) !important;
+  stroke: var(--workspace-editor) !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.3));
   opacity: 1;
   pointer-events: auto;
 }

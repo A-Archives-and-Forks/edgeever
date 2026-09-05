@@ -60,8 +60,8 @@ describe("diagram auto layout", () => {
   });
 
   test("uses compact flowchart nodes with aligned process and terminator centers", () => {
-    expect(compactFlowchartNodeSize("process")).toEqual({ width: 112, height: 40 });
-    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 104, height: 40 });
-    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 104, height: 64 });
+    expect(compactFlowchartNodeSize("process")).toEqual({ width: 124, height: 44 });
+    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 116, height: 44 });
+    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 116, height: 72 });
   });
 });

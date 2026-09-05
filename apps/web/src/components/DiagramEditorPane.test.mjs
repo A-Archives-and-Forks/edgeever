@@ -87,7 +87,18 @@ describe("diagram editor canvas surface", () => {
   });
 
   test("shows connection handles only on selected flowchart nodes", () => {
-    expect(globalStyles).toContain('.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node.x6-node-selected .x6-port-body');
+    expect(globalStyles).toContain('.x6-node.edgeever-flow-node-active .x6-port-body');
+    expect(globalStyles).not.toContain('.x6-node.x6-node-selected .x6-port-body');
+    expect(source).toContain('graph.on("node:selected"');
+    expect(source).toContain('setFlowNodePortsActive(graph, node, true)');
+    expect(source).toContain('graph.on("node:unselected"');
+    expect(source).toContain('setFlowNodePortsActive(graph, node, false)');
+    expect(source).toContain('port.style.setProperty("opacity", active ? "1" : "0", "important")');
+    expect(source).toContain('port.style.setProperty("pointer-events", active ? "auto" : "none", "important")');
+    expect(source).toContain('setOnlyFlowNodePortsActive(graph, node)');
+    expect(source).toContain('graph.on("blank:click"');
+    expect(source).toContain('setOnlyFlowNodePortsActive(graph);');
+    expect(globalStyles).toContain("fill: var(--brand-green) !important");
     expect(globalStyles).toContain("pointer-events: none");
     expect(globalStyles).toContain("pointer-events: auto");
     expect(globalStyles).not.toContain('.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node:hover .x6-port-body');
