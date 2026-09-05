@@ -499,16 +499,21 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   box-shadow: 0 2px 10px rgb(104 214 176 / 0.22) !important;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .edgeever-diagram-canvas .x6-port-body {
-    opacity: 0;
-    transition: opacity 120ms ease;
-  }
+.edgeever-diagram-canvas .x6-port-body {
+  opacity: 0;
+  transition: opacity 120ms ease, filter 120ms ease;
+}
 
-  .edgeever-diagram-canvas .x6-node:hover .x6-port-body,
-  .edgeever-diagram-canvas .x6-port-body:hover {
-    opacity: 1;
-  }
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body {
+  cursor: crosshair;
+  opacity: 0.72;
+}
+
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-node:hover .x6-port-body,
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-port-body:hover,
+.edgeever-diagram-canvas[data-diagram-kind="flowchart"] .x6-available-magnet {
+  filter: drop-shadow(0 1px 3px rgb(var(--brand-green-rgb) / 0.28));
+  opacity: 1;
 }
 
 /* Curated reading themes should feel like part of the note canvas in dark
