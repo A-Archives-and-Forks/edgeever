@@ -6,8 +6,6 @@ import {
   Download,
   FileCode2,
   FileImage,
-  Hand,
-  MousePointer2,
   Scan,
   Redo2,
   Trash2,
@@ -32,12 +30,10 @@ import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-the
 
 type DiagramToolbarProps = {
   appearance: DiagramAppearance;
-  canvasMode: "select" | "pan";
   canRedo: boolean;
   canUndo: boolean;
   hasSelection: boolean;
   leading?: ReactNode;
-  onCanvasModeChange: (mode: "select" | "pan") => void;
   onAutoLayout: () => void;
   onDeleteSelection: () => void;
   onExport: (format: "png" | "svg") => void;
@@ -74,12 +70,10 @@ export const DiagramToolbarAddTrigger = ({
 
 export const DiagramToolbar = ({
   appearance,
-  canvasMode,
   canRedo,
   canUndo,
   hasSelection,
   leading,
-  onCanvasModeChange,
   onAutoLayout,
   onDeleteSelection,
   onExport,
@@ -100,21 +94,6 @@ export const DiagramToolbar = ({
   return (
     <MemoEditorToolbarRow className="shrink-0 border-b border-slate-200 bg-white" role="toolbar" aria-label={t("diagram.toolbar")}>
       {leading ? <>{leading}<MemoEditorToolbarDivider /></> : null}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="soft"
-            aria-label={canvasMode === "pan" ? t("diagram.panMode") : t("diagram.selectMode")}
-            aria-keyshortcuts="V H"
-            onClick={() => onCanvasModeChange(canvasMode === "pan" ? "select" : "pan")}
-          >
-            {canvasMode === "pan" ? <Hand className="h-4 w-4" /> : <MousePointer2 className="h-4 w-4" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{canvasMode === "pan" ? t("diagram.panModeHint") : t("diagram.selectModeHint")}</TooltipContent>
-      </Tooltip>
-      <MemoEditorToolbarDivider />
       <Tooltip><TooltipTrigger asChild><Button size="icon" variant="ghost" aria-label={t("diagram.undo")} disabled={!canUndo || readOnly} onClick={onUndo}><Undo2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{t("diagram.undo")}</TooltipContent></Tooltip>
       <Tooltip><TooltipTrigger asChild><Button size="icon" variant="ghost" aria-label={t("diagram.redo")} disabled={!canRedo || readOnly} onClick={onRedo}><Redo2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{t("diagram.redo")}</TooltipContent></Tooltip>
       {!readOnly && <Tooltip><TooltipTrigger asChild><Button size="icon" variant="ghost" aria-label={t("diagram.deleteSelection")} disabled={!hasSelection} onClick={onDeleteSelection}><Trash2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent>{t("diagram.deleteSelection")}</TooltipContent></Tooltip>}

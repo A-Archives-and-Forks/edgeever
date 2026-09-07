@@ -43,35 +43,30 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("new Scroller({");
     expect(source).toContain("panning: false");
     expect(source).toContain('className: "edgeever-diagram-scroller"');
-    expect(source).toContain('pannable: { enabled: activeCanvasModeRef.current === "pan", eventTypes: ["leftMouseDown"] }');
+    expect(source).toContain('pannable: { enabled: true, eventTypes: ["leftMouseDown", "rightMouseDown"] }');
     expect(source).not.toContain("attachDiagramScroll");
     expect(globalStyles).toContain(".edgeever-diagram-scroller");
     expect(globalStyles).toContain("scrollbar-gutter: stable");
-    expect(globalStyles).toContain('data-panning="false"');
-    expect(globalStyles).toContain("cursor: grab");
     expect(globalStyles).toContain('data-panning="true"');
-    expect(globalStyles).toContain("cursor: grabbing");
+    expect(globalStyles).toContain("cursor: grabbing !important");
   });
 
-  test("keeps grab-to-pan and rubberband selection mutually exclusive", () => {
-    expect(source).toContain('scroller?.togglePanning(activeCanvasMode === "pan")');
-    expect(source).toContain('selection?.toggleEnabled(activeCanvasMode === "select")');
-    expect(source).toContain('selection?.toggleRubberband(activeCanvasMode === "select")');
-    expect(source).toContain('interacting: () => !readOnly && activeCanvasModeRef.current === "select"');
-    expect(source).toContain('data-canvas-mode={activeCanvasMode}');
+  test("supports modeless canvas navigation with blank-drag pan and shift rubberband selection", () => {
+    expect(source).toContain('modifiers: "shift"');
+    expect(source).toContain('multipleSelectionModifiers: ["ctrl", "meta", "shift"]');
+    expect(source).toContain("interacting: () => !readOnly && !spacePanActiveRef.current");
+    expect(source).toContain('data-space-pan={spacePanActive ? "active" : undefined}');
+    expect(source).not.toContain("activeCanvasMode");
+    expect(source).not.toContain("data-canvas-mode");
   });
 
-  test("offers explicit select and hand modes with keyboard and temporary pan shortcuts", () => {
-    expect(toolbarSource).toContain('canvasMode: "select" | "pan"');
-    expect(toolbarSource).toContain('aria-label={canvasMode === "pan" ? t("diagram.panMode") : t("diagram.selectMode")}');
-    expect(toolbarSource).toContain('onClick={() => onCanvasModeChange(canvasMode === "pan" ? "select" : "pan")}');
-    expect(toolbarSource.match(/onCanvasModeChange\(/g)).toHaveLength(1);
-    expect(source).toContain('if (typeof window === "undefined") return "pan"');
-    expect(source).toContain('=== "select" ? "select" : "pan"');
-    expect(source).toContain('key === "v" || key === "h"');
+  test("keeps toolbar clean without mode toggles while retaining spacebar pan", () => {
+    expect(toolbarSource).not.toContain("canvasMode");
+    expect(toolbarSource).not.toContain("onCanvasModeChange");
+    expect(source).not.toContain('key === "v" || key === "h"');
     expect(source).toContain('event.code !== "Space"');
-    expect(source).toContain('setSpacePanActive(true)');
-    expect(source).toContain('setSpacePanActive(false)');
+    expect(source).toContain("setSpacePanActive(true)");
+    expect(source).toContain("setSpacePanActive(false)");
   });
 
   test("uses the common note header and capability-aware more menu", () => {

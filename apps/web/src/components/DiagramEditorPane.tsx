@@ -135,27 +135,6 @@ type DiagramEditorPaneProps = {
   companionDiscoveryHub?: ReactNode;
 };
 
-type DiagramCanvasMode = "select" | "pan";
-
-const DIAGRAM_CANVAS_MODE_STORAGE_KEY = "edgeever.diagram.canvas-mode";
-
-const readDiagramCanvasMode = (): DiagramCanvasMode => {
-  if (typeof window === "undefined") return "pan";
-  try {
-    return window.localStorage.getItem(DIAGRAM_CANVAS_MODE_STORAGE_KEY) === "select" ? "select" : "pan";
-  } catch {
-    return "pan";
-  }
-};
-
-const saveDiagramCanvasMode = (mode: DiagramCanvasMode) => {
-  try {
-    window.localStorage.setItem(DIAGRAM_CANVAS_MODE_STORAGE_KEY, mode);
-  } catch {
-    // Local storage can be unavailable in private or restricted browser contexts.
-  }
-};
-
 type NodeData = { label: string; shape: DiagramNodeShape; parentId?: string; resourceIcon?: ArchitectureResourceIcon };
 type EdgeData = { kind?: DiagramEdgeKind; bidirectional?: boolean };
 type MindMapInsertRelation = "child" | "sibling";
@@ -1089,10 +1068,8 @@ export const DiagramEditorPane = ({
   const [notebookUpdatePending, setNotebookUpdatePending] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
-  const [canvasMode, setCanvasMode] = useState<DiagramCanvasMode>(() => readOnly ? "pan" : readDiagramCanvasMode());
   const [spacePanActive, setSpacePanActive] = useState(false);
-  const activeCanvasMode: DiagramCanvasMode = spacePanActive ? "pan" : canvasMode;
-  const activeCanvasModeRef = useRef<DiagramCanvasMode>(activeCanvasMode);
+  const spacePanActiveRef = useRef(false);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
   const [flowQuickCreate, setFlowQuickCreate] = useState<FlowQuickCreateState | null>(null);
@@ -1103,46 +1080,17 @@ export const DiagramEditorPane = ({
   const nodeEditorRef = useRef<NodeEditorState | null>(null);
   const editorDirty = dirty || tagsDirty;
 
-  activeCanvasModeRef.current = activeCanvasMode;
+  spacePanActiveRef.current = spacePanActive;
 
   useEffect(() => {
     setPendingArchitectureItem(null);
   }, [memo.id]);
-
-  const changeCanvasMode = useCallback((mode: DiagramCanvasMode) => {
-    setSpacePanActive(false);
-    if (mode === "pan") setPendingArchitectureItem(null);
-    setCanvasMode(mode);
-    saveDiagramCanvasMode(mode);
-    containerRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  useEffect(() => {
-    setSpacePanActive(false);
-    setCanvasMode(readOnly ? "pan" : readDiagramCanvasMode());
-  }, [readOnly]);
-
-  useEffect(() => {
-    const graph = graphRef.current;
-    if (!graph) return;
-    const scroller = graph.getPlugin<Scroller>("scroller");
-    const selection = graph.getPlugin<Selection>("selection");
-    scroller?.togglePanning(activeCanvasMode === "pan");
-    selection?.toggleEnabled(activeCanvasMode === "select");
-    selection?.toggleRubberband(activeCanvasMode === "select");
-  }, [activeCanvasMode]);
 
   useEffect(() => {
     const isTextInput = (target: EventTarget | null) => target instanceof HTMLElement
       && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
     const handleCanvasKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || isTextInput(event.target)) return;
-      const key = event.key.toLowerCase();
-      if (key === "v" || key === "h") {
-        event.preventDefault();
-        changeCanvasMode(key === "v" ? "select" : "pan");
-        return;
-      }
       if (event.code !== "Space" || !(event.target instanceof globalThis.Node) || !containerRef.current?.contains(event.target)) return;
       event.preventDefault();
       setSpacePanActive(true);
@@ -1159,7 +1107,7 @@ export const DiagramEditorPane = ({
       window.removeEventListener("keyup", handleCanvasKeyUp);
       window.removeEventListener("blur", releaseTemporaryPan);
     };
-  }, [changeCanvasMode]);
+  }, []);
 
   useEffect(() => {
     if (!pendingArchitectureItem) return;
@@ -1303,7 +1251,7 @@ export const DiagramEditorPane = ({
       grid: false,
       panning: false,
       mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: 0.3, maxScale: 2.5 },
-      interacting: () => !readOnly && activeCanvasModeRef.current === "select",
+      interacting: () => !readOnly && !spacePanActiveRef.current,
       connecting: {
         allowBlank: document.kind === "flowchart",
         allowLoop: false,
@@ -1340,7 +1288,7 @@ export const DiagramEditorPane = ({
       enabled: true,
       autoResize: true,
       padding: 32,
-      pannable: { enabled: activeCanvasModeRef.current === "pan", eventTypes: ["leftMouseDown"] },
+      pannable: { enabled: true, eventTypes: ["leftMouseDown", "rightMouseDown"] },
       className: "edgeever-diagram-scroller",
     }));
     graph.use(new History({ enabled: !readOnly }));
@@ -1354,10 +1302,11 @@ export const DiagramEditorPane = ({
       },
     }));
     graph.use(new Selection({
-      enabled: activeCanvasModeRef.current === "select",
+      enabled: true,
       multiple: true,
-      rubberband: activeCanvasModeRef.current === "select",
-      modifiers: null,
+      multipleSelectionModifiers: ["ctrl", "meta", "shift"],
+      rubberband: true,
+      modifiers: "shift",
       movable: !readOnly,
       showNodeSelectionBox: true,
       showEdgeSelectionBox: true,
@@ -2493,7 +2442,6 @@ export const DiagramEditorPane = ({
       <div className="flex min-h-0 flex-1 flex-col">
         <DiagramToolbar
           appearance={resolvedTheme}
-          canvasMode={activeCanvasMode}
           canRedo={historyState.redo}
           canUndo={historyState.undo}
           hasSelection={hasSelection}
@@ -2521,7 +2469,6 @@ export const DiagramEditorPane = ({
             )
           ) : undefined}
           onAutoLayout={applyAutoLayout}
-          onCanvasModeChange={changeCanvasMode}
           onDeleteSelection={removeSelected}
           onExport={exportDiagram}
           onRedo={() => runHistoryAction("redo")}
@@ -2563,10 +2510,10 @@ export const DiagramEditorPane = ({
             ref={containerRef}
             className={cn("edgeever-diagram-canvas absolute inset-0 touch-none outline-none", pendingArchitectureItem && "cursor-crosshair")}
             data-architecture-placement={pendingArchitectureItem ? "active" : undefined}
-            data-canvas-mode={activeCanvasMode}
             data-diagram-appearance={resolvedTheme}
             data-diagram-kind={document.kind}
             data-diagram-theme={theme}
+            data-space-pan={spacePanActive ? "active" : undefined}
             tabIndex={0}
             aria-label={t("diagram.canvas", { type: kindLabel })}
             onDragOver={handleArchitectureDragOver}

@@ -493,22 +493,17 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   scrollbar-gutter: stable;
 }
 
-.edgeever-diagram-scroller[data-panning="false"]
-  .edgeever-diagram-canvas[data-canvas-mode="pan"]:not([data-architecture-placement="active"]) {
-  cursor: grab;
-}
-
-.edgeever-diagram-scroller[data-panning="true"] .edgeever-diagram-canvas {
-  cursor: grabbing;
-}
-
-.edgeever-diagram-canvas[data-canvas-mode="select"] {
+.edgeever-diagram-scroller .edgeever-diagram-canvas {
   cursor: default;
 }
 
-.edgeever-diagram-canvas[data-canvas-mode="pan"] .x6-widget-selection-box,
-.edgeever-diagram-canvas[data-canvas-mode="pan"] .x6-widget-selection-inner {
-  pointer-events: none;
+.edgeever-diagram-canvas[data-space-pan="active"]:not([data-architecture-placement="active"]) {
+  cursor: grab;
+}
+
+.edgeever-diagram-scroller[data-panning="true"] .edgeever-diagram-canvas,
+.edgeever-diagram-canvas[data-space-pan="active"][data-panning="true"] {
+  cursor: grabbing !important;
 }
 
 .edgeever-diagram-canvas .x6-widget-selection-rubberband {
