@@ -1,7 +1,7 @@
 import { diagramEditorSnapshot } from "@/lib/diagram-editor-snapshot";
 import { MemoTitleInput } from "@/components/MemoTitleInput";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Dom, Export, Graph, History, Keyboard, Selection, type Edge, type Node } from "@antv/x6";
+import { Dom, Export, Graph, History, Keyboard, Scroller, Selection, type Edge, type Node } from "@antv/x6";
 import * as m from "motion/react-m";
 import {
   Activity,
@@ -64,7 +64,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
-  attachDiagramScroll,
   ARCHITECTURE_DIAGRAM_SCHEMA_VERSION,
   DIAGRAM_SCHEMA_VERSION,
   diagramFallbackMarkdown,
@@ -134,6 +133,27 @@ type DiagramEditorPaneProps = {
   onToggleDesktopFocusMode: () => void;
   onOpenExecutionCenter: () => void;
   companionDiscoveryHub?: ReactNode;
+};
+
+type DiagramCanvasMode = "select" | "pan";
+
+const DIAGRAM_CANVAS_MODE_STORAGE_KEY = "edgeever.diagram.canvas-mode";
+
+const readDiagramCanvasMode = (): DiagramCanvasMode => {
+  if (typeof window === "undefined") return "pan";
+  try {
+    return window.localStorage.getItem(DIAGRAM_CANVAS_MODE_STORAGE_KEY) === "select" ? "select" : "pan";
+  } catch {
+    return "pan";
+  }
+};
+
+const saveDiagramCanvasMode = (mode: DiagramCanvasMode) => {
+  try {
+    window.localStorage.setItem(DIAGRAM_CANVAS_MODE_STORAGE_KEY, mode);
+  } catch {
+    // Local storage can be unavailable in private or restricted browser contexts.
+  }
 };
 
 type NodeData = { label: string; shape: DiagramNodeShape; parentId?: string; resourceIcon?: ArchitectureResourceIcon };
@@ -1069,6 +1089,10 @@ export const DiagramEditorPane = ({
   const [notebookUpdatePending, setNotebookUpdatePending] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
+  const [canvasMode, setCanvasMode] = useState<DiagramCanvasMode>(() => readOnly ? "pan" : readDiagramCanvasMode());
+  const [spacePanActive, setSpacePanActive] = useState(false);
+  const activeCanvasMode: DiagramCanvasMode = spacePanActive ? "pan" : canvasMode;
+  const activeCanvasModeRef = useRef<DiagramCanvasMode>(activeCanvasMode);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
   const [flowQuickCreate, setFlowQuickCreate] = useState<FlowQuickCreateState | null>(null);
@@ -1079,9 +1103,63 @@ export const DiagramEditorPane = ({
   const nodeEditorRef = useRef<NodeEditorState | null>(null);
   const editorDirty = dirty || tagsDirty;
 
+  activeCanvasModeRef.current = activeCanvasMode;
+
   useEffect(() => {
     setPendingArchitectureItem(null);
   }, [memo.id]);
+
+  const changeCanvasMode = useCallback((mode: DiagramCanvasMode) => {
+    setSpacePanActive(false);
+    if (mode === "pan") setPendingArchitectureItem(null);
+    setCanvasMode(mode);
+    saveDiagramCanvasMode(mode);
+    containerRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    setSpacePanActive(false);
+    setCanvasMode(readOnly ? "pan" : readDiagramCanvasMode());
+  }, [readOnly]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    const scroller = graph.getPlugin<Scroller>("scroller");
+    const selection = graph.getPlugin<Selection>("selection");
+    scroller?.togglePanning(activeCanvasMode === "pan");
+    selection?.toggleEnabled(activeCanvasMode === "select");
+    selection?.toggleRubberband(activeCanvasMode === "select");
+  }, [activeCanvasMode]);
+
+  useEffect(() => {
+    const isTextInput = (target: EventTarget | null) => target instanceof HTMLElement
+      && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+    const handleCanvasKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isTextInput(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === "v" || key === "h") {
+        event.preventDefault();
+        changeCanvasMode(key === "v" ? "select" : "pan");
+        return;
+      }
+      if (event.code !== "Space" || !(event.target instanceof globalThis.Node) || !containerRef.current?.contains(event.target)) return;
+      event.preventDefault();
+      setSpacePanActive(true);
+    };
+    const handleCanvasKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") setSpacePanActive(false);
+    };
+    const releaseTemporaryPan = () => setSpacePanActive(false);
+    window.addEventListener("keydown", handleCanvasKeyDown);
+    window.addEventListener("keyup", handleCanvasKeyUp);
+    window.addEventListener("blur", releaseTemporaryPan);
+    return () => {
+      window.removeEventListener("keydown", handleCanvasKeyDown);
+      window.removeEventListener("keyup", handleCanvasKeyUp);
+      window.removeEventListener("blur", releaseTemporaryPan);
+    };
+  }, [changeCanvasMode]);
 
   useEffect(() => {
     if (!pendingArchitectureItem) return;
@@ -1223,9 +1301,9 @@ export const DiagramEditorPane = ({
       async: true,
       background: { color: palette.canvas },
       grid: false,
-      panning: { enabled: true, eventTypes: ["leftMouseDown"] },
+      panning: false,
       mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: 0.3, maxScale: 2.5 },
-      interacting: !readOnly,
+      interacting: () => !readOnly && activeCanvasModeRef.current === "select",
       connecting: {
         allowBlank: document.kind === "flowchart",
         allowLoop: false,
@@ -1258,6 +1336,13 @@ export const DiagramEditorPane = ({
         },
       },
     });
+    graph.use(new Scroller({
+      enabled: true,
+      autoResize: true,
+      padding: 32,
+      pannable: { enabled: activeCanvasModeRef.current === "pan", eventTypes: ["leftMouseDown"] },
+      className: "edgeever-diagram-scroller",
+    }));
     graph.use(new History({ enabled: !readOnly }));
     graph.use(new Export());
     graph.use(new Keyboard({
@@ -1268,8 +1353,15 @@ export const DiagramEditorPane = ({
         return !(target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)));
       },
     }));
-    graph.use(new Selection({ enabled: true, multiple: true, rubberband: true, movable: !readOnly, showNodeSelectionBox: true, showEdgeSelectionBox: true }));
-    const detachScroll = attachDiagramScroll(graph.container, graph);
+    graph.use(new Selection({
+      enabled: activeCanvasModeRef.current === "select",
+      multiple: true,
+      rubberband: activeCanvasModeRef.current === "select",
+      modifiers: null,
+      movable: !readOnly,
+      showNodeSelectionBox: true,
+      showEdgeSelectionBox: true,
+    }));
     graph.addNodes(document.nodes.map((node) => {
       const inferredResourceIcon = document.kind === "architecture" && !node.resourceIcon
         ? inferArchitectureResourceIcon(node.label, t)
@@ -1287,14 +1379,6 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance)));
-    let viewportWidth = containerRef.current?.clientWidth ?? 0;
-    let viewportHeight = containerRef.current?.clientHeight ?? 0;
-    graph.on("resize", ({ width, height }) => {
-      const translation = graph.translate();
-      graph.translate(translation.tx + (width - viewportWidth) / 2, translation.ty + (height - viewportHeight) / 2);
-      viewportWidth = width;
-      viewportHeight = height;
-    });
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
     fitDiagramContent(graph, document, containerRef.current);
@@ -1649,7 +1733,7 @@ export const DiagramEditorPane = ({
       openFlowQuickCreateRef.current = () => undefined;
       nodeEditorRef.current = null;
       graphRef.current = null;
-      detachScroll(); graph.dispose();
+      graph.dispose();
     };
   }, [beginNodeEdit, dismissFlowQuickCreate, memo.contentHash, memo.id, readOnly]);
 
@@ -2409,6 +2493,7 @@ export const DiagramEditorPane = ({
       <div className="flex min-h-0 flex-1 flex-col">
         <DiagramToolbar
           appearance={resolvedTheme}
+          canvasMode={activeCanvasMode}
           canRedo={historyState.redo}
           canUndo={historyState.undo}
           hasSelection={hasSelection}
@@ -2436,6 +2521,7 @@ export const DiagramEditorPane = ({
             )
           ) : undefined}
           onAutoLayout={applyAutoLayout}
+          onCanvasModeChange={changeCanvasMode}
           onDeleteSelection={removeSelected}
           onExport={exportDiagram}
           onRedo={() => runHistoryAction("redo")}
@@ -2477,6 +2563,7 @@ export const DiagramEditorPane = ({
             ref={containerRef}
             className={cn("edgeever-diagram-canvas absolute inset-0 touch-none outline-none", pendingArchitectureItem && "cursor-crosshair")}
             data-architecture-placement={pendingArchitectureItem ? "active" : undefined}
+            data-canvas-mode={activeCanvasMode}
             data-diagram-appearance={resolvedTheme}
             data-diagram-kind={document.kind}
             data-diagram-theme={theme}
