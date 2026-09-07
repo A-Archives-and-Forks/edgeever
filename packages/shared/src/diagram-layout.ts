@@ -45,6 +45,7 @@ export type DiagramIrNodeType =
   | "decision"
   | "start"
   | "end"
+  | "terminator"
   | "client"
   | "frontend"
   | "service"
@@ -393,7 +394,7 @@ const computeArchitectureLayout = (document: DiagramDocument, options: DiagramLa
 
 const irNodeShape = (kind: DiagramKind, type: DiagramIrNodeType | undefined): DiagramNodeShape => {
   if (kind === "mind-map") return "topic";
-  if (kind === "flowchart") return type === "decision" ? "decision" : type === "start" || type === "end" ? "terminator" : "process";
+  if (kind === "flowchart") return type === "decision" ? "decision" : type === "start" || type === "end" || type === "terminator" ? "terminator" : "process";
   return (type ?? "service") as DiagramNodeShape;
 };
 
