@@ -1069,6 +1069,7 @@ export const DiagramEditorPane = ({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
   const [spacePanActive, setSpacePanActive] = useState(false);
+  const [shiftSelectActive, setShiftSelectActive] = useState(false);
   const spacePanActiveRef = useRef(false);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
@@ -1090,15 +1091,21 @@ export const DiagramEditorPane = ({
     const isTextInput = (target: EventTarget | null) => target instanceof HTMLElement
       && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
     const handleCanvasKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || isTextInput(event.target)) return;
+      if (isTextInput(event.target)) return;
+      if (event.key === "Shift") setShiftSelectActive(true);
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.code !== "Space" || !(event.target instanceof globalThis.Node) || !containerRef.current?.contains(event.target)) return;
       event.preventDefault();
       setSpacePanActive(true);
     };
     const handleCanvasKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") setShiftSelectActive(false);
       if (event.code === "Space") setSpacePanActive(false);
     };
-    const releaseTemporaryPan = () => setSpacePanActive(false);
+    const releaseTemporaryPan = () => {
+      setShiftSelectActive(false);
+      setSpacePanActive(false);
+    };
     window.addEventListener("keydown", handleCanvasKeyDown);
     window.addEventListener("keyup", handleCanvasKeyUp);
     window.addEventListener("blur", releaseTemporaryPan);
@@ -2513,6 +2520,7 @@ export const DiagramEditorPane = ({
             data-diagram-appearance={resolvedTheme}
             data-diagram-kind={document.kind}
             data-diagram-theme={theme}
+            data-shift-select={shiftSelectActive ? "active" : undefined}
             data-space-pan={spacePanActive ? "active" : undefined}
             tabIndex={0}
             aria-label={t("diagram.canvas", { type: kindLabel })}
@@ -2520,6 +2528,23 @@ export const DiagramEditorPane = ({
             onDrop={handleArchitectureDrop}
             onPointerDownCapture={handlePendingArchitecturePlacement}
           />
+          {!readOnly && (
+            <div
+              className="pointer-events-none absolute bottom-3 left-3 z-10 flex select-none items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 text-xs text-slate-500 shadow-xs backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400"
+              role="status"
+              aria-live="polite"
+            >
+              <span>{t("diagram.navHintPan")}</span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className={cn("inline-flex items-center transition-colors duration-150", shiftSelectActive && "font-medium text-emerald-600 dark:text-emerald-400")}>
+                <span className="mr-1">{t("diagram.navHintHoldShift")}</span>
+                <kbd className={cn("mr-1 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors duration-150", shiftSelectActive ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300")}>
+                  Shift
+                </kbd>
+                <span>{t("diagram.navHintBoxSelect")}</span>
+              </span>
+            </div>
+          )}
           {pendingArchitectureItem ? (
             <div className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm" role="status">
               {t("diagram.placeShapeHint", { shape: t(pendingArchitectureItem.labelKey) })}

@@ -501,6 +501,10 @@ html[data-edgeever-extension-theme] .edgeever-memo-divider {
   cursor: grab;
 }
 
+.edgeever-diagram-canvas[data-shift-select="active"]:not([data-architecture-placement="active"]) {
+  cursor: crosshair;
+}
+
 .edgeever-diagram-scroller[data-panning="true"] .edgeever-diagram-canvas,
 .edgeever-diagram-canvas[data-space-pan="active"][data-panning="true"] {
   cursor: grabbing !important;
