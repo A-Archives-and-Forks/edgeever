@@ -525,16 +525,40 @@ const createLocalEditSession = (memo: MemoDetail): MemoEditSession => ({
   expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
 });
 
+// X6 Scroller autoResize is debounced 200ms and then calls fitToContent, which
+// shifts the graph origin after insert and leaves a stranded editor overlay.
+const SCROLLER_AUTORESIZE_SETTLE_MS = 250;
+
+const getDiagramScroller = (graph: Graph) => graph.getPlugin("scroller") as Scroller | undefined;
+
+const suspendScrollerAutoResize = (
+  graph: Graph,
+  timerRef: { current: number | null },
+  isCurrent: () => boolean,
+) => {
+  const scroller = getDiagramScroller(graph);
+  if (!scroller) return;
+  scroller.disableAutoResize();
+  if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+  timerRef.current = window.setTimeout(() => {
+    timerRef.current = null;
+    if (!isCurrent()) return;
+    scroller.enableAutoResize();
+  }, SCROLLER_AUTORESIZE_SETTLE_MS);
+};
+
 const nodeEditorState = (
   graph: Graph,
   node: Node,
   theme: DiagramTheme,
   appearance: DiagramAppearance,
+  host?: HTMLElement | null,
 ): NodeEditorState => {
   const data = node.getData<NodeData>();
   const bbox = node.getBBox();
-  const topLeft = graph.localToGraph({ x: bbox.x, y: bbox.y });
-  const bottomRight = graph.localToGraph({ x: bbox.x + bbox.width, y: bbox.y + bbox.height });
+  const topLeft = graph.localToClient({ x: bbox.x, y: bbox.y });
+  const bottomRight = graph.localToClient({ x: bbox.x + bbox.width, y: bbox.y + bbox.height });
+  const origin = (host ?? graph.container).getBoundingClientRect();
   const isRootTopic = data?.shape === "topic" && !data.parentId;
   const attrs = nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
   return {
@@ -542,10 +566,10 @@ const nodeEditorState = (
     originalValue: data?.label ?? "",
     value: data?.label ?? "",
     shape: data?.shape ?? "process",
-    left: topLeft.x,
-    top: topLeft.y,
-    width: bottomRight.x - topLeft.x,
-    height: bottomRight.y - topLeft.y,
+    left: topLeft.x - origin.left,
+    top: topLeft.y - origin.top,
+    width: Math.max(1, bottomRight.x - topLeft.x),
+    height: Math.max(1, bottomRight.y - topLeft.y),
     fontSize: (data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
     color: String(attrs.label.fill),
     background: String(attrs.body.fill),
@@ -1027,6 +1051,8 @@ export const DiagramEditorPane = ({
   const { t } = useTranslation();
   const { resolvedTheme } = useAppearanceTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const scrollerResumeTimerRef = useRef<number | null>(null);
   const graphRef = useRef<Graph | null>(null);
   const insertNodeRef = useRef<(relation: MindMapInsertRelation, baseNodeId?: string) => void>(() => undefined);
   const openFlowQuickCreateRef = useRef<(node: Node) => void>(() => undefined);
@@ -1130,7 +1156,7 @@ export const DiagramEditorPane = ({
   const beginNodeEdit = useCallback((node: Node) => {
     const graph = graphRef.current;
     if (!graph || readOnly) return;
-    const nextEditor = nodeEditorState(graph, node, themeRef.current, appearanceRef.current);
+    const nextEditor = nodeEditorState(graph, node, themeRef.current, appearanceRef.current, canvasSurfaceRef.current);
     nodeEditorRef.current = nextEditor;
     setNodeEditor(nextEditor);
   }, [readOnly]);
@@ -1234,7 +1260,7 @@ export const DiagramEditorPane = ({
     if (!currentEditor) return;
     const node = graph.getCellById(currentEditor.nodeId);
     if (!node?.isNode()) return;
-    const visualState = nodeEditorState(graph, node, themeRef.current, resolvedTheme);
+    const visualState = nodeEditorState(graph, node, themeRef.current, resolvedTheme, canvasSurfaceRef.current);
     const nextEditor = {
       ...currentEditor,
       color: visualState.color,
@@ -1688,6 +1714,10 @@ export const DiagramEditorPane = ({
       flowPointerDragRef.current = null;
       openFlowQuickCreateRef.current = () => undefined;
       nodeEditorRef.current = null;
+      if (scrollerResumeTimerRef.current !== null) {
+        window.clearTimeout(scrollerResumeTimerRef.current);
+        scrollerResumeTimerRef.current = null;
+      }
       graphRef.current = null;
       graph.dispose();
     };
@@ -1725,6 +1755,7 @@ export const DiagramEditorPane = ({
   ) => {
     const graph = graphRef.current;
     if (!graph || !document || readOnly) return;
+    suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
     const baseNodeId = options.baseNodeId ?? selectedNodeId;
     const selected = baseNodeId
       ? graph.getCellById(baseNodeId) as Node | undefined
@@ -1921,6 +1952,7 @@ export const DiagramEditorPane = ({
     const graph = graphRef.current;
     const pending = flowQuickCreate;
     if (!graph || !document || document.kind !== "flowchart" || !pending || readOnly) return;
+    suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
     if (!graph.getCellById(pending.sourceNodeId)?.isNode()) {
       dismissFlowQuickCreate();
       return;
@@ -2512,7 +2544,7 @@ export const DiagramEditorPane = ({
           )}
           theme={theme}
         />
-        <div className="relative min-h-0 flex-1">
+        <div ref={canvasSurfaceRef} className="relative min-h-0 flex-1">
           <div
             ref={containerRef}
             className={cn("edgeever-diagram-canvas absolute inset-0 touch-none outline-none", pendingArchitectureItem && "cursor-crosshair")}

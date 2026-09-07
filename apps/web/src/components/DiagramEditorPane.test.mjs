@@ -21,6 +21,14 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).toContain("graph.cleanSelection();\n    graph.select(node);");
   });
 
+  test("does not let scroller auto-fit flash a detached node while inserting", () => {
+    expect(source).toContain("disableAutoResize()");
+    expect(source).toContain("enableAutoResize()");
+    expect(source).toContain("SCROLLER_AUTORESIZE_SETTLE_MS");
+    expect(source).toContain("graph.localToClient");
+    expect(source).toContain("canvasSurfaceRef.current");
+  });
+
   test("supports a complete flowchart keyboard workflow", () => {
     expect(source).toContain('openFlowQuickCreateRef.current = openFlowQuickCreate');
     expect(source).toContain('graph.bindKey("tab"');
