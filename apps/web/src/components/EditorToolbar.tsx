@@ -519,7 +519,7 @@ export const EditorToolbar = ({
           )}
         </MemoEditorToolbarRow>
         {hasOverflow && (
-          <div className="absolute right-3 top-2 z-20 flex h-8 items-center bg-gradient-to-l from-white via-white to-transparent pl-5 sm:right-5">
+          <div className="absolute right-3 top-2 z-20 flex h-8 items-center bg-gradient-to-l from-white via-white to-transparent pl-5 sm:right-4 sm:top-0.5">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

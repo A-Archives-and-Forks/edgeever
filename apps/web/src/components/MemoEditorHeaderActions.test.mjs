@@ -44,7 +44,9 @@ describe("shared memo editor header actions", () => {
     expect(editorToolbarSource).toContain("<MemoEditorToolbarDivider");
     expect(diagramToolbarSource).toContain("<MemoEditorToolbarDivider");
     expect(toolbarChromeSource).toContain("MEMO_EDITOR_TOOLBAR_PADDING_CLASS_NAME");
-    expect(densitySource).toContain("sm:min-h-10 sm:px-5 sm:py-1");
+    expect(densitySource).toContain("sm:min-h-9 sm:px-4 sm:py-0.5");
+    expect(densitySource).toContain("sm:px-4 sm:py-0.5");
+    expect(densitySource).not.toContain("sm:px-7");
     expect(densitySource).toContain("lg:space-y-0 lg:py-0");
     expect(densitySource).not.toContain("min-[1600px]:flex");
   });
