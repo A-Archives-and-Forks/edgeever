@@ -3429,6 +3429,7 @@ export const WorkspaceApp = ({
                       {selectedMemo && selectedDiagram ? (
                         <DiagramEditorPane
                           memo={selectedMemo}
+                          notebooks={notebooks}
                           repository={repository}
                           readOnly={memoView === "trash" || selectedMemo.isDeleted}
                           desktopFocusMode={desktopFocusModeActive}

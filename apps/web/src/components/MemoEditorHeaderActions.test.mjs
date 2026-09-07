@@ -8,6 +8,8 @@ const densitySource = readFileSync(new URL("./MemoEditorChromeDensity.ts", impor
 const editorToolbarSource = readFileSync(new URL("./EditorToolbar.tsx", import.meta.url), "utf8");
 const diagramToolbarSource = readFileSync(new URL("./DiagramToolbar.tsx", import.meta.url), "utf8");
 const toolbarChromeSource = readFileSync(new URL("./MemoEditorToolbarChrome.tsx", import.meta.url), "utf8");
+const metadataRowSource = readFileSync(new URL("./MemoEditorMetadataRow.tsx", import.meta.url), "utf8");
+const topRowLeadingSource = readFileSync(new URL("./MemoEditorTopRowLeading.tsx", import.meta.url), "utf8");
 
 describe("shared memo editor header actions", () => {
   test("owns every action shared by text and diagram notes", () => {
@@ -27,6 +29,23 @@ describe("shared memo editor header actions", () => {
     expect(editorSource).toContain("textNoteMenuItems=");
     expect(diagramSource).not.toContain("textNoteActions=");
     expect(diagramSource).not.toContain("<WeChatIcon");
+  });
+
+  test("shares notebook and tag metadata controls across text and diagram notes", () => {
+    expect(editorSource).toContain("<MemoEditorMetadataRow");
+    expect(diagramSource).toContain("<MemoEditorMetadataRow");
+    expect(metadataRowSource).toContain("<EditorTagPicker");
+    expect(metadataRowSource).toContain("<MobileNotebookSelectSheet");
+    expect(metadataRowSource).toContain("<Select");
+    expect(topRowLeadingSource).toContain("<Maximize2");
+    expect(topRowLeadingSource).toContain("onToggleDesktopFocusMode");
+    expect(editorSource).toContain("<MemoEditorTopRowLeading");
+    expect(diagramSource).toContain("<MemoEditorTopRowLeading");
+    expect(editorSource).not.toContain("<EditorTagPicker");
+    expect(diagramSource).not.toContain("<EditorTagPicker");
+    expect(editorSource).not.toContain("<Maximize2");
+    expect(diagramSource).not.toContain("<Maximize2");
+    expect(metadataRowSource).not.toContain("<Maximize2");
   });
 
   test("leaves sequential note navigation to the memo list", () => {

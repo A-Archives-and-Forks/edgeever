@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("./DiagramEditorPane.tsx", import.meta.url), "utf8");
 const toolbarSource = readFileSync(new URL("./DiagramToolbar.tsx", import.meta.url), "utf8");
+const topRowLeadingSource = readFileSync(new URL("./MemoEditorTopRowLeading.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../styles/globals.css", import.meta.url), "utf8");
 
 describe("diagram editor keyboard workflow", () => {
@@ -39,7 +40,8 @@ describe("diagram editor keyboard workflow", () => {
 
 describe("diagram editor canvas surface", () => {
   test("uses the common note header and capability-aware more menu", () => {
-    expect(source).toContain('<span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>');
+    expect(source).toContain("<MemoEditorTopRowLeading");
+    expect(topRowLeadingSource).toContain('<span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>');
     expect(source).not.toContain('t("editor.updatedAt", { time: updatedLabel })');
     expect(source).toContain("onToggleDesktopFocusMode");
     expect(source).not.toContain("onOpenPreviousMemo");
@@ -61,7 +63,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("EDITOR_LOCAL_SAVE_DELAY_MS");
     expect(source).toContain("window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS)");
     expect(source).toContain("nodeEditor !== null");
-    expect(source).toContain("[dirty, dirtyVersion, editSessionReady, nodeEditor, readOnly, saveFailed, saving]");
+    expect(source).toContain("[dirtyVersion, editSessionReady, editorDirty, nodeEditor, readOnly, saveFailed, saving]");
+    expect(source).toContain("tags: nextTags");
+    expect(source).toContain("setTagsDirty(hasNewTagChanges)");
     expect(source).toContain("!readOnly && saveFailed");
     expect(source).toContain('t("diagram.retrySave")');
     expect(source).not.toContain('<Save className="h-4 w-4" />');
@@ -258,7 +262,7 @@ describe("diagram editor canvas surface", () => {
 
   test("keeps the desktop header compact without shrinking mobile controls", () => {
     expect(source).toContain("MEMO_EDITOR_TOP_ROW_CLASS_NAME");
-    expect(source).toContain("MEMO_EDITOR_TITLE_ROW_CLASS_NAME");
+    expect(source).toContain("MEMO_EDITOR_TITLE_REGION_CLASS_NAME");
     expect(toolbarSource).toContain("<MemoEditorToolbarRow");
   });
 

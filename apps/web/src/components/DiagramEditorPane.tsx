@@ -43,8 +43,6 @@ import {
   Link2,
   LockKeyhole,
   LoaderCircle,
-  Maximize2,
-  Minimize2,
   MonitorSmartphone,
   Network,
   Pencil,
@@ -80,6 +78,7 @@ import {
   type DiagramTheme,
   type MemoDetail,
   type MemoEditSession,
+  type Notebook,
 } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,8 +88,10 @@ import { ShareMemoDialog } from "@/components/dialogs/ShareMemoDialog";
 import { ClipboardCopyNotice } from "@/components/ClipboardCopyNotice";
 import { DiagramToolbar, DiagramToolbarAddTrigger } from "@/components/DiagramToolbar";
 import { MemoEditorHeaderActions } from "@/components/MemoEditorHeaderActions";
+import { MemoEditorMetadataRow } from "@/components/MemoEditorMetadataRow";
+import { MemoEditorTopRowLeading } from "@/components/MemoEditorTopRowLeading";
 import {
-  MEMO_EDITOR_TITLE_ROW_CLASS_NAME,
+  MEMO_EDITOR_TITLE_REGION_CLASS_NAME,
   MEMO_EDITOR_TOP_ROW_CLASS_NAME,
 } from "@/components/MemoEditorChromeDensity";
 import { EditorNoteSearchBar } from "@/components/editor/EditorNoteSearchBar";
@@ -99,7 +100,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppearanceTheme } from "@/components/ThemeProvider";
 import { api } from "@/lib/api";
-import { EDITOR_LOCAL_SAVE_DELAY_MS } from "@/lib/app-helpers";
+import { EDITOR_LOCAL_SAVE_DELAY_MS, getNotebookMoveOptions } from "@/lib/app-helpers";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   compactArchitectureNodeSize,
@@ -116,10 +117,11 @@ import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
 import { statusSettleMotion } from "@/lib/motion";
 import type { EdgeEverRepository } from "@/lib/repository";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime, parseTagsText } from "@/lib/utils";
 
 type DiagramEditorPaneProps = {
   memo: MemoDetail;
+  notebooks: Notebook[];
   repository: EdgeEverRepository;
   readOnly: boolean;
   desktopFocusMode: boolean;
@@ -1009,6 +1011,7 @@ const applyGraphPalette = (
 
 export const DiagramEditorPane = ({
   memo,
+  notebooks,
   repository,
   readOnly,
   desktopFocusMode,
@@ -1034,8 +1037,10 @@ export const DiagramEditorPane = ({
   const document = parseDiagramDocument(memo.contentMarkdown);
   const documentTheme = document?.theme ?? "brand";
   const [title, setTitle] = useState(memo.title ?? "");
+  const [tagsText, setTagsText] = useState(memo.tags.join(", "));
   const [theme, setTheme] = useState<DiagramTheme>(documentTheme);
   const titleRef = useRef(title);
+  const tagsRef = useRef(tagsText);
   const themeRef = useRef<DiagramTheme>(documentTheme);
   const appearanceRef = useRef<DiagramAppearance>(resolvedTheme);
   const savedSnapshotRef = useRef(document ? diagramEditorSnapshot(memo.title ?? "", document) : "");
@@ -1046,6 +1051,7 @@ export const DiagramEditorPane = ({
   const [selectedEdgeLabel, setSelectedEdgeLabel] = useState("");
   const [hasSelection, setHasSelection] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [tagsDirty, setTagsDirty] = useState(false);
   const [dirtyVersion, setDirtyVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editSessionReady, setEditSessionReady] = useState(false);
@@ -1059,15 +1065,19 @@ export const DiagramEditorPane = ({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchIndex, setSearchIndex] = useState(0);
+  const [mobileNotebookSheetOpen, setMobileNotebookSheetOpen] = useState(false);
+  const [notebookUpdatePending, setNotebookUpdatePending] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
   const [historyState, setHistoryState] = useState({ undo: false, redo: false });
   const [nodeEditor, setNodeEditor] = useState<NodeEditorState | null>(null);
   const [flowQuickCreate, setFlowQuickCreate] = useState<FlowQuickCreateState | null>(null);
   const [pendingArchitectureItem, setPendingArchitectureItem] = useState<ArchitectureLibraryItem | null>(null);
+  const notebookOptions = useMemo(() => getNotebookMoveOptions(notebooks), [notebooks]);
   const flowQuickCreateRef = useRef<FlowQuickCreateState | null>(null);
   const flowPointerDragRef = useRef<FlowPointerDragState | null>(null);
   const nodeEditorRef = useRef<NodeEditorState | null>(null);
+  const editorDirty = dirty || tagsDirty;
 
   useEffect(() => {
     setPendingArchitectureItem(null);
@@ -1150,8 +1160,12 @@ export const DiagramEditorPane = ({
     memoRef.current = memo;
     setTitle(memo.title ?? "");
     titleRef.current = memo.title ?? "";
+    setTagsText(memo.tags.join(", "));
+    tagsRef.current = memo.tags.join(", ");
     savedSnapshotRef.current = document ? diagramEditorSnapshot(memo.title ?? "", document) : "";
     setDirty(false);
+    setTagsDirty(false);
+    setMobileNotebookSheetOpen(false);
     setSaveError(null);
     setSaveFailed(false);
     editSessionRef.current = null;
@@ -1640,11 +1654,11 @@ export const DiagramEditorPane = ({
   }, [beginNodeEdit, dismissFlowQuickCreate, memo.contentHash, memo.id, readOnly]);
 
   useEffect(() => {
-    if (!dirty) return;
+    if (!editorDirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [editorDirty]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -2033,10 +2047,13 @@ export const DiagramEditorPane = ({
     const graph = graphRef.current;
     const currentMemo = memoRef.current;
     const editSession = editSessionRef.current;
-    if (!graph || !document || !editSession || readOnly || saving) return;
-    if (savedSnapshotRef.current === diagramEditorSnapshot(titleRef.current, graphToDocument(graph, document.kind, themeRef.current))) {
+    if (!graph || !document || !editSession || readOnly || saving) return false;
+    if (
+      savedSnapshotRef.current === diagramEditorSnapshot(titleRef.current, graphToDocument(graph, document.kind, themeRef.current))
+      && !tagsDirty
+    ) {
       setDirty(false);
-      return;
+      return true;
     }
     setSaving(true);
     setSaveError(null);
@@ -2045,6 +2062,7 @@ export const DiagramEditorPane = ({
       const nextDocument = graphToDocument(graph, document.kind, themeRef.current);
       const markdown = serializeDiagramDocument(nextDocument);
       const nextTitle = titleRef.current;
+      const nextTags = parseTagsText(tagsRef.current);
       const nextSnapshot = diagramEditorSnapshot(nextTitle, nextDocument);
       const result = await repository.updateMemo(currentMemo, {
         expectedRevision: currentMemo.revision,
@@ -2053,7 +2071,7 @@ export const DiagramEditorPane = ({
         title: nextTitle,
         contentJson: markdownToDoc(diagramFallbackMarkdown(nextDocument)),
         contentMarkdown: markdown,
-        tags: currentMemo.tags,
+        tags: nextTags,
       });
       memoRef.current = result.memo;
       savedSnapshotRef.current = nextSnapshot;
@@ -2062,15 +2080,24 @@ export const DiagramEditorPane = ({
         graphToDocument(graph, document.kind, themeRef.current),
       );
       const hasNewChanges = currentSnapshot !== nextSnapshot;
+      const hasNewTagChanges = parseTagsText(tagsRef.current).join("\u0000") !== result.memo.tags.join("\u0000");
       setDirty(hasNewChanges);
-      if (!hasNewChanges) {
+      setTagsDirty(hasNewTagChanges);
+      if (!hasNewTagChanges) {
+        const savedTagsText = result.memo.tags.join(", ");
+        tagsRef.current = savedTagsText;
+        setTagsText(savedTagsText);
+      }
+      if (!hasNewChanges && !hasNewTagChanges) {
         graph.cleanHistory();
         setHistoryState({ undo: false, redo: false });
         await onSaved(result.memo);
       }
+      return true;
     } catch (error) {
       setSaveFailed(true);
       setSaveError(error instanceof Error ? error.message : t("diagram.saveError"));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -2078,10 +2105,10 @@ export const DiagramEditorPane = ({
   saveRef.current = () => { void save(); };
 
   useEffect(() => {
-    if (readOnly || !dirty || nodeEditor !== null || saving || !editSessionReady || saveFailed) return;
+    if (readOnly || !editorDirty || nodeEditor !== null || saving || !editSessionReady || saveFailed) return;
     const timer = window.setTimeout(() => saveRef.current(), EDITOR_LOCAL_SAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [dirty, dirtyVersion, editSessionReady, nodeEditor, readOnly, saveFailed, saving]);
+  }, [dirtyVersion, editSessionReady, editorDirty, nodeEditor, readOnly, saveFailed, saving]);
 
   const handleCopyMemoId = async () => {
     if (isLocalMemoId(memo.id)) return;
@@ -2108,6 +2135,32 @@ export const DiagramEditorPane = ({
       contentJson: markdownToDoc(diagramFallbackMarkdown(currentDocument)),
       contentMarkdown: markdown,
     }, name.trim());
+  };
+
+  const handleNotebookChange = (notebookId: string) => {
+    const currentMemo = memoRef.current;
+    if (readOnly || notebookUpdatePending || notebookId === currentMemo.notebookId) {
+      setMobileNotebookSheetOpen(false);
+      return;
+    }
+
+    setNotebookUpdatePending(true);
+    setSaveError(null);
+    void (async () => {
+      if (editorDirty && !(await save())) return;
+      const sourceMemo = memoRef.current;
+      await repository.moveMemos({ memoIds: [sourceMemo.id], notebookId });
+      const { memo: movedMemo } = await repository.getMemo(sourceMemo.id);
+      memoRef.current = movedMemo;
+      await onSaved(movedMemo);
+    })()
+      .catch((error) => {
+        setSaveError(error instanceof Error ? error.message : t("diagram.saveError"));
+      })
+      .finally(() => {
+        setNotebookUpdatePending(false);
+        setMobileNotebookSheetOpen(false);
+      });
   };
 
   const searchMatches = useMemo(() => {
@@ -2157,7 +2210,7 @@ export const DiagramEditorPane = ({
   const currentMarkdown = historyOpen && dirty
     ? serializeDiagramDocument(graphRef.current ? graphToDocument(graphRef.current, document.kind, themeRef.current) : document)
     : memo.contentMarkdown;
-  const saveStatus = saveError ? "error" : saving ? "saving" : dirty ? "unsaved" : "saved";
+  const saveStatus = saveError ? "error" : saving || notebookUpdatePending ? "saving" : editorDirty ? "unsaved" : "saved";
   const saveLabel = saveStatus === "error"
     ? t("editor.saveState.error")
     : saveStatus === "saving"
@@ -2176,28 +2229,21 @@ export const DiagramEditorPane = ({
       <div className="flex h-full min-h-0 flex-col bg-white">
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className={MEMO_EDITOR_TOP_ROW_CLASS_NAME}>
-          <div className="flex min-w-0 items-center gap-2 text-sm">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button className="lg:hidden" size="icon" variant="ghost" aria-label={t("diagram.back")} onClick={() => dirty ? setConfirmDiscardOpen(true) : onBackToList()}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("diagram.back")}</TooltipContent>
-            </Tooltip>
-            <div className="hidden items-center gap-1 lg:flex">
+          <MemoEditorTopRowLeading
+            desktopFocusMode={desktopFocusMode}
+            updatedLabel={updatedLabel}
+            onToggleDesktopFocusMode={onToggleDesktopFocusMode}
+            mobileBackButton={(
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button size="sm" variant={desktopFocusMode ? "soft" : "ghost"} aria-label={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")} aria-pressed={desktopFocusMode} onClick={onToggleDesktopFocusMode}>
-                    {desktopFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                    <span>{t(desktopFocusMode ? "editor.exitFocusMode" : "editor.focusMode")}</span>
+                  <Button className="lg:hidden" size="icon" variant="ghost" aria-label={t("diagram.back")} onClick={() => editorDirty ? setConfirmDiscardOpen(true) : onBackToList()}>
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{t(desktopFocusMode ? "editor.exitFocusMode" : "editor.focusMode")}</TooltipContent>
+                <TooltipContent>{t("diagram.back")}</TooltipContent>
               </Tooltip>
-            </div>
-            <span className="hidden truncate text-xs text-slate-400 sm:inline">{updatedLabel}</span>
-          </div>
+            )}
+          />
 
           <div className="flex shrink-0 items-center gap-1">
             <m.span
@@ -2301,23 +2347,44 @@ export const DiagramEditorPane = ({
           </div>
         </div>
 
-        <div className={MEMO_EDITOR_TITLE_ROW_CLASS_NAME}>
-          <MemoTitleInput
-            value={title}
-            readOnly={readOnly}
-            placeholder={kindLabel}
-            ariaLabel={t("diagram.title")}
-            onValueChange={(nextTitle) => {
-              titleRef.current = nextTitle;
-              setTitle(nextTitle);
+        <div className={MEMO_EDITOR_TITLE_REGION_CLASS_NAME}>
+          <div className="min-w-0">
+            <MemoTitleInput
+              value={title}
+              readOnly={readOnly}
+              placeholder={kindLabel}
+              ariaLabel={t("diagram.title")}
+              onValueChange={(nextTitle) => {
+                titleRef.current = nextTitle;
+                setTitle(nextTitle);
+                setDirtyVersion((current) => current + 1);
+                const graph = graphRef.current;
+                if (graph) {
+                  setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
+                    nextTitle,
+                    graphToDocument(graph, document.kind, themeRef.current),
+                  ));
+                }
+              }}
+            />
+          </div>
+          <MemoEditorMetadataRow
+            contentMarkdown={memo.contentMarkdown}
+            disabled={readOnly}
+            mobileNotebookPickerOpen={mobileNotebookSheetOpen}
+            notebookOptions={notebookOptions}
+            notebookUpdatePending={notebookUpdatePending || saving}
+            repository={repository}
+            selectedNotebookId={memoRef.current.notebookId}
+            tagsText={tagsText}
+            title={title}
+            onMobileNotebookPickerOpenChange={setMobileNotebookSheetOpen}
+            onNotebookChange={handleNotebookChange}
+            onTagsChange={(nextTagsText) => {
+              tagsRef.current = nextTagsText;
+              setTagsText(nextTagsText);
+              setTagsDirty(true);
               setDirtyVersion((current) => current + 1);
-              const graph = graphRef.current;
-              if (graph) {
-                setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
-                  nextTitle,
-                  graphToDocument(graph, document.kind, themeRef.current),
-                ));
-              }
             }}
           />
         </div>

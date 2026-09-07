@@ -12,14 +12,11 @@ import * as m from "motion/react-m";
 import "katex/dist/katex.min.css";
 import {
   ChevronLeft,
-  ChevronDown,
   History,
   RotateCcw,
   Trash2,
   Tags,
   ReplaceAll,
-  Maximize2,
-  Minimize2,
   Paperclip,
   Pencil,
   Sparkles,
@@ -40,8 +37,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ClipboardCopyNotice } from "@/components/ClipboardCopyNotice";
 import { MemoEditorHeaderActions } from "@/components/MemoEditorHeaderActions";
+import { MemoEditorMetadataRow } from "@/components/MemoEditorMetadataRow";
+import { MemoEditorTopRowLeading } from "@/components/MemoEditorTopRowLeading";
 import {
-  MEMO_EDITOR_TEXT_TITLE_REGION_CLASS_NAME,
+  MEMO_EDITOR_TITLE_REGION_CLASS_NAME,
   MEMO_EDITOR_TOP_ROW_CLASS_NAME,
 } from "@/components/MemoEditorChromeDensity";
 import { MemoTitleInput } from "@/components/MemoTitleInput";
@@ -51,11 +50,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorOutline } from "./EditorOutline";
-import { EditorTagPicker } from "./EditorTagPicker";
 import { useAiBubbleMenu } from "./editor/useAiBubbleMenu";
 import {
   createEditorInstanceMemoIdentity,
@@ -231,7 +228,6 @@ import { EditorSaveRecoveryBanner } from "./editor/EditorSaveRecoveryBanner";
 import {
   EmptyEditorHeader,
   IconTooltip,
-  MobileNotebookSelectSheet,
   NoteLinkInteractionHint,
   ResourceActionMenu,
   type NoteLinkHintPosition,
@@ -3627,7 +3623,6 @@ const RichEditorPane = ({
         : saveStateClassName;
 
   const updatedLabel = formatDateTime(memo.updatedAt);
-  const currentNotebookLabel = notebookOptions.find((notebook) => notebook.id === memo.notebookId)?.name ?? t("editor.notebookFallback");
   const currentMarkdownForAi = getCurrentMarkdownForAi();
 
   const mobileDoneDisabled =
@@ -3803,22 +3798,24 @@ const RichEditorPane = ({
       )}
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className={MEMO_EDITOR_TOP_ROW_CLASS_NAME}>
-          <div className="flex min-w-0 items-center gap-2 text-sm">
-            <Button
-              className="lg:hidden"
-              size="icon"
-              variant="ghost"
-              title={hasUnsavedChanges && !readOnly ? t("editor.saveAndBack") : t("editor.backToList")}
-              aria-label={hasUnsavedChanges && !readOnly ? t("editor.saveAndBack") : t("editor.backToList")}
-              disabled={mobileDoneDisabled}
-              onClick={handleMobileBack}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="hidden truncate text-xs text-slate-400 sm:inline">
-              {updatedLabel}
-            </span>
-          </div>
+          <MemoEditorTopRowLeading
+            desktopFocusMode={desktopFocusMode}
+            updatedLabel={updatedLabel}
+            onToggleDesktopFocusMode={onToggleDesktopFocusMode}
+            mobileBackButton={(
+              <Button
+                className="lg:hidden"
+                size="icon"
+                variant="ghost"
+                title={hasUnsavedChanges && !readOnly ? t("editor.saveAndBack") : t("editor.backToList")}
+                aria-label={hasUnsavedChanges && !readOnly ? t("editor.saveAndBack") : t("editor.backToList")}
+                disabled={mobileDoneDisabled}
+                onClick={handleMobileBack}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+          />
 
           <div className="flex shrink-0 items-center gap-1">
             {isMemoShared && (
@@ -4107,7 +4104,7 @@ const RichEditorPane = ({
           </div>
         </div>
 
-        <div className={MEMO_EDITOR_TEXT_TITLE_REGION_CLASS_NAME}>
+        <div className={MEMO_EDITOR_TITLE_REGION_CLASS_NAME}>
           <div className="min-w-0">
             <MemoTitleInput
               value={title}
@@ -4120,78 +4117,45 @@ const RichEditorPane = ({
               placeholder={t("common.untitledMemo")}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <button
-              className="flex h-7 min-w-0 max-w-full items-center gap-1 rounded-md border border-transparent bg-transparent px-1.5 text-xs font-medium text-slate-600 outline-none transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900 focus-visible:border-emerald-300 focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:opacity-50 sm:hidden"
-              type="button"
-              disabled={effectiveReadOnly || notebookUpdatePending}
-              title={t("editor.currentNotebook")}
-              aria-label={t("editor.currentNotebookAria", { name: currentNotebookLabel })}
-              onClick={() => setMobileNotebookSheetOpen(true)}
-            >
-              <span className="min-w-0 truncate">{currentNotebookLabel}</span>
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            </button>
-            <div className="hidden min-w-[9rem] max-w-[18rem] sm:block">
-              <Select
-                value={memo.notebookId}
-                disabled={effectiveReadOnly || notebookUpdatePending}
-                onValueChange={(value) => handleNotebookChange(value)}
-              >
-                <SelectTrigger className="h-8 min-w-0 border-transparent bg-transparent px-2 text-sm font-medium text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900 whitespace-nowrap">
-                  <SelectValue placeholder={t("editor.notebookPlaceholder")}>{currentNotebookLabel}</SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-60 bg-white border border-slate-200 rounded-md py-1 shadow-md">
-                  {notebookOptions.map((notebook) => (
-                    <SelectItem key={notebook.id} value={notebook.id}>
-                      {notebook.selectLabel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <EditorTagPicker
-              contentMarkdown={currentMarkdownForAi}
-              disabled={effectiveReadOnly}
-              loadTags={() => repository.listTags()}
-              title={title}
-              value={tagsText}
-              onChange={(nextTagsText) => {
-                setTagsText(nextTagsText);
-                persistCurrentDraft(title, nextTagsText, getMobilePlainTextValue());
-                markDirty();
-              }}
-            />
-            {!readOnly && (
-              <IconTooltip label={`${t(desktopReadingProtection ? "editor.disableReadingProtection" : "editor.enableReadingProtection")} (${formatShortcutBinding(shortcutSettings.toggleReadingProtection)})`}>
-                <Button
-                  className={cn(
-                    "hidden shrink-0 sm:inline-flex",
-                    desktopReadingProtection && "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-200 hover:text-slate-900"
-                  )}
-                  size="icon"
-                  variant={desktopReadingProtection ? "soft" : "ghost"}
-                  aria-label={`${t(desktopReadingProtection ? "editor.disableReadingProtection" : "editor.enableReadingProtection")} (${formatShortcutBinding(shortcutSettings.toggleReadingProtection)})`}
-                  aria-pressed={desktopReadingProtection}
-                  onClick={toggleDesktopReadingProtection}
-                >
-                  {desktopReadingProtection ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
-                </Button>
-              </IconTooltip>
+          <MemoEditorMetadataRow
+            contentMarkdown={currentMarkdownForAi}
+            disabled={effectiveReadOnly}
+            mobileNotebookPickerOpen={mobileNotebookSheetOpen}
+            notebookOptions={notebookOptions}
+            notebookUpdatePending={notebookUpdatePending || saveMutation.isPending}
+            repository={repository}
+            selectedNotebookId={memo.notebookId}
+            tagsText={tagsText}
+            title={title}
+            onMobileNotebookPickerOpenChange={setMobileNotebookSheetOpen}
+            onNotebookChange={handleNotebookChange}
+            onTagsChange={(nextTagsText) => {
+              setTagsText(nextTagsText);
+              persistCurrentDraft(title, nextTagsText, getMobilePlainTextValue());
+              markDirty();
+            }}
+            trailingActions={(
+              <>
+                {!readOnly && (
+                  <IconTooltip label={`${t(desktopReadingProtection ? "editor.disableReadingProtection" : "editor.enableReadingProtection")} (${formatShortcutBinding(shortcutSettings.toggleReadingProtection)})`}>
+                    <Button
+                      className={cn(
+                        "hidden shrink-0 sm:inline-flex",
+                        desktopReadingProtection && "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-200 hover:text-slate-900"
+                      )}
+                      size="icon"
+                      variant={desktopReadingProtection ? "soft" : "ghost"}
+                      aria-label={`${t(desktopReadingProtection ? "editor.disableReadingProtection" : "editor.enableReadingProtection")} (${formatShortcutBinding(shortcutSettings.toggleReadingProtection)})`}
+                      aria-pressed={desktopReadingProtection}
+                      onClick={toggleDesktopReadingProtection}
+                    >
+                      {desktopReadingProtection ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+                    </Button>
+                  </IconTooltip>
+                )}
+              </>
             )}
-            <Button
-              className="hidden shrink-0 lg:inline-flex"
-              size="sm"
-              variant={desktopFocusMode ? "soft" : "ghost"}
-              title={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")}
-              aria-label={t(desktopFocusMode ? "editor.exitFocusMode" : "editor.enterFocusMode")}
-              aria-pressed={desktopFocusMode}
-              onClick={onToggleDesktopFocusMode}
-            >
-              {desktopFocusMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              <span>{t(desktopFocusMode ? "editor.exitFocusMode" : "editor.focusMode")}</span>
-            </Button>
-          </div>
+          />
         </div>
         {noteSearchOpen ? (
           <EditorNoteSearchBar
@@ -4557,15 +4521,6 @@ const RichEditorPane = ({
         />
       )}
 
-      {mobileNotebookSheetOpen && (
-        <MobileNotebookSelectSheet
-          isUpdating={notebookUpdatePending || saveMutation.isPending}
-          options={notebookOptions}
-          selectedNotebookId={memo.notebookId}
-          onClose={() => setMobileNotebookSheetOpen(false)}
-          onSelect={handleNotebookChange}
-        />
-      )}
     </div>
   );
 };
