@@ -8,7 +8,6 @@ describe("bundled plugin marketplace", () => {
     expect(registry.entries.map((entry) => entry.id)).not.toContain("org.edgeever.examples.recent-notes");
     expect(registry.entries.map((entry) => entry.id)).not.toContain("org.edgeever.themes.nord-emerald");
     for (const entry of registry.entries) {
-      expect(entry.distribution.type).toBe("manifest");
       if (entry.distribution.type !== "manifest") continue;
       const relativeManifestPath = entry.distribution.manifestUrl.replace(/^\/extensions\//, "");
       const manifestFileUrl = new URL(`../../../public/extensions/${relativeManifestPath}`, import.meta.url);
@@ -19,5 +18,24 @@ describe("bundled plugin marketplace", () => {
         expect(await sha256Hex(await mainFile.text())).toBe(entry.verification.checksums.mainJs);
       }
     }
+  });
+
+  test("pins the official AI RSS release and all distributed assets", async () => {
+    const registry = parseMarketplaceRegistry(await Bun.file(new URL("../../../public/extensions/registry.json", import.meta.url)).json());
+    const entry = registry.entries.find((candidate) => candidate.id === "org.edgeever.plugins.ai-rss");
+
+    expect(entry).toMatchObject({
+      publisher: "edgeever",
+      repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss",
+      distribution: { type: "github", repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss" },
+      verification: {
+        version: "0.5.2",
+        checksums: {
+          manifestJson: "b8063f246730da33f9cee342670ca776c9319eb5a07585cb44f8641d49caa989",
+          mainJs: "46bc00002a647f1f087ac2444e02192ec5ae2d1f04719e027de9386e8bf04934",
+          stylesCss: "05cd135a1fe70c3f38d34850a2e9abf6b0c0530b09477960036f567375b2082e",
+        },
+      },
+    });
   });
 });
