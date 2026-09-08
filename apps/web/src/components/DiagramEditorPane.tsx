@@ -68,6 +68,16 @@ import {
   DIAGRAM_SCHEMA_VERSION,
   diagramFallbackMarkdown,
   markdownToDoc,
+  MIND_MAP_CONNECTOR_NAME,
+  MIND_MAP_HORIZONTAL_GAP,
+  MIND_MAP_VERTICAL_GAP,
+  mindMapBranchSides,
+  mindMapConnector,
+  mindMapEdgeVisual,
+  mindMapNodePresentation,
+  mindMapNodeRole,
+  mindMapNodeVisual,
+  mindMapRootRadius,
   parseDiagramDocument,
   serializeDiagramDocument,
   type ArchitectureResourceIcon,
@@ -105,7 +115,6 @@ import {
   compactArchitectureNodeSize,
   compactFlowchartNodeSize,
   flowchartNodePresentation,
-  compactMindMapNodeSize,
   computeDiagramLayout,
   computeDiagramLayoutResult,
   getDiagramLayoutViewport,
@@ -117,6 +126,8 @@ import { isBrowserOffline } from "@/lib/network-status";
 import { statusSettleMotion } from "@/lib/motion";
 import type { EdgeEverRepository } from "@/lib/repository";
 import { cn, formatDateTime, parseTagsText } from "@/lib/utils";
+
+Graph.registerConnector(MIND_MAP_CONNECTOR_NAME, mindMapConnector, true);
 
 type DiagramEditorPaneProps = {
   memo: MemoDetail;
@@ -658,7 +669,15 @@ const nodeEditorState = (
   const bottomRight = graph.localToClient({ x: bbox.x + bbox.width, y: bbox.y + bbox.height });
   const origin = (host ?? graph.container).getBoundingClientRect();
   const isRootTopic = data?.shape === "topic" && !data.parentId;
-  const attrs = nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
+  const mindRole = data?.shape === "topic"
+    ? mindMapNodeRole(graph.getNodes().map((item) => ({
+      id: item.id,
+      parentId: item.getData<NodeData>()?.parentId,
+    })), node.id)
+    : null;
+  const attrs = mindRole
+    ? mindMapNodeVisual(mindRole, resolveDiagramPalette(theme, appearance))
+    : nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
   return {
     nodeId: node.id,
     originalValue: data?.label ?? "",
@@ -668,7 +687,7 @@ const nodeEditorState = (
     top: topLeft.y - origin.top,
     width: Math.max(1, bottomRight.x - topLeft.x),
     height: Math.max(1, bottomRight.y - topLeft.y),
-    fontSize: (data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
+    fontSize: (mindRole ? attrs.label.fontSize : data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
     color: String(attrs.label.fill),
     background: String(attrs.body.fill),
     borderColor: String(attrs.body.stroke),
@@ -813,15 +832,15 @@ const architectureNodeVisuals = (
 const diagramNodePresentation = (
   node: DiagramDocument["nodes"][number],
   kind: DiagramDocument["kind"],
+  allNodes: Array<{ id: string; parentId?: string }> = [node],
 ) => {
   if (kind === "flowchart") return flowchartNodePresentation(node.shape, node.label);
-  const size = kind === "mind-map"
-    ? compactMindMapNodeSize(node.label, !node.parentId)
-    : kind === "architecture"
-      ? compactArchitectureNodeSize(node.shape, node)
-      : compactFlowchartNodeSize(node.shape);
+  if (kind === "mind-map") return mindMapNodePresentation(node.label, mindMapNodeRole(allNodes, node.id));
+  const size = kind === "architecture"
+    ? compactArchitectureNodeSize(node.shape, node)
+    : compactFlowchartNodeSize(node.shape);
   if (node.shape === "boundary") return { ...size, text: node.label };
-  const fontSize = kind === "mind-map" ? 14 : 13;
+  const fontSize = 13;
   const lineHeight = 18;
   const text = Dom.breakText(node.label, { width: size.width - (kind === "architecture" ? 66 : 24), height: 10000 }, {
     fontSize, 'font-size': fontSize, 'font-weight': kind === "architecture" || !node.parentId ? 650 : 500,
@@ -886,9 +905,14 @@ const nodeMetadata = (
 ) => {
   const isDecision = node.shape === "decision";
   const isRootTopic = node.shape === "topic" && !node.parentId;
-  const visualAttrs = nodeAttrs(node.shape, theme, appearance, isRootTopic);
+  const mindRole = kind === "mind-map" ? mindMapNodeRole([node], node.id) : null;
   const palette = resolveDiagramPalette(theme, appearance);
+  const visualAttrs = mindRole ? mindMapNodeVisual(mindRole, palette) : nodeAttrs(node.shape, theme, appearance, isRootTopic);
   const size = diagramNodeSize(node, kind);
+  if (mindRole === "root") {
+    visualAttrs.body.rx = mindMapRootRadius(size.height);
+    visualAttrs.body.ry = visualAttrs.body.rx;
+  }
   const hasPorts = isConnectableDiagram(kind) && node.shape !== "boundary";
   const architectureVisuals = kind === "architecture" && node.shape !== "boundary"
     ? architectureNodeVisuals(node.shape, size, appearance, node.resourceIcon)
@@ -913,7 +937,7 @@ const nodeMetadata = (
       label: {
         ...visualAttrs.label,
         text: diagramNodePresentation(node, kind).text,
-        lineHeight: 18,
+        lineHeight: mindRole === "root" ? 20 : 18,
         ...(architectureVisuals ? { refX: 54, refY: "50%", textAnchor: "start", textVerticalAnchor: "middle" } : {}),
       },
       ...(architectureVisuals?.attrs ?? {}),
@@ -947,25 +971,33 @@ const edgeMetadata = (
 ) => {
   const palette = resolveDiagramPalette(theme, appearance);
   const edgeKind = edge.kind ?? (kind === "architecture" ? "dependency" : undefined);
+  const mindEdge = kind === "mind-map" ? mindMapEdgeVisual("primary", palette) : null;
   const edgeStroke = edgeKind === "data"
     ? "#7C3AED"
     : edgeKind === "async"
       ? "#EA580C"
-      : kind === "mind-map" ? palette.mindMapEdge : palette.flowEdge;
+      : mindEdge?.stroke ?? palette.flowEdge;
   return {
     id: edge.id,
     source: { cell: edge.source },
     target: { cell: edge.target },
     router: kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : undefined,
-    connector: { name: kind === "mind-map" ? "smooth" : "rounded", args: { radius: 10 } },
+    connector: kind === "mind-map"
+      ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth } }
+      : { name: "rounded", args: { radius: 10 } },
     data: { ...(edgeKind ? { kind: edgeKind } : {}), ...(edge.bidirectional ? { bidirectional: true } : {}) } satisfies EdgeData,
     attrs: {
       line: {
         stroke: edgeStroke,
-        strokeWidth: kind === "mind-map" ? 2 : 1.5,
+        strokeWidth: mindEdge ? 0.5 : 1.5,
         strokeDasharray: edgeKind === "async" ? "7 5" : undefined,
         sourceMarker: edge.bidirectional ? { name: "block", width: 8, height: 6 } : null,
         targetMarker: kind === "mind-map" ? null : { name: "block", width: 8, height: 6 },
+        ...(mindEdge ? {
+          fill: edgeStroke,
+          strokeLinejoin: "round",
+          strokeLinecap: "round",
+        } : { fill: "none" }),
       },
     },
     labels: edge.label ? [diagramEdgeLabel(edge.label, palette, kind)] : undefined,
@@ -1072,16 +1104,47 @@ const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLE
 
 const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: DiagramAppearance) => {
   const palette = resolveDiagramPalette(theme, appearance);
-  const roots = new Set(graph.getNodes().filter((node) => !node.getData<NodeData>()?.parentId).map((node) => node.id));
+  const nodes = graph.getNodes().map((node) => ({
+    id: node.id,
+    parentId: node.getData<NodeData>()?.parentId,
+    ...node.getPosition(),
+    ...node.getSize(),
+  }));
   for (const node of graph.getNodes()) {
-    const parentId = node.getData<NodeData>()?.parentId;
-    const primary = Boolean(parentId && roots.has(parentId));
-    node.attr("label/fontWeight", !parentId || primary ? 650 : 500);
-    node.attr("body/strokeWidth", !parentId ? 2 : primary ? 1.5 : 1);
-    if (primary) node.attr("body/stroke", palette.topicStroke);
+    const role = mindMapNodeRole(nodes, node.id);
+    const visual = mindMapNodeVisual(role, palette);
+    if (role === "root") {
+      visual.body.rx = mindMapRootRadius(node.getSize().height);
+      visual.body.ry = visual.body.rx;
+    }
+    node.attr("body/fill", visual.body.fill);
+    node.attr("body/stroke", visual.body.stroke);
+    node.attr("body/strokeWidth", visual.body.strokeWidth);
+    node.attr("body/rx", visual.body.rx);
+    node.attr("body/ry", visual.body.ry);
+    node.attr("label/fill", visual.label.fill);
+    node.attr("label/fontSize", visual.label.fontSize);
+    node.attr("label/fontWeight", visual.label.fontWeight);
+    node.attr("label/fontFamily", visual.label.fontFamily);
   }
   for (const edge of graph.getEdges()) {
-    edge.attr("line/strokeWidth", roots.has(edge.getSourceCellId()) ? 2.5 : 1.25);
+    const sourceId = edge.getSourceCellId();
+    const targetId = edge.getTargetCellId();
+    const source = nodes.find((node) => node.id === sourceId);
+    const target = nodes.find((node) => node.id === targetId);
+    if (!source || !target) continue;
+    const visual = mindMapEdgeVisual(mindMapNodeRole(nodes, source.id), palette);
+    const sides = mindMapBranchSides(source, target);
+    edge.setSource({ cell: sourceId, anchor: { name: sides.source } });
+    edge.setTarget({ cell: targetId, anchor: { name: sides.target } });
+    edge.setConnector(MIND_MAP_CONNECTOR_NAME, { sourceWidth: visual.sourceWidth, targetWidth: visual.targetWidth });
+    edge.attr("line/stroke", visual.stroke);
+    edge.attr("line/fill", visual.stroke);
+    edge.attr("line/strokeWidth", 0.5);
+    edge.attr("line/strokeLinejoin", "round");
+    edge.attr("line/strokeLinecap", "round");
+    edge.attr("line/targetMarker", null);
+    edge.attr("line/sourceMarker", null);
   }
 };
 
@@ -1119,6 +1182,7 @@ const applyGraphPalette = (
     for (const edge of graph.getEdges()) {
       const edgeKind = edge.getData<EdgeData>()?.kind;
       edge.attr("line/stroke", edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : kind === "mind-map" ? palette.mindMapEdge : palette.flowEdge);
+      if (kind !== "mind-map") edge.attr("line/fill", "none");
       if (edge.getLabels().length > 0) {
         edge.setLabels(edge.getLabels().map((label) => diagramEdgeLabel(String(label.attrs?.label?.text ?? ""), palette, kind)));
       }
@@ -1274,6 +1338,9 @@ export const DiagramEditorPane = ({
         graph.startBatch("edit-label");
         cell.setData({ ...cell.getData<NodeData>(), label });
         refreshNodeLabel(cell, label);
+        if (cell.getData<NodeData>()?.shape === "topic") {
+          applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+        }
         graph.stopBatch("edit-label");
         setSelectedNodeLabel(label);
       }
@@ -1407,7 +1474,7 @@ export const DiagramEditorPane = ({
         highlight: isConnectableDiagram(document.kind),
         snap: { radius: 24 },
         router: document.kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : "normal",
-        connector: document.kind === "mind-map" ? "smooth" : "rounded",
+        connector: document.kind === "mind-map" ? MIND_MAP_CONNECTOR_NAME : "rounded",
         validateConnection: ({ sourceCell, targetCell, sourcePort, targetPort }) => {
           if (!isConnectableDiagram(document.kind) || !sourceCell || !sourcePort) return false;
           if (!targetCell) return true;
@@ -1473,6 +1540,7 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance)));
+    applyGraphPalette(graph, documentTheme, document.kind, appearance);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
     fitDiagramContent(graph, document, containerRef.current);
@@ -1525,6 +1593,16 @@ export const DiagramEditorPane = ({
       setHasSelection(true);
     });
     graph.on("node:dblclick", ({ node }: { node: Node }) => beginNodeEdit(node));
+    graph.on("node:mouseup", () => {
+      if (document.kind !== "mind-map") return;
+      const historyEnabled = graph.isHistoryEnabled();
+      if (historyEnabled) graph.disableHistory();
+      try {
+        applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+      } finally {
+        if (historyEnabled) graph.enableHistory();
+      }
+    });
     graph.on("edge:click", ({ edge }: { edge: Edge }) => {
       dismissFlowQuickCreate();
       if (isConnectableDiagram(document.kind)) setOnlyFlowNodePortsActive(graph);
@@ -1931,12 +2009,14 @@ export const DiagramEditorPane = ({
     const nextPosition = requestedPosition ?? (requestedSibling
       ? {
           x: selectedPosition.x,
-          y: Math.max(selectedPosition.y, ...siblings.map((node) => node.getPosition().y)) + 52,
+          y: Math.max(selectedPosition.y, ...siblings.map((node) => node.getPosition().y))
+            + selectedSize.height + (isMindMap ? MIND_MAP_VERTICAL_GAP : 16),
         }
       : {
-          x: selectedPosition.x + selectedSize.width + (isMindMap ? 72 : 110),
+          x: selectedPosition.x + selectedSize.width + (isMindMap ? MIND_MAP_HORIZONTAL_GAP : 110),
           y: childNodes.length > 0
-            ? Math.max(...childNodes.map((node) => node.getPosition().y)) + 52
+            ? Math.max(...childNodes.map((node) => node.getPosition().y))
+              + selectedSize.height + (isMindMap ? MIND_MAP_VERTICAL_GAP : 16)
             : selectedPosition.y,
         });
     const id = createId(isMindMap ? "topic" : "node");
@@ -1979,6 +2059,7 @@ export const DiagramEditorPane = ({
         const position = positions[graphNode.id];
         if (position) graphNode.position(position.x, position.y);
       }
+      applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
     }
     graph.stopBatch("add");
     settleScroller();
@@ -2192,6 +2273,7 @@ export const DiagramEditorPane = ({
         node.resize(geometry.width, geometry.height);
       }
     }
+    if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
     graph.stopBatch("layout");
     fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport);
     if (changed) {

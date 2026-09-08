@@ -138,7 +138,10 @@ describe("diagram editor canvas surface", () => {
   });
 
   test("uses restrained rounded edges and fits the complete diagram without clipping", () => {
-    expect(source).toContain('connector: { name: kind === "mind-map" ? "smooth" : "rounded"');
+    expect(source).toContain("Graph.registerConnector(MIND_MAP_CONNECTOR_NAME, mindMapConnector, true)");
+    expect(source).toContain("name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth }");
+    expect(source).toContain('{ fill: "none" }');
+    expect(source).toContain('if (kind !== "mind-map") edge.attr("line/fill", "none")');
     expect(source).toContain('name: "manhattan"');
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");
