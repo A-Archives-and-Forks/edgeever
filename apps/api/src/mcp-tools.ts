@@ -106,7 +106,8 @@ const MCP_TOOL_DEFINITIONS = [
         notebookId: { type: "string", minLength: 1 },
         title: { type: "string", maxLength: 160 },
         kind: { type: "string", enum: ["mind-map", "flowchart", "architecture"] },
-        theme: { type: "string", enum: ["brand", "ocean", "ink"] },
+        theme: { type: "string", enum: ["brand", "ocean", "ink", "classic"] },
+        structure: { type: "string", enum: ["map", "box"] },
         layout: {
           type: "object",
           additionalProperties: false,

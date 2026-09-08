@@ -2,12 +2,17 @@ import { describe, expect, test } from "bun:test";
 import {
   compactMindMapNodeSize,
   mindMapBranchSides,
+  mindMapBranchTint,
+  mindMapBranchTintIndex,
   mindMapConnectorPath,
+  mindMapEdgeTerminal,
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
   mindMapNodeVisual,
   mindMapRootRadius,
+  mindMapUsesUnderline,
+  resolveMindMapNodeStyle,
   MIND_MAP_CONNECTOR_NAME,
   MIND_MAP_VERTICAL_GAP,
 } from "./diagram-mindmap-style.ts";
@@ -51,7 +56,8 @@ describe("mind map presentation", () => {
     expect(root.body.rx).toBe(23);
     expect(primary.body.fill).toBe(palette.nodeFill);
     expect(primary.body.stroke).toBe(palette.topicStroke);
-    expect(nested.body.fill).toBe(palette.canvas);
+    expect(nested.body.fill).toBe("transparent");
+    expect(nested.underline.stroke).toBe(palette.mindMapEdge);
     expect(nested.label.fontWeight).toBe(500);
     expect(mindMapRootRadius(46)).toBe(23);
   });
@@ -70,6 +76,40 @@ describe("mind map presentation", () => {
       { x: 0, y: 0, width: 96, height: 36 },
     )).toEqual({ source: "left", target: "right" });
     expect(MIND_MAP_CONNECTOR_NAME).toBe("edgeever-mindmap");
+  });
+
+  test("underlines nested topics and keeps first-level topics boxed", () => {
+    const nested = mindMapNodeVisual("nested", palette, { underline: true, width: 96, height: 32 });
+    expect(mindMapUsesUnderline("nested")).toBe(true);
+    expect(mindMapUsesUnderline("nested", "map")).toBe(true);
+    expect(mindMapUsesUnderline("nested", "box")).toBe(false);
+    expect(mindMapUsesUnderline("primary")).toBe(false);
+    expect(nested.body.fill).toBe("transparent");
+    expect(nested.underline.stroke).toBe(palette.mindMapEdge);
+    expect(nested.underline.d).toContain("H");
+    expect(mindMapEdgeTerminal({ x: 0, y: 0, width: 96, height: 32 }, "nested", "left").connectionPoint.name).toBe("anchor");
+    expect(mindMapEdgeTerminal({ x: 0, y: 0, width: 96, height: 32 }, "primary", "right").connectionPoint.name).toBe("boundary");
+  });
+
+  test("colors a classic branch family from the first-level sibling index", () => {
+    const nodes = [
+      { id: "root" },
+      { id: "one", parentId: "root", y: 10 },
+      { id: "two", parentId: "root", y: 80 },
+      { id: "one-a", parentId: "one", y: 10 },
+    ];
+    expect(mindMapBranchTintIndex(nodes, "root")).toBeNull();
+    expect(mindMapBranchTintIndex(nodes, "one")).toBe(0);
+    expect(mindMapBranchTintIndex(nodes, "two")).toBe(1);
+    expect(mindMapBranchTintIndex(nodes, "one-a")).toBe(0);
+    const first = mindMapBranchTint(0, "light");
+    const second = mindMapBranchTint(1, "light");
+    expect(first.edge).not.toBe(second.edge);
+    const styled = resolveMindMapNodeStyle(nodes, "one-a", palette, "classic", "light", { width: 96, height: 32 });
+    expect(styled.underline).toBe(true);
+    expect(styled.visual.underline.stroke).toBe(first.edge);
+    const brandNested = resolveMindMapNodeStyle(nodes, "one-a", palette, "brand", "light", { width: 96, height: 32 });
+    expect(brandNested.visual.underline.stroke).toBe(palette.mindMapEdge);
   });
 
   test("builds a closed horizontal cubic ribbon that is thicker at the source", () => {

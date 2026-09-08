@@ -70,20 +70,24 @@ import {
   markdownToDoc,
   MIND_MAP_CONNECTOR_NAME,
   MIND_MAP_HORIZONTAL_GAP,
+  MIND_MAP_TOPIC_MARKUP,
   MIND_MAP_VERTICAL_GAP,
   mindMapBranchSides,
   mindMapConnector,
+  mindMapEdgeTerminal,
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
-  mindMapNodeVisual,
   mindMapRootRadius,
+  resolveMindMapNodeStyle,
   parseDiagramDocument,
+  resolveDiagramStructure,
   serializeDiagramDocument,
   type ArchitectureResourceIcon,
   type DiagramDocument,
   type DiagramEdgeKind,
   type DiagramNodeShape,
+  type DiagramStructure,
   type DiagramTheme,
   type MemoDetail,
   type MemoEditSession,
@@ -120,6 +124,7 @@ import {
   getDiagramLayoutViewport,
   type DiagramLayoutViewport,
 } from "@/lib/diagram-layout";
+import { applyDiagramScrollerFitOptions, isUsableDiagramBounds } from "@/lib/diagram-scroller-fit";
 import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-theme";
 import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
@@ -575,6 +580,62 @@ const ARCHITECTURE_DROP_VIEWPORT_PADDING = 12;
 
 const getDiagramScroller = (graph: Graph) => graph.getPlugin("scroller") as Scroller | undefined;
 
+const diagramNodeBounds = (graph: Graph) => {
+  const nodes = graph.getNodes();
+  if (nodes.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    const position = node.getPosition();
+    const size = node.getSize();
+    minX = Math.min(minX, position.x);
+    minY = Math.min(minY, position.y);
+    maxX = Math.max(maxX, position.x + size.width);
+    maxY = Math.max(maxY, position.y + size.height);
+  }
+  const bounds = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  return isUsableDiagramBounds(bounds) ? bounds : null;
+};
+
+const bindDiagramScrollerFit = (graph: Graph) => {
+  const current = graph.fitToContent as typeof graph.fitToContent & { edgeeverBound?: boolean };
+  if (current.edgeeverBound) return;
+  const original = current.bind(graph);
+  const bound = ((
+    gridWidth?: unknown,
+    gridHeight?: number,
+    padding?: unknown,
+    options?: Record<string, unknown>,
+  ) => {
+    const bounds = diagramNodeBounds(graph);
+    if (gridWidth && typeof gridWidth === "object") {
+      return original(applyDiagramScrollerFitOptions({ ...(gridWidth as Record<string, unknown>) }, bounds));
+    }
+    return original(
+      gridWidth as number | undefined,
+      gridHeight,
+      padding as number | undefined,
+      applyDiagramScrollerFitOptions({ ...(options ?? {}) }, bounds),
+    );
+  }) as typeof graph.fitToContent & { edgeeverBound?: boolean };
+  bound.edgeeverBound = true;
+  graph.fitToContent = bound;
+};
+
+const ensureDiagramPaperContainsNodes = (graph: Graph) => {
+  const bounds = diagramNodeBounds(graph);
+  if (!bounds) return;
+  graph.transform.fitToContent({
+    allowNewOrigin: "any",
+    padding: 32,
+    gridWidth: 1,
+    gridHeight: 1,
+    contentArea: bounds,
+  });
+};
+
 const diagramClientToLocalPoint = (graph: Graph, point: { x: number; y: number }) => {
   const anchorNode = graph.getNodes().find((node) => node.isVisible());
   const anchorView = anchorNode ? graph.findViewByCell(anchorNode) : null;
@@ -669,14 +730,18 @@ const nodeEditorState = (
   const bottomRight = graph.localToClient({ x: bbox.x + bbox.width, y: bbox.y + bbox.height });
   const origin = (host ?? graph.container).getBoundingClientRect();
   const isRootTopic = data?.shape === "topic" && !data.parentId;
-  const mindRole = data?.shape === "topic"
-    ? mindMapNodeRole(graph.getNodes().map((item) => ({
-      id: item.id,
-      parentId: item.getData<NodeData>()?.parentId,
-    })), node.id)
+  const mindNodes = graph.getNodes().map((item) => ({
+    id: item.id,
+    parentId: item.getData<NodeData>()?.parentId,
+    ...item.getPosition(),
+    ...item.getSize(),
+  }));
+  const mindRole = data?.shape === "topic" ? mindMapNodeRole(mindNodes, node.id) : null;
+  const mindStyle = mindRole
+    ? resolveMindMapNodeStyle(mindNodes, node.id, resolveDiagramPalette(theme, appearance), theme, appearance, node.getSize())
     : null;
-  const attrs = mindRole
-    ? mindMapNodeVisual(mindRole, resolveDiagramPalette(theme, appearance))
+  const attrs = mindStyle
+    ? mindStyle.visual
     : nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
   return {
     nodeId: node.id,
@@ -689,7 +754,7 @@ const nodeEditorState = (
     height: Math.max(1, bottomRight.y - topLeft.y),
     fontSize: (mindRole ? attrs.label.fontSize : data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
     color: String(attrs.label.fill),
-    background: String(attrs.body.fill),
+    background: String(attrs.body.fill === "transparent" ? resolveDiagramPalette(theme, appearance).canvas : attrs.body.fill),
     borderColor: String(attrs.body.stroke),
   };
 };
@@ -833,9 +898,10 @@ const diagramNodePresentation = (
   node: DiagramDocument["nodes"][number],
   kind: DiagramDocument["kind"],
   allNodes: Array<{ id: string; parentId?: string }> = [node],
+  structure?: DiagramStructure,
 ) => {
   if (kind === "flowchart") return flowchartNodePresentation(node.shape, node.label);
-  if (kind === "mind-map") return mindMapNodePresentation(node.label, mindMapNodeRole(allNodes, node.id));
+  if (kind === "mind-map") return mindMapNodePresentation(node.label, mindMapNodeRole(allNodes, node.id), structure);
   const size = kind === "architecture"
     ? compactArchitectureNodeSize(node.shape, node)
     : compactFlowchartNodeSize(node.shape);
@@ -849,12 +915,12 @@ const diagramNodePresentation = (
   return { ...size, height: Math.max(size.height, text.split("\n").length * lineHeight + 16), text };
 };
 
-const diagramNodeSize = (node: DiagramDocument["nodes"][number], kind: DiagramDocument["kind"]) => {
-  const { width, height } = diagramNodePresentation(node, kind);
+const diagramNodeSize = (node: DiagramDocument["nodes"][number], kind: DiagramDocument["kind"], structure?: DiagramStructure) => {
+  const { width, height } = diagramNodePresentation(node, kind, [node], structure);
   return { width, height };
 };
 
-const refreshNodeLabel = (node: Node, label: string) => {
+const refreshNodeLabel = (node: Node, label: string, structure?: DiagramStructure) => {
   const data = node.getData<NodeData>();
   const shape = data?.shape ?? "process";
   if (shape === "boundary") {
@@ -862,7 +928,12 @@ const refreshNodeLabel = (node: Node, label: string) => {
     return;
   }
   const kind = shape === "topic" ? "mind-map" : ARCHITECTURE_NODE_ACCENTS[shape] ? "architecture" : "flowchart";
-  const presentation = diagramNodePresentation({ id: node.id, ...node.getPosition(), ...node.getSize(), ...data, shape, label }, kind);
+  const graphNodes = kind === "mind-map" ? node.model?.getNodes() : undefined;
+  const allNodes = graphNodes?.map((item) => ({
+    id: item.id,
+    parentId: item.getData<NodeData>()?.parentId,
+  }));
+  const presentation = diagramNodePresentation({ id: node.id, ...node.getPosition(), ...node.getSize(), ...data, shape, label }, kind, allNodes, structure);
   const currentSize = node.getSize();
   if (currentSize.width !== presentation.width || currentSize.height !== presentation.height) {
     node.resize(presentation.width, presentation.height);
@@ -902,14 +973,17 @@ const nodeMetadata = (
   theme: DiagramTheme,
   kind: DiagramDocument["kind"],
   appearance: DiagramAppearance,
+  structure?: DiagramStructure,
 ) => {
   const isDecision = node.shape === "decision";
   const isRootTopic = node.shape === "topic" && !node.parentId;
-  const mindRole = kind === "mind-map" ? mindMapNodeRole([node], node.id) : null;
   const palette = resolveDiagramPalette(theme, appearance);
-  const visualAttrs = mindRole ? mindMapNodeVisual(mindRole, palette) : nodeAttrs(node.shape, theme, appearance, isRootTopic);
-  const size = diagramNodeSize(node, kind);
-  if (mindRole === "root") {
+  const size = diagramNodeSize(node, kind, structure);
+  const mindStyle = kind === "mind-map"
+    ? resolveMindMapNodeStyle([node], node.id, palette, theme, appearance, size, structure)
+    : null;
+  const visualAttrs = mindStyle ? mindStyle.visual : nodeAttrs(node.shape, theme, appearance, isRootTopic);
+  if (mindStyle?.role === "root") {
     visualAttrs.body.rx = mindMapRootRadius(size.height);
     visualAttrs.body.ry = visualAttrs.body.rx;
   }
@@ -931,13 +1005,14 @@ const nodeMetadata = (
       ...(node.parentId ? { parentId: node.parentId } : {}),
       ...(node.resourceIcon ? { resourceIcon: node.resourceIcon } : {}),
     } satisfies NodeData,
-    ...(architectureVisuals ? { markup: architectureVisuals.markup } : {}),
+    ...(architectureVisuals ? { markup: architectureVisuals.markup } : mindStyle ? { markup: MIND_MAP_TOPIC_MARKUP } : {}),
     attrs: {
       body: visualAttrs.body,
+      ...(mindStyle ? { underline: mindStyle.visual.underline } : {}),
       label: {
         ...visualAttrs.label,
         text: diagramNodePresentation(node, kind).text,
-        lineHeight: mindRole === "root" ? 20 : 18,
+        lineHeight: mindStyle?.visual.label.lineHeight ?? 18,
         ...(architectureVisuals ? { refX: 54, refY: "50%", textAnchor: "start", textVerticalAnchor: "middle" } : {}),
       },
       ...(architectureVisuals?.attrs ?? {}),
@@ -1004,10 +1079,11 @@ const edgeMetadata = (
   };
 };
 
-const graphToDocument = (graph: Graph, kind: DiagramDocument["kind"], theme: DiagramTheme): DiagramDocument => ({
+const graphToDocument = (graph: Graph, kind: DiagramDocument["kind"], theme: DiagramTheme, structure?: DiagramStructure): DiagramDocument => ({
   schemaVersion: kind === "architecture" ? ARCHITECTURE_DIAGRAM_SCHEMA_VERSION : DIAGRAM_SCHEMA_VERSION,
   kind,
   theme,
+  ...(kind === "mind-map" ? { structure: resolveDiagramStructure(structure) } : {}),
   nodes: graph.getNodes().map((node) => {
     const data = node.getData<NodeData>();
     const position = node.getPosition();
@@ -1070,25 +1146,16 @@ const removeGraphSelection = (graph: Graph) => {
 const fitDiagramContent = (
   graph: Graph,
   document: DiagramDocument,
-  container: HTMLElement | null,
+  _container: HTMLElement | null,
   padding = 32,
   viewport?: DiagramLayoutViewport,
 ) => {
   const policy = viewport ?? getDiagramLayoutViewport(document.kind);
-  const visibleNodes = graph.getNodes().filter((node) => node.isVisible());
-  if (visibleNodes.length !== graph.getNodes().length) {
-    const bounds = graph.getCellsBBox(visibleNodes);
-    if (bounds) graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale });
-    return;
-  }
-  graph.zoomToFit({
-    padding,
-    maxScale: policy.maxScale,
-
-  });
-  // Fit the complete bounding box, including branches left of a mind-map root.
-  // A minimum scale or a second anchor translation can crop existing content.
-  graph.centerContent();
+  const bounds = diagramNodeBounds(graph);
+  if (!bounds) return;
+  // Fit every node, including mind-map branches left of the root. Zooming to a
+  // visible subset or to edge paths lets Scroller shrink the paper and clip.
+  graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale });
 };
 
 const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLElement | null) => {
@@ -1102,7 +1169,7 @@ const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLE
   graph.translate(container.clientWidth / 2 - bounds.center.x, 48 - bounds.y);
 };
 
-const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: DiagramAppearance) => {
+const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: DiagramAppearance, structure?: DiagramStructure) => {
   const palette = resolveDiagramPalette(theme, appearance);
   const nodes = graph.getNodes().map((node) => ({
     id: node.id,
@@ -1111,21 +1178,28 @@ const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: Di
     ...node.getSize(),
   }));
   for (const node of graph.getNodes()) {
-    const role = mindMapNodeRole(nodes, node.id);
-    const visual = mindMapNodeVisual(role, palette);
+    const size = node.getSize();
+    const { role, visual } = resolveMindMapNodeStyle(nodes, node.id, palette, theme, appearance, size, structure);
     if (role === "root") {
-      visual.body.rx = mindMapRootRadius(node.getSize().height);
+      visual.body.rx = mindMapRootRadius(size.height);
       visual.body.ry = visual.body.rx;
     }
+    node.setMarkup(MIND_MAP_TOPIC_MARKUP);
     node.attr("body/fill", visual.body.fill);
     node.attr("body/stroke", visual.body.stroke);
     node.attr("body/strokeWidth", visual.body.strokeWidth);
     node.attr("body/rx", visual.body.rx);
     node.attr("body/ry", visual.body.ry);
+    node.attr("underline", visual.underline);
     node.attr("label/fill", visual.label.fill);
     node.attr("label/fontSize", visual.label.fontSize);
     node.attr("label/fontWeight", visual.label.fontWeight);
     node.attr("label/fontFamily", visual.label.fontFamily);
+    node.attr("label/lineHeight", visual.label.lineHeight);
+    node.attr("label/refX", visual.label.refX ?? "50%");
+    node.attr("label/refY", visual.label.refY);
+    node.attr("label/textAnchor", visual.label.textAnchor);
+    node.attr("label/textVerticalAnchor", visual.label.textVerticalAnchor);
   }
   for (const edge of graph.getEdges()) {
     const sourceId = edge.getSourceCellId();
@@ -1133,10 +1207,14 @@ const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: Di
     const source = nodes.find((node) => node.id === sourceId);
     const target = nodes.find((node) => node.id === targetId);
     if (!source || !target) continue;
-    const visual = mindMapEdgeVisual(mindMapNodeRole(nodes, source.id), palette);
+    const sourceRole = mindMapNodeRole(nodes, source.id);
+    const targetStyle = resolveMindMapNodeStyle(nodes, target.id, palette, theme, appearance, target, structure);
+    const visual = mindMapEdgeVisual(sourceRole, palette, targetStyle.tint);
     const sides = mindMapBranchSides(source, target);
-    edge.setSource({ cell: sourceId, anchor: { name: sides.source } });
-    edge.setTarget({ cell: targetId, anchor: { name: sides.target } });
+    const sourceTerminal = mindMapEdgeTerminal(source, sourceRole, sides.source, structure);
+    const targetTerminal = mindMapEdgeTerminal(target, targetStyle.role, sides.target, structure);
+    edge.setSource({ cell: sourceId, ...sourceTerminal });
+    edge.setTarget({ cell: targetId, ...targetTerminal });
     edge.setConnector(MIND_MAP_CONNECTOR_NAME, { sourceWidth: visual.sourceWidth, targetWidth: visual.targetWidth });
     edge.attr("line/stroke", visual.stroke);
     edge.attr("line/fill", visual.stroke);
@@ -1153,8 +1231,11 @@ const applyGraphPalette = (
   theme: DiagramTheme,
   kind: DiagramDocument["kind"],
   appearance: DiagramAppearance,
+  structure?: DiagramStructure,
 ) => {
   const palette = resolveDiagramPalette(theme, appearance);
+  const scroller = getDiagramScroller(graph);
+  scroller?.disableAutoResize();
   const historyEnabled = graph.isHistoryEnabled();
   if (historyEnabled) graph.disableHistory();
   try {
@@ -1164,7 +1245,7 @@ const applyGraphPalette = (
       const attrs = nodeAttrs(shape, theme, appearance, shape === "topic" && !data?.parentId);
       node.attr("body", attrs.body);
       node.attr("label", attrs.label);
-      refreshNodeLabel(node, data?.label ?? "");
+      refreshNodeLabel(node, data?.label ?? "", structure);
       if (kind === "architecture" && shape !== "boundary") {
         const architectureVisuals = architectureNodeVisuals(shape, node.getSize(), appearance, data?.resourceIcon);
         for (const [selector, selectorAttrs] of Object.entries(architectureVisuals.attrs)) {
@@ -1187,10 +1268,12 @@ const applyGraphPalette = (
         edge.setLabels(edge.getLabels().map((label) => diagramEdgeLabel(String(label.attrs?.label?.text ?? ""), palette, kind)));
       }
     }
-    if (kind === "mind-map") applyMindMapHierarchy(graph, theme, appearance);
+    if (kind === "mind-map") applyMindMapHierarchy(graph, theme, appearance, structure);
     applyDiagramSurface(graph, theme, appearance);
   } finally {
     if (historyEnabled) graph.enableHistory();
+    scroller?.enableAutoResize();
+    ensureDiagramPaperContainsNodes(graph);
   }
 };
 
@@ -1223,12 +1306,15 @@ export const DiagramEditorPane = ({
   const saveRef = useRef<() => void>(() => undefined);
   const document = parseDiagramDocument(memo.contentMarkdown);
   const documentTheme = document?.theme ?? "brand";
+  const documentStructure = resolveDiagramStructure(document?.structure);
   const [title, setTitle] = useState(memo.title ?? "");
   const [tagsText, setTagsText] = useState(memo.tags.join(", "));
   const [theme, setTheme] = useState<DiagramTheme>(documentTheme);
+  const [structure, setStructure] = useState<DiagramStructure>(documentStructure);
   const titleRef = useRef(title);
   const tagsRef = useRef(tagsText);
   const themeRef = useRef<DiagramTheme>(documentTheme);
+  const structureRef = useRef<DiagramStructure>(documentStructure);
   const appearanceRef = useRef<DiagramAppearance>(resolvedTheme);
   const savedSnapshotRef = useRef(document ? diagramEditorSnapshot(memo.title ?? "", document) : "");
   const viewOnlyRef = useRef(false);
@@ -1337,9 +1423,9 @@ export const DiagramEditorPane = ({
       if (label !== current.originalValue) {
         graph.startBatch("edit-label");
         cell.setData({ ...cell.getData<NodeData>(), label });
-        refreshNodeLabel(cell, label);
+        refreshNodeLabel(cell, label, structureRef.current);
         if (cell.getData<NodeData>()?.shape === "topic") {
-          applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+          applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
         }
         graph.stopBatch("edit-label");
         setSelectedNodeLabel(label);
@@ -1372,10 +1458,12 @@ export const DiagramEditorPane = ({
     setNodeEditor(null);
     setTheme(documentTheme);
     themeRef.current = documentTheme;
+    setStructure(documentStructure);
+    structureRef.current = documentStructure;
     setHistoryOpen(false);
     setShareOpen(false);
     setMemoIdCopyNotice(null);
-  }, [documentTheme, memo.id]);
+  }, [documentStructure, documentTheme, memo.id]);
 
   useEffect(() => () => {
     if (memoIdCopyTimerRef.current !== null) window.clearTimeout(memoIdCopyTimerRef.current);
@@ -1418,7 +1506,7 @@ export const DiagramEditorPane = ({
     if (!graph || !document) return;
     viewOnlyRef.current = true;
     try {
-      applyGraphPalette(graph, themeRef.current, document.kind, resolvedTheme);
+      applyGraphPalette(graph, themeRef.current, document.kind, resolvedTheme, structureRef.current);
     } finally {
       viewOnlyRef.current = false;
     }
@@ -1443,7 +1531,7 @@ export const DiagramEditorPane = ({
     const incomingSnapshot = diagramEditorSnapshot(memo.title ?? "", document);
     const canvasSnapshot = diagramEditorSnapshot(
       titleRef.current,
-      graphToDocument(graph, document.kind, themeRef.current),
+      graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
     );
     if (incomingSnapshot !== canvasSnapshot) {
       setGraphReloadVersion((current) => current + 1);
@@ -1503,6 +1591,7 @@ export const DiagramEditorPane = ({
       pannable: { enabled: true, eventTypes: ["leftMouseDown", "rightMouseDown"] },
       className: "edgeever-diagram-scroller",
     }));
+    bindDiagramScrollerFit(graph);
     graph.use(new History({ enabled: !readOnly }));
     graph.use(new Export());
     graph.use(new Keyboard({
@@ -1530,7 +1619,7 @@ export const DiagramEditorPane = ({
       return nodeMetadata({
         ...node,
         ...(inferredResourceIcon ? { resourceIcon: inferredResourceIcon } : {}),
-      }, documentTheme, document.kind, appearance);
+      }, documentTheme, document.kind, appearance, documentStructure);
     }));
     if (document.kind === "architecture") {
       for (const node of graph.getNodes()) {
@@ -1540,17 +1629,24 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance)));
-    applyGraphPalette(graph, documentTheme, document.kind, appearance);
+    applyGraphPalette(graph, documentTheme, document.kind, appearance, documentStructure);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
-    fitDiagramContent(graph, document, containerRef.current);
+    const settleLoadedViewport = () => {
+      if (graphRef.current !== graph) return;
+      ensureDiagramPaperContainsNodes(graph);
+      fitDiagramContent(graph, document, containerRef.current);
+    };
+    settleLoadedViewport();
+    graph.once("render:done", settleLoadedViewport);
+    requestAnimationFrame(settleLoadedViewport);
     if (document.kind === "flowchart" && graph.scale().sx < 0.8) readFlowchart(graph, document, containerRef.current);
 
     const updateHistory = () => setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     const markDirty = () => {
       if (viewOnlyRef.current) return;
       if (!readOnly) {
-        const currentDocument = graphToDocument(graph, document.kind, themeRef.current);
+        const currentDocument = graphToDocument(graph, document.kind, themeRef.current, structureRef.current);
         const hasChanges = savedSnapshotRef.current !== diagramEditorSnapshot(titleRef.current, currentDocument);
         setDirty(hasChanges);
         if (hasChanges) setDirtyVersion((current) => current + 1);
@@ -1558,7 +1654,7 @@ export const DiagramEditorPane = ({
       updateHistory();
     };
     const clearSelectionAfterHistory = () => {
-      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current);
+      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current, structureRef.current);
       graph.cleanSelection();
       if (isConnectableDiagram(document.kind)) setOnlyFlowNodePortsActive(graph);
       setSelectedNodeId(null);
@@ -1568,7 +1664,7 @@ export const DiagramEditorPane = ({
       setHasSelection(false);
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     };
     graph.on("model:updated", markDirty);
@@ -1598,7 +1694,7 @@ export const DiagramEditorPane = ({
       const historyEnabled = graph.isHistoryEnabled();
       if (historyEnabled) graph.disableHistory();
       try {
-        applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+        applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
       } finally {
         if (historyEnabled) graph.enableHistory();
       }
@@ -1779,7 +1875,7 @@ export const DiagramEditorPane = ({
       setHasSelection(false);
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
       setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     });
@@ -1820,7 +1916,7 @@ export const DiagramEditorPane = ({
             shape: data?.shape ?? "process",
             ...(data?.parentId ? { parentId: data.parentId } : {}),
             ...(data?.resourceIcon ? { resourceIcon: data.resourceIcon } : {}),
-          }, themeRef.current, document.kind, appearanceRef.current));
+          }, themeRef.current, document.kind, appearanceRef.current, structureRef.current));
           const parent = data?.parentId ? graph.getCellById(data.parentId) : null;
           if (parent?.isNode()) parent.addChild(duplicate);
           return duplicate;
@@ -1868,7 +1964,7 @@ export const DiagramEditorPane = ({
     graph.bindKey(["meta+z", "ctrl+z"], (event) => {
       event.preventDefault();
       graph.undo();
-      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current);
+      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current, structureRef.current);
       graph.cleanSelection();
       setSelectedNodeId(null);
       setSelectedNodeLabel("");
@@ -1878,13 +1974,13 @@ export const DiagramEditorPane = ({
       setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     });
     graph.bindKey(["meta+shift+z", "ctrl+shift+z", "ctrl+y"], (event) => {
       event.preventDefault();
       graph.redo();
-      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current);
+      applyGraphPalette(graph, themeRef.current, document.kind, appearanceRef.current, structureRef.current);
       graph.cleanSelection();
       setSelectedNodeId(null);
       setSelectedNodeLabel("");
@@ -1894,7 +1990,7 @@ export const DiagramEditorPane = ({
       setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     });
     graphRef.current = graph;
@@ -2035,7 +2131,7 @@ export const DiagramEditorPane = ({
       ...(isMindMap && parent?.isNode() ? { parentId: parent.id } : {}),
       ...(architectureParentId ? { parentId: architectureParentId } : {}),
       ...(isArchitecture && options.resourceIcon ? { resourceIcon: options.resourceIcon } : {}),
-    }, themeRef.current, document.kind, appearanceRef.current));
+    }, themeRef.current, document.kind, appearanceRef.current, structureRef.current));
     if (architectureParentId) {
       const architectureParent = graph.getCellById(architectureParentId);
       if (architectureParent?.isNode()) architectureParent.addChild(node);
@@ -2050,7 +2146,7 @@ export const DiagramEditorPane = ({
     }
     if (isMindMap) {
       const positions = computeDiagramLayout(
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
         requestedSibling && selected?.isNode()
           ? { insertedNodeId: id, insertAfterNodeId: selected.id }
           : {},
@@ -2059,7 +2155,7 @@ export const DiagramEditorPane = ({
         const position = positions[graphNode.id];
         if (position) graphNode.position(position.x, position.y);
       }
-      applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+      applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     }
     graph.stopBatch("add");
     settleScroller();
@@ -2184,7 +2280,7 @@ export const DiagramEditorPane = ({
       width: size.width,
       height: size.height,
       shape,
-    }, themeRef.current, document.kind, appearanceRef.current));
+    }, themeRef.current, document.kind, appearanceRef.current, structureRef.current));
     graph.addEdge({
       ...edgeMetadata(
         { id: createId("edge"), source: pending.sourceNodeId, target: id },
@@ -2219,7 +2315,7 @@ export const DiagramEditorPane = ({
     if (document) {
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     }
     setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
@@ -2235,6 +2331,7 @@ export const DiagramEditorPane = ({
       themeRef.current,
       document?.kind ?? "flowchart",
       appearanceRef.current,
+      structureRef.current,
     );
     graph.cleanSelection();
     setSelectedNodeId(null);
@@ -2246,7 +2343,7 @@ export const DiagramEditorPane = ({
     if (document) {
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     }
   };
@@ -2254,7 +2351,7 @@ export const DiagramEditorPane = ({
   const applyAutoLayout = () => {
     const graph = graphRef.current;
     if (!graph || !document || readOnly || graph.getNodes().length === 0) return;
-    const layout = computeDiagramLayoutResult(graphToDocument(graph, document.kind, themeRef.current));
+    const layout = computeDiagramLayoutResult(graphToDocument(graph, document.kind, themeRef.current, structureRef.current));
     graph.startBatch("layout");
     let changed = false;
     for (const nodeId of layout.nodeOrder) {
@@ -2273,13 +2370,14 @@ export const DiagramEditorPane = ({
         node.resize(geometry.width, geometry.height);
       }
     }
-    if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current);
+    if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
+    ensureDiagramPaperContainsNodes(graph);
     fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport);
     if (changed) {
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
       setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     }
@@ -2296,10 +2394,24 @@ export const DiagramEditorPane = ({
       nextTheme,
       document?.kind ?? "flowchart",
       appearanceRef.current,
+      structureRef.current,
     );
     setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
       titleRef.current,
-      graphToDocument(graph, document?.kind ?? "flowchart", nextTheme),
+      graphToDocument(graph, document?.kind ?? "flowchart", nextTheme, structureRef.current),
+    ));
+  };
+
+  const applyStructure = (nextStructure: DiagramStructure) => {
+    const graph = graphRef.current;
+    if (nextStructure === structure) return;
+    structureRef.current = nextStructure;
+    setStructure(nextStructure);
+    if (!graph || readOnly || document?.kind !== "mind-map") return;
+    applyGraphPalette(graph, themeRef.current, "mind-map", appearanceRef.current, nextStructure);
+    setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
+      titleRef.current,
+      graphToDocument(graph, "mind-map", themeRef.current, nextStructure),
     ));
   };
 
@@ -2329,7 +2441,7 @@ export const DiagramEditorPane = ({
     const editSession = editSessionRef.current;
     if (!graph || !document || !editSession || readOnly || saving) return false;
     if (
-      savedSnapshotRef.current === diagramEditorSnapshot(titleRef.current, graphToDocument(graph, document.kind, themeRef.current))
+      savedSnapshotRef.current === diagramEditorSnapshot(titleRef.current, graphToDocument(graph, document.kind, themeRef.current, structureRef.current))
       && !tagsDirty
     ) {
       setDirty(false);
@@ -2339,7 +2451,7 @@ export const DiagramEditorPane = ({
     setSaveError(null);
     setSaveFailed(false);
     try {
-      const nextDocument = graphToDocument(graph, document.kind, themeRef.current);
+      const nextDocument = graphToDocument(graph, document.kind, themeRef.current, structureRef.current);
       const markdown = serializeDiagramDocument(nextDocument);
       const nextTitle = titleRef.current;
       const nextTags = parseTagsText(tagsRef.current);
@@ -2357,7 +2469,7 @@ export const DiagramEditorPane = ({
       savedSnapshotRef.current = nextSnapshot;
       const currentSnapshot = diagramEditorSnapshot(
         titleRef.current,
-        graphToDocument(graph, document.kind, themeRef.current),
+        graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       );
       const hasNewChanges = currentSnapshot !== nextSnapshot;
       const hasNewTagChanges = parseTagsText(tagsRef.current).join("\u0000") !== result.memo.tags.join("\u0000");
@@ -2406,7 +2518,7 @@ export const DiagramEditorPane = ({
     const name = window.prompt(t("templates.templateNamePrompt"), titleRef.current);
     if (!name?.trim()) return;
     const currentDocument = graphRef.current
-      ? graphToDocument(graphRef.current, document.kind, themeRef.current)
+      ? graphToDocument(graphRef.current, document.kind, themeRef.current, structureRef.current)
       : document;
     const markdown = serializeDiagramDocument(currentDocument);
     void onSaveAsTemplate({
@@ -2488,7 +2600,7 @@ export const DiagramEditorPane = ({
   const kindLabel = document.kind === "mind-map" ? t("diagram.mindMap") : document.kind === "architecture" ? t("diagram.architecture") : t("diagram.flowchart");
   const updatedLabel = formatDateTime(memo.updatedAt);
   const currentMarkdown = historyOpen && dirty
-    ? serializeDiagramDocument(graphRef.current ? graphToDocument(graphRef.current, document.kind, themeRef.current) : document)
+    ? serializeDiagramDocument(graphRef.current ? graphToDocument(graphRef.current, document.kind, themeRef.current, structureRef.current) : document)
     : memo.contentMarkdown;
   const saveStatus = saveError ? "error" : saving || notebookUpdatePending ? "saving" : editorDirty ? "unsaved" : "saved";
   const saveLabel = saveStatus === "error"
@@ -2642,7 +2754,7 @@ export const DiagramEditorPane = ({
                 if (graph) {
                   setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
                     nextTitle,
-                    graphToDocument(graph, document.kind, themeRef.current),
+                    graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
                   ));
                 }
               }}
@@ -2720,6 +2832,8 @@ export const DiagramEditorPane = ({
           onExport={exportDiagram}
           onRedo={() => runHistoryAction("redo")}
           onThemeChange={applyTheme}
+          onStructureChange={document.kind === "mind-map" ? applyStructure : undefined}
+          structure={structure}
           onUndo={() => runHistoryAction("undo")}
           zoomPercent={zoomPercent}
           onRead={document.kind === "flowchart" ? () => { if (graphRef.current) readFlowchart(graphRef.current, document, containerRef.current); } : undefined}
@@ -2728,8 +2842,8 @@ export const DiagramEditorPane = ({
             const graph = graphRef.current;
             if (!graph) return;
             graph.zoomTo(1);
-            const bounds = graph.getCellsBBox(graph.getNodes().filter((node) => node.isVisible()));
-            if (bounds) graph.centerPoint(bounds.center.x, bounds.center.y);
+            const bounds = diagramNodeBounds(graph);
+            if (bounds) graph.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
           }}
           onZoomIn={() => graphRef.current?.zoom(0.1)}
           onZoomOut={() => graphRef.current?.zoom(-0.1)}

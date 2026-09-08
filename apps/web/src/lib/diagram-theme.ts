@@ -103,7 +103,35 @@ export const DIAGRAM_THEME_PALETTES: Record<DiagramTheme, Record<DiagramAppearan
       gridStrong: "#29362F",
     },
   },
+  classic: {
+    light: {
+      topicFill: BRAND_GREEN,
+      topicText: "#FFFFFF",
+      nodeFill: "#F7FAF8",
+      nodeText: "#173B2E",
+      nodeStroke: "#D5E3DB",
+      topicStroke: "#12845B",
+      mindMapEdge: "#16A06E",
+      flowEdge: "#408A6D",
+      canvas: "#FBFCFB",
+      grid: "#E6EEE9",
+      gridStrong: "#CFDDD5",
+    },
+    dark: {
+      topicFill: BRAND_GREEN,
+      topicText: "#F4FFF9",
+      nodeFill: "#18211D",
+      nodeText: "#E8F2ED",
+      nodeStroke: "#3B5248",
+      topicStroke: "#58CDA4",
+      mindMapEdge: "#4DB58B",
+      flowEdge: "#72B99B",
+      canvas: "#101311",
+      grid: "#1D2722",
+      gridStrong: "#2B3A33",
+    },
+  },
 };
 
 export const resolveDiagramPalette = (theme: DiagramTheme, appearance: DiagramAppearance) =>
-  DIAGRAM_THEME_PALETTES[theme][appearance];
+  DIAGRAM_THEME_PALETTES[theme === "classic" ? "classic" : "brand"][appearance];

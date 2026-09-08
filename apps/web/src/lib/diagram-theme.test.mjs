@@ -27,4 +27,9 @@ describe("diagram appearance palettes", () => {
       expect(contrast(dark.topicText, dark.topicFill)).toBeGreaterThanOrEqual(3);
     }
   });
+
+  test("treats retired mint and forest themes as forest green", () => {
+    expect(resolveDiagramPalette("ocean", "light")).toEqual(resolveDiagramPalette("brand", "light"));
+    expect(resolveDiagramPalette("ink", "dark")).toEqual(resolveDiagramPalette("brand", "dark"));
+  });
 });

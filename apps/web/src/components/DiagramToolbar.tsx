@@ -15,7 +15,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { DiagramTheme } from "@edgeever/shared";
+import type { DiagramStructure, DiagramTheme } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
 import { MemoEditorToolbarDivider, MemoEditorToolbarRow } from "@/components/MemoEditorToolbarChrome";
 import {
@@ -39,6 +39,8 @@ type DiagramToolbarProps = {
   onExport: (format: "png" | "svg") => void;
   onRedo: () => void;
   onThemeChange: (theme: DiagramTheme) => void;
+  onStructureChange?: (structure: DiagramStructure) => void;
+  structure?: DiagramStructure;
   onUndo: () => void;
   onRead?: () => void;
   onFit: () => void;
@@ -79,6 +81,7 @@ export const DiagramToolbar = ({
   onExport,
   onRedo,
   onThemeChange,
+  onStructureChange,
   onUndo,
   onRead,
   onFit,
@@ -88,6 +91,7 @@ export const DiagramToolbar = ({
   onZoomOut,
   readOnly,
   selectionEditor,
+  structure,
   theme,
 }: DiagramToolbarProps) => {
   const { t } = useTranslation();
@@ -115,14 +119,34 @@ export const DiagramToolbar = ({
       <Tooltip><TooltipTrigger asChild><Button size="sm" variant="ghost" aria-label={t("diagram.fit")} onClick={onFit}><Scan className="h-4 w-4" /><span>{t("diagram.fit")}</span></Button></TooltipTrigger><TooltipContent>{t("diagram.fit")}</TooltipContent></Tooltip>
       {onRead ? <Tooltip><TooltipTrigger asChild><Button size="sm" variant="ghost" onClick={onRead}><BookOpen className="h-4 w-4" />{t("diagram.readFlow")}</Button></TooltipTrigger><TooltipContent>{t("diagram.readFlowHint")}</TooltipContent></Tooltip> : null}
       <MemoEditorToolbarDivider />
-      <Select value={theme} disabled={readOnly} onValueChange={(value) => onThemeChange(value as DiagramTheme)}>
-        <SelectTrigger className="h-8 w-[8.5rem] gap-2" aria-label={t("diagram.theme")}>
-          <SelectValue />
-        </SelectTrigger>
+      {onStructureChange ? (
+        <Select value={structure === "box" ? "box" : "map"} disabled={readOnly} onValueChange={(value) => onStructureChange(value as DiagramStructure)}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SelectTrigger className="h-8 w-[8.5rem] gap-2" aria-label={t("diagram.structure")}>
+                <SelectValue />
+              </SelectTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{t("diagram.structure")}</TooltipContent>
+          </Tooltip>
+          <SelectContent>
+            <SelectItem value="map" textValue={t("diagram.structureMap")}><span className="flex items-center gap-2"><span className="h-3 w-3 border-b-2 border-slate-500" />{t("diagram.structureMap")}</span></SelectItem>
+            <SelectItem value="box" textValue={t("diagram.structureBox")}><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm border border-slate-400" />{t("diagram.structureBox")}</span></SelectItem>
+          </SelectContent>
+        </Select>
+      ) : null}
+      <Select value={theme === "classic" ? "classic" : "brand"} disabled={readOnly} onValueChange={(value) => onThemeChange(value as DiagramTheme)}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SelectTrigger className="h-8 w-[8.5rem] gap-2" aria-label={t("diagram.theme")}>
+              <SelectValue />
+            </SelectTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{t("diagram.theme")}</TooltipContent>
+        </Tooltip>
         <SelectContent>
           <SelectItem value="brand" textValue={t("diagram.themeBrand")}><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border border-black/10" style={{ background: resolveDiagramPalette("brand", appearance).topicFill }} />{t("diagram.themeBrand")}</span></SelectItem>
-          <SelectItem value="ocean" textValue={t("diagram.themeOcean")}><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border border-black/10" style={{ background: resolveDiagramPalette("ocean", appearance).topicFill }} />{t("diagram.themeOcean")}</span></SelectItem>
-          <SelectItem value="ink" textValue={t("diagram.themeInk")}><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border border-black/10" style={{ background: resolveDiagramPalette("ink", appearance).nodeFill }} />{t("diagram.themeInk")}</span></SelectItem>
+          <SelectItem value="classic" textValue={t("diagram.themeClassic")}><span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full border border-black/10" style={{ background: "conic-gradient(#16A06E, #3B82F6, #8B5CF6, #F59E0B, #EC4899, #16A06E)" }} />{t("diagram.themeClassic")}</span></SelectItem>
         </SelectContent>
       </Select>
       <DropdownMenu>

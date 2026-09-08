@@ -8,6 +8,7 @@ describe("diagram document", () => {
     const document = createDefaultDiagramDocument("mind-map");
     document.nodes[0].label = "产品路线图 🚀";
     document.theme = "ocean";
+    document.structure = "box";
     expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
   });
 
@@ -64,11 +65,23 @@ describe("diagram document", () => {
     expect(light.nodes[0].attrs.body.fill).toBe("#16A06E");
     expect(light.nodes[0].attrs.body.rx).toBe(23);
     expect(light.nodes[1].attrs.body.fill).toBe("#F0F8F4");
-    expect(light.nodes.find((node) => node.id === "topic-1-a").attrs.body.fill).toBe("#F8FAF9");
+    const nested = light.nodes.find((node) => node.id === "topic-1-a");
+    expect(nested.attrs.body.fill).toBe("transparent");
+    expect(nested.attrs.underline.stroke).toBe("#55B891");
     expect(light.edges[0].attrs.line.stroke).toBe("#55B891");
     expect(light.edges[0].attrs.line.targetMarker).toBeNull();
     expect(light.edges[0].connector.name).toBe("edgeever-mindmap");
     expect(light.edges[0].source.anchor.name).toBe("right");
+    expect(light.edges.find((edge) => edge.target.cell === "topic-1-a").target.anchor.args.dy).toBeGreaterThan(0);
+    const boxed = diagramDocumentToX6Cells({ ...document, structure: "box" }, "light");
+    expect(boxed.nodes.find((node) => node.id === "topic-1-a").attrs.body.fill).not.toBe("transparent");
+    expect(boxed.nodes.find((node) => node.id === "topic-1-a").attrs.underline.stroke).toBe("none");
+
+    const classic = diagramDocumentToX6Cells({ ...document, theme: "classic" }, "light");
+    expect(classic.nodes.find((node) => node.id === "topic-1").attrs.body.stroke)
+      .not.toBe(classic.nodes.find((node) => node.id === "topic-2").attrs.body.stroke);
+    expect(classic.nodes.find((node) => node.id === "topic-1-a").attrs.underline.stroke)
+      .toBe(classic.edges.find((edge) => edge.target.cell === "topic-1").attrs.line.stroke);
 
     const dark = diagramDocumentToX6Cells(document, "dark");
     expect(dark.canvas).toBe("#101311");

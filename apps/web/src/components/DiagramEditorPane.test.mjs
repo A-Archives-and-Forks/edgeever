@@ -21,6 +21,18 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).toContain("graph.cleanSelection();\n    graph.select(node);");
   });
 
+  test("keeps scroller paper bounds on every node so left-side mind-map branches are not clipped", () => {
+    expect(source).toContain("bindDiagramScrollerFit(graph)");
+    expect(source).toContain("applyDiagramScrollerFitOptions(");
+    expect(source).toContain("ensureDiagramPaperContainsNodes(graph)");
+    expect(source).toContain("node.getPosition()");
+    expect(source).toContain("node.getSize()");
+    expect(source).toContain("scroller?.disableAutoResize()");
+    expect(source).toContain("scroller?.enableAutoResize()");
+    expect(source).toContain("graph.transform.fitToContent({");
+    expect(source).not.toContain("visibleNodes.length !== graph.getNodes().length");
+  });
+
   test("does not let scroller auto-fit flash a detached node while inserting", () => {
     expect(source).toContain("disableAutoResize()");
     expect(source).toContain("enableAutoResize()");
@@ -138,6 +150,14 @@ describe("diagram editor canvas surface", () => {
   });
 
   test("uses restrained rounded edges and fits the complete diagram without clipping", () => {
+    expect(toolbarSource).toContain('value="classic"');
+    expect(toolbarSource).toContain('t("diagram.themeClassic")');
+    expect(toolbarSource).toContain('t("diagram.structure")');
+    expect(toolbarSource).toContain('t("diagram.structureMap")');
+    expect(toolbarSource).toContain('t("diagram.structureBox")');
+    expect(toolbarSource).toContain('<TooltipContent>{t("diagram.theme")}</TooltipContent>');
+    expect(toolbarSource).not.toContain('value="ocean"');
+    expect(toolbarSource).not.toContain('value="ink"');
     expect(source).toContain("Graph.registerConnector(MIND_MAP_CONNECTOR_NAME, mindMapConnector, true)");
     expect(source).toContain("name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth }");
     expect(source).toContain('{ fill: "none" }');
@@ -147,6 +167,11 @@ describe("diagram editor canvas surface", () => {
     expect(source).not.toContain("minScale: policy.minScale");
     expect(source).toContain("graph.centerContent()");
     expect(source).not.toContain("desiredLeft - contentLeft");
+    expect(source).not.toContain("visibleNodes.length !== graph.getNodes().length");
+    expect(source).toContain("bindDiagramScrollerFit(graph)");
+    expect(source).toContain("applyDiagramScrollerFitOptions(");
+    expect(source).toContain("diagramNodeBounds(graph)");
+    expect(source).toContain("graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale })");
     expect(source).toContain("getDiagramLayoutViewport(document.kind)");
     expect(source).toContain("fitDiagramContent(graph, document, containerRef.current);");
   });
@@ -341,7 +366,7 @@ describe("diagram editor canvas surface", () => {
 
   test("repaints the graph when the application appearance changes", () => {
     expect(source).toContain("const { resolvedTheme } = useAppearanceTheme();");
-    expect(source).toContain("applyGraphPalette(graph, themeRef.current, document.kind, resolvedTheme);");
+    expect(source).toContain("applyGraphPalette(graph, themeRef.current, document.kind, resolvedTheme, structureRef.current);");
     expect(source).toContain("data-diagram-appearance={resolvedTheme}");
     expect(source).toContain("<MemoEditorHeaderActions");
   });

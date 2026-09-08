@@ -19,7 +19,14 @@ export type DiagramNodeShape =
   | "external"
   | "boundary";
 export type DiagramEdgeKind = "dependency" | "request" | "async" | "data";
-export type DiagramTheme = "brand" | "ocean" | "ink";
+export const DIAGRAM_THEMES = ["brand", "ocean", "ink", "classic"] as const;
+export type DiagramTheme = (typeof DIAGRAM_THEMES)[number];
+export const DIAGRAM_STRUCTURES = ["map", "box"] as const;
+export type DiagramStructure = (typeof DIAGRAM_STRUCTURES)[number];
+
+export const resolveDiagramStructure = (structure?: DiagramStructure): DiagramStructure => (
+  structure === "box" ? "box" : "map"
+);
 
 export const ARCHITECTURE_RESOURCE_ICONS = [
   "client", "webApp", "mobileApp", "website", "apiClient",
@@ -60,6 +67,7 @@ export type DiagramDocument = {
   schemaVersion: typeof DIAGRAM_SCHEMA_VERSION | typeof ARCHITECTURE_DIAGRAM_SCHEMA_VERSION;
   kind: DiagramKind;
   theme?: DiagramTheme;
+  structure?: DiagramStructure;
   nodes: DiagramNode[];
   edges: DiagramEdge[];
 };
@@ -151,7 +159,8 @@ export const parseDiagramDocument = (markdown: string | null | undefined): Diagr
     if (
       !Array.isArray(value.nodes)
       || !Array.isArray(value.edges)
-      || (value.theme !== undefined && !["brand", "ocean", "ink"].includes(String(value.theme)))
+      || (value.theme !== undefined && !DIAGRAM_THEMES.includes(value.theme as DiagramTheme))
+      || (value.structure !== undefined && !DIAGRAM_STRUCTURES.includes(value.structure as DiagramStructure))
     ) return null;
     const nodes = value.nodes.map(parseNode);
     const edges = value.edges.map(parseEdge);
@@ -174,6 +183,7 @@ export const parseDiagramDocument = (markdown: string | null | undefined): Diagr
       schemaVersion: value.schemaVersion as DiagramDocument["schemaVersion"],
       kind: value.kind as DiagramKind,
       ...(value.theme ? { theme: value.theme as DiagramTheme } : {}),
+      ...(value.kind === "mind-map" && value.structure ? { structure: value.structure as DiagramStructure } : {}),
       nodes: nodes as DiagramNode[],
       edges: edges as DiagramEdge[],
     };

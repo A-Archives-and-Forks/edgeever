@@ -16,6 +16,7 @@ import {
   type DiagramEdgeKind,
   type DiagramKind,
   type DiagramNodeShape,
+  type DiagramStructure,
   type DiagramTheme,
 } from "./diagram";
 
@@ -66,6 +67,7 @@ export type DiagramIrNodeType =
 export type DiagramIr = {
   kind: DiagramKind;
   theme?: DiagramTheme;
+  structure?: DiagramStructure;
   layout?: { direction?: "left-to-right" | "top-to-bottom" };
   nodes: Array<{
     id: string;
@@ -545,7 +547,7 @@ export const compileDiagramIr = (ir: DiagramIr): DiagramDocument => {
   const nodes = ir.nodes.map((node, index) => {
     const shape = irNodeShape(ir.kind, node.type);
     const size = ir.kind === "mind-map"
-      ? mindMapNodePresentation(node.label, mindMapNodeRole(ir.nodes, node.id))
+      ? mindMapNodePresentation(node.label, mindMapNodeRole(ir.nodes, node.id), ir.structure)
       : ir.kind === "architecture"
         ? compactArchitectureNodeSize(shape)
         : flowchartNodePresentation(shape, node.label);
@@ -580,6 +582,7 @@ export const compileDiagramIr = (ir: DiagramIr): DiagramDocument => {
     schemaVersion: ir.kind === "architecture" ? ARCHITECTURE_DIAGRAM_SCHEMA_VERSION : DIAGRAM_SCHEMA_VERSION,
     kind: ir.kind,
     ...(ir.theme ? { theme: ir.theme } : {}),
+    ...(ir.kind === "mind-map" && ir.structure ? { structure: ir.structure } : {}),
     nodes,
     edges,
   };

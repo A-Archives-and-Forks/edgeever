@@ -2,12 +2,13 @@ import { flowchartNodePresentation } from "./diagram-node-presentation";
 import type { ArchitectureResourceIcon, DiagramDocument, DiagramNodeShape, DiagramTheme } from "./diagram";
 import {
   MIND_MAP_CONNECTOR_NAME,
+  MIND_MAP_TOPIC_MARKUP,
   mindMapBranchSides,
+  mindMapEdgeTerminal,
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
-  mindMapNodeVisual,
-  mindMapRootRadius,
+  resolveMindMapNodeStyle,
 } from "./diagram-mindmap-style";
 
 export type DiagramAppearance = "light" | "dark";
@@ -39,12 +40,16 @@ const PALETTES: Record<DiagramTheme, Record<DiagramAppearance, DiagramPalette>> 
     light: { topicFill: BRAND_GREEN, topicText: "#F5FBF8", nodeFill: "#19261F", nodeText: "#E5EEE9", nodeStroke: "#3C594A", topicStroke: "#68D6B0", mindMapEdge: "#58BA94", flowEdge: "#68A78D", canvas: "#101512" },
     dark: { topicFill: BRAND_GREEN, topicText: "#F5FBF8", nodeFill: "#151D19", nodeText: "#E7F0EB", nodeStroke: "#3C594A", topicStroke: "#68D6B0", mindMapEdge: "#58BA94", flowEdge: "#72B296", canvas: "#0B0F0D" },
   },
+  classic: {
+    light: { topicFill: BRAND_GREEN, topicText: "#FFFFFF", nodeFill: "#F7FAF8", nodeText: "#173B2E", nodeStroke: "#D5E3DB", topicStroke: "#12845B", mindMapEdge: "#16A06E", flowEdge: "#408A6D", canvas: "#FBFCFB" },
+    dark: { topicFill: BRAND_GREEN, topicText: "#F4FFF9", nodeFill: "#18211D", nodeText: "#E8F2ED", nodeStroke: "#3B5248", topicStroke: "#58CDA4", mindMapEdge: "#4DB58B", flowEdge: "#72B99B", canvas: "#101311" },
+  },
 };
 
 export const resolvePortableDiagramPalette = (
   theme: DiagramTheme = "brand",
   appearance: DiagramAppearance = "light",
-) => PALETTES[theme][appearance];
+) => PALETTES[theme === "classic" ? "classic" : "brand"][appearance];
 
 const architectureAccent: Partial<Record<DiagramNodeShape, string>> = {
   client: "#0891B2",
@@ -91,12 +96,15 @@ export const diagramDocumentToX6Cells = (
   const palette = resolvePortableDiagramPalette(document.theme ?? "brand", appearance);
   const nodes = document.nodes.map((node) => {
     const mindMapRole = document.kind === "mind-map" ? mindMapNodeRole(document.nodes, node.id) : null;
-    const mindVisual = mindMapRole ? mindMapNodeVisual(mindMapRole, palette) : null;
     const presentation = document.kind === "flowchart"
       ? flowchartNodePresentation(node.shape, node.label)
       : mindMapRole
-        ? mindMapNodePresentation(node.label, mindMapRole)
+        ? mindMapNodePresentation(node.label, mindMapRole, document.structure)
         : { width: node.width, height: node.height, text: node.label };
+    const mindStyle = mindMapRole
+      ? resolveMindMapNodeStyle(document.nodes, node.id, palette, document.theme, appearance, presentation, document.structure)
+      : null;
+    const mindVisual = mindStyle?.visual ?? null;
     const isRootTopic = node.shape === "topic" && !node.parentId;
     const isTerminator = node.shape === "terminator";
     const isBoundary = node.shape === "boundary";
@@ -112,7 +120,6 @@ export const diagramDocumentToX6Cells = (
     const stroke = mindVisual
       ? mindVisual.body.stroke
       : isBoundary ? palette.nodeStroke : accent ?? (emphasized ? palette.topicStroke : palette.nodeStroke);
-    const rootRadius = mindMapRole === "root" ? mindMapRootRadius(presentation.height) : undefined;
     const usesArchitectureIcon = document.kind === "architecture" && !isBoundary;
     const iconGlyph = node.resourceIcon
       ? architectureResourceGlyphs[node.resourceIcon]
@@ -130,27 +137,34 @@ export const diagramDocumentToX6Cells = (
         { tagName: "rect", selector: "iconFrame" },
         { tagName: "text", selector: "resourceIcon" },
         { tagName: "text", selector: "label" },
-      ] } : {}),
+      ] } : mindMapRole ? { markup: MIND_MAP_TOPIC_MARKUP } : {}),
       attrs: {
         body: {
           fill,
           stroke,
           strokeWidth: mindVisual?.body.strokeWidth ?? (isBoundary || emphasized || accent ? 1.5 : 1),
           strokeDasharray: isBoundary || node.shape === "external" ? "7 5" : undefined,
-          rx: rootRadius ?? mindVisual?.body.rx ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
-          ry: rootRadius ?? mindVisual?.body.ry ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
+          rx: mindVisual?.body.rx ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
+          ry: mindVisual?.body.ry ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
           ...(node.shape === "decision" ? { refPoints: "0,10 10,0 20,10 10,20" } : {}),
         },
         label: {
           text: presentation.text,
-          lineHeight: mindMapRole === "root" ? 20 : 18,
+          lineHeight: mindVisual?.label.lineHeight ?? (mindMapRole === "root" ? 20 : 18),
           fill: mindVisual?.label.fill ?? (emphasized ? palette.topicText : palette.nodeText),
           fontSize: mindVisual?.label.fontSize ?? (node.shape === "topic" ? 14 : isBoundary ? 12 : 13),
           fontWeight: mindVisual?.label.fontWeight ?? (emphasized || isBoundary || accent ? 650 : 500),
-          ...(mindVisual ? { fontFamily: mindVisual.label.fontFamily } : {}),
+          ...(mindVisual ? {
+            fontFamily: mindVisual.label.fontFamily,
+            refX: mindVisual.label.refX,
+            refY: mindVisual.label.refY,
+            textAnchor: mindVisual.label.textAnchor,
+            textVerticalAnchor: mindVisual.label.textVerticalAnchor,
+          } : {}),
           ...(isBoundary ? { refX: 18, refY: 22, textAnchor: "start", textVerticalAnchor: "middle" } : {}),
           ...(usesArchitectureIcon ? { refX: 54, refY: "50%", textAnchor: "start", textVerticalAnchor: "middle" } : {}),
         },
+        ...(mindVisual ? { underline: mindVisual.underline } : {}),
         ...(usesArchitectureIcon ? {
           iconFrame: {
             x: 10,
@@ -182,15 +196,29 @@ export const diagramDocumentToX6Cells = (
     const sourceNode = projectedById.get(edge.source);
     const targetNode = projectedById.get(edge.target);
     const mindMapSourceRole = document.kind === "mind-map" ? mindMapNodeRole(document.nodes, edge.source) : null;
-    const mindEdge = mindMapSourceRole ? mindMapEdgeVisual(mindMapSourceRole, palette) : null;
+    const mindMapTargetRole = document.kind === "mind-map" ? mindMapNodeRole(document.nodes, edge.target) : null;
+    const branchTint = document.kind === "mind-map"
+      ? resolveMindMapNodeStyle(document.nodes, edge.target, palette, document.theme, appearance, { width: 96, height: 36 }, document.structure).tint
+      : undefined;
+    const mindEdge = mindMapSourceRole ? mindMapEdgeVisual(mindMapSourceRole, palette, branchTint) : null;
     const sides = sourceNode && targetNode
       ? mindMapBranchSides(sourceNode, targetNode)
       : { source: "right" as const, target: "left" as const };
+    const sourceTerminal = sourceNode && mindMapSourceRole
+      ? mindMapEdgeTerminal(sourceNode, mindMapSourceRole, sides.source, document.structure)
+      : null;
+    const targetTerminal = targetNode && mindMapTargetRole
+      ? mindMapEdgeTerminal(targetNode, mindMapTargetRole, sides.target, document.structure)
+      : null;
     const stroke = edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : mindEdge?.stroke ?? palette.flowEdge;
     return {
       id: edge.id,
-      source: document.kind === "mind-map" ? { cell: edge.source, anchor: { name: sides.source } } : { cell: edge.source },
-      target: document.kind === "mind-map" ? { cell: edge.target, anchor: { name: sides.target } } : { cell: edge.target },
+      source: document.kind === "mind-map"
+        ? { cell: edge.source, ...(sourceTerminal ?? { anchor: { name: sides.source } }) }
+        : { cell: edge.source },
+      target: document.kind === "mind-map"
+        ? { cell: edge.target, ...(targetTerminal ?? { anchor: { name: sides.target } }) }
+        : { cell: edge.target },
       router: document.kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : undefined,
       connector: document.kind === "mind-map"
         ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth } }
