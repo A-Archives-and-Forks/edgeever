@@ -54,7 +54,7 @@ Related Issue: #<issue-number>
 - **Cloudflare 部署**：严格按 `docs/agent-deploy-cloudflare.md` 执行。
 - **跨运行时架构**：项目未来将正式支持 Docker 自托管；实现新功能时必须保持业务逻辑与 Cloudflare 解耦，并为其他运行时预留扩展边界。Cloudflare 与 Docker 必须共用同一套业务代码，仅允许保留薄且稳定、不包含业务判断的运行入口和基础设施驱动适配器。
 - **数据库 Migration**：数据库或种子变化时，在 `migrations/` 下新增递增编号 SQL，禁止修改已执行的旧 Migration。
-- **本地启动**：默认 `bun run dev`（纯本地环境）；指定远程实例用 `EDGE_EVER_INSTANCE=<实例名> bun run dev:remote`；纯前端用 `bun run dev:web`。
+- **本地启动**：默认 `bun run dev`（纯本地环境）。用户要求“启动/重启 Web 端”时，默认含 Web 与 API，必须使用 `bun run dev`；只有用户明确要求“纯前端”或明确指定 `dev:web` 时，才使用 `bun run dev:web`。指定远程实例用 `EDGE_EVER_INSTANCE=<实例名> bun run dev:remote`。
 - **Demo 示例同步**：修改示例笔记后，在 `main` 分支干净状态下执行 `bun run demo:sync` 重置公开 Demo。
 - **禁止重复造轮子**：严禁重复实现已有成熟方案；优先采用维护活跃、广泛验证的开源组件与依赖，并优先复用 `shadcn/ui`；复杂或重复模块封装为独立组件。
 - UI和交互的原则是，产品始终表现得可靠、可预测、确定、被接住。
