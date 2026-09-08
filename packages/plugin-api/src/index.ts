@@ -613,12 +613,11 @@ export const parseExtensionManifest = (value: unknown): ExtensionManifest => {
   if (value.type === "plugin") {
     if (value.apiVersion !== PLUGIN_API_VERSION) throw new Error(`Unsupported plugin API version: ${String(value.apiVersion)}`);
     if (typeof value.entry !== "string" || !value.entry.trim()) throw new Error("Plugin entry is required.");
-    if (!Array.isArray(value.permissions)) throw new Error("Plugin permissions must be an array.");
+    if (value.permissions !== undefined && !Array.isArray(value.permissions)) throw new Error("Plugin permissions must be an array.");
     const allowedPermissions = new Set<string>(PLUGIN_PERMISSIONS);
-    const permissions = [...new Set(value.permissions.map(String))];
+    const permissions = [...new Set((value.permissions ?? []).map(String))];
     const unsupported = permissions.find((permission) => !allowedPermissions.has(permission));
     if (unsupported) throw new Error(`Unsupported plugin permission: ${unsupported}`);
-    if (permissions.includes("network:public") && !permissions.includes("network")) throw new Error("Public network transport also requires the network permission.");
     const networkHosts = value.networkHosts === undefined
       ? undefined
       : Array.isArray(value.networkHosts)

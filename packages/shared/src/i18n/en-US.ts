@@ -659,6 +659,7 @@ export const enUS = {
     permissions: {
       publicNetwork: "Read content from any public website",
     },
+    trustedCodeNotice: "Enabling a plugin means trusting its code. Plugins can read and modify all notes, access the network, and use available host capabilities. Enable only plugins you trust.",
     toggle: "Enable or disable {{name}}",
     uninstall: "Uninstall",
     settings: {
@@ -682,8 +683,8 @@ export const enUS = {
       version: "Version",
       source: "Source",
       installedAt: "Installed",
-      permissions: "Permissions",
-      networkHosts: "Allowed websites",
+      permissions: "Declared capabilities (informational)",
+      networkHosts: "Declared websites (legacy metadata)",
     },
     updates: {
       check: "Check for updates",
@@ -695,10 +696,10 @@ export const enUS = {
       updating: "Updating…",
       confirmTitle: "Update {{name}}?",
       confirmDescription: "EdgeEver never installs updates automatically. Confirm to download and replace the current version while preserving its enabled state.",
-      addedAccessDescription: "This version requests additional access. Review these changes before updating.",
-      addedPermissions: "New permissions",
-      addedNetworkHosts: "Newly allowed websites",
-      allowAndUpdate: "Allow and update",
+      addedAccessDescription: "This version changes declared capabilities or legacy network metadata. Enabled plugins always have full plugin API access, so update only when you trust the source.",
+      addedPermissions: "New capability declarations",
+      addedNetworkHosts: "New website declarations (legacy metadata)",
+      allowAndUpdate: "Confirm and update",
     },
     noticeTitle: "Plugin",
     panel: "Plugin panel",

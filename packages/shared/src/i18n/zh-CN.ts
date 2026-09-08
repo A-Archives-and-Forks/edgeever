@@ -659,6 +659,7 @@ export const zhCN = {
     permissions: {
       publicNetwork: "读取任意公开网站内容",
     },
+    trustedCodeNotice: "启用插件即代表信任其代码。插件可以读写全部笔记、访问网络并使用已开放的宿主能力；请只启用你信任的插件。",
     toggle: "启用或停用 {{name}}",
     uninstall: "卸载",
     settings: {
@@ -682,8 +683,8 @@ export const zhCN = {
       version: "版本",
       source: "来源",
       installedAt: "安装时间",
-      permissions: "权限",
-      networkHosts: "允许访问的网站",
+      permissions: "能力声明（仅供参考）",
+      networkHosts: "声明的网站（旧版元数据）",
     },
     updates: {
       check: "检查更新",
@@ -695,10 +696,10 @@ export const zhCN = {
       updating: "更新中…",
       confirmTitle: "更新 {{name}}？",
       confirmDescription: "EdgeEver 不会自动安装更新。确认后将下载并替换当前版本，原启用状态保持不变。",
-      addedAccessDescription: "此版本请求了新的访问权限。请确认这些变化后再更新。",
-      addedPermissions: "新增权限",
-      addedNetworkHosts: "新增允许访问的网站",
-      allowAndUpdate: "允许并更新",
+      addedAccessDescription: "此版本更改了能力声明或旧版网络元数据。启用插件始终具有完整插件 API 访问权，请确认来源可信后更新。",
+      addedPermissions: "新增能力声明",
+      addedNetworkHosts: "新增网站声明（旧版元数据）",
+      allowAndUpdate: "确认并更新",
     },
     noticeTitle: "插件",
     panel: "插件面板",

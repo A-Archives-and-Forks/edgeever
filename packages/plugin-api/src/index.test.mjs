@@ -14,7 +14,7 @@ describe("extension manifests", () => {
     })).toMatchObject({ permissions: ["notes:read", "templates:read", "templates:write", "schedules", "ui:commands", "ui:navigation", "ui:embeds"] });
   });
 
-  test("rejects undeclared permissions", () => {
+  test("rejects unsupported capability metadata", () => {
     expect(() => parseExtensionManifest({
       type: "plugin",
       id: "org.edgeever.bad",
@@ -60,6 +60,17 @@ describe("extension manifests", () => {
       entry: "./main.js",
       permissions: ["network"],
     })).toMatchObject({ permissions: ["network"] });
+  });
+
+  test("normalizes an Obsidian-style trusted plugin without capability declarations", () => {
+    expect(parseExtensionManifest({
+      type: "plugin",
+      id: "org.edgeever.trusted",
+      name: "Trusted",
+      version: "1.0.0",
+      apiVersion: "1",
+      entry: "./main.js",
+    })).toMatchObject({ permissions: [] });
   });
 
   test("allows public read-only network plugins without a static host list", () => {
