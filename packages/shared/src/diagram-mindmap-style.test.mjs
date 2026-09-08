@@ -11,6 +11,8 @@ import {
   mindMapNodeRole,
   mindMapNodeVisual,
   mindMapRootRadius,
+  mindMapCloudPath,
+  mindMapTopicForm,
   mindMapUsesUnderline,
   resolveMindMapNodeStyle,
   MIND_MAP_CONNECTOR_NAME,
@@ -84,6 +86,13 @@ describe("mind map presentation", () => {
     expect(mindMapUsesUnderline("nested", "map")).toBe(true);
     expect(mindMapUsesUnderline("nested", "box")).toBe(false);
     expect(mindMapUsesUnderline("primary")).toBe(false);
+    expect(mindMapUsesUnderline("primary", "line")).toBe(true);
+    expect(mindMapUsesUnderline("nested", "line")).toBe(true);
+    expect(mindMapUsesUnderline("root", "line")).toBe(false);
+    expect(mindMapTopicForm("hexagon", "primary")).toBe("hexagon");
+    expect(mindMapTopicForm("capsule", "root")).toBe("capsule");
+    expect(mindMapTopicForm("logic", "primary")).toBe("rounded");
+    expect(mindMapCloudPath(96, 36)).toContain("Z");
     expect(nested.body.fill).toBe("transparent");
     expect(nested.underline.stroke).toBe(palette.mindMapEdge);
     expect(nested.underline.d).toContain("H");
@@ -105,9 +114,9 @@ describe("mind map presentation", () => {
     const first = mindMapBranchTint(0, "light");
     const second = mindMapBranchTint(1, "light");
     expect(first.edge).not.toBe(second.edge);
-    const styled = resolveMindMapNodeStyle(nodes, "one-a", palette, "classic", "light", { width: 96, height: 32 });
+    const styled = resolveMindMapNodeStyle(nodes, "one-a", palette, "sun", "light", { width: 96, height: 32 });
     expect(styled.underline).toBe(true);
-    expect(styled.visual.underline.stroke).toBe(first.edge);
+    expect(styled.visual.underline.stroke).toBe(mindMapBranchTint(0, "light", "sun")?.edge);
     const brandNested = resolveMindMapNodeStyle(nodes, "one-a", palette, "brand", "light", { width: 96, height: 32 });
     expect(brandNested.visual.underline.stroke).toBe(palette.mindMapEdge);
   });

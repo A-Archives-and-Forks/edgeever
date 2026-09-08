@@ -70,7 +70,7 @@ import {
   markdownToDoc,
   MIND_MAP_CONNECTOR_NAME,
   MIND_MAP_HORIZONTAL_GAP,
-  MIND_MAP_TOPIC_MARKUP,
+  mindMapTopicMarkup,
   MIND_MAP_VERTICAL_GAP,
   mindMapBranchSides,
   mindMapConnector,
@@ -78,11 +78,14 @@ import {
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
-  mindMapRootRadius,
   resolveMindMapNodeStyle,
   parseDiagramDocument,
   resolveDiagramStructure,
+  resolveDiagramTheme,
   serializeDiagramDocument,
+  FLOWCHART_EDGE_ROUTER,
+  flowchartNodeVisual,
+  resolveFlowchartSurface,
   type ArchitectureResourceIcon,
   type DiagramDocument,
   type DiagramEdgeKind,
@@ -535,12 +538,21 @@ const setOnlyFlowNodePortsActive = (graph: Graph, activeNode?: Node) => {
   graph.getNodes().forEach((node) => setFlowNodePortsActive(graph, node, node.id === activeNode?.id));
 };
 
+const diagramCanvasColor = (
+  kind: DiagramDocument["kind"],
+  theme: DiagramTheme,
+  appearance: DiagramAppearance,
+) => (kind === "flowchart"
+  ? resolveFlowchartSurface(appearance).canvas
+  : resolveDiagramPalette(theme, appearance).canvas);
+
 const applyDiagramSurface = (
   graph: Graph,
   theme: DiagramTheme,
   appearance: DiagramAppearance,
+  kind?: DiagramDocument["kind"],
 ) => {
-  graph.drawBackground({ color: resolveDiagramPalette(theme, appearance).canvas });
+  graph.drawBackground({ color: diagramCanvasColor(kind ?? "mind-map", theme, appearance) });
   graph.clearGrid();
 };
 
@@ -740,9 +752,12 @@ const nodeEditorState = (
   const mindStyle = mindRole
     ? resolveMindMapNodeStyle(mindNodes, node.id, resolveDiagramPalette(theme, appearance), theme, appearance, node.getSize())
     : null;
+  const flowchartStyle = !mindRole && (data?.shape === "process" || data?.shape === "decision" || data?.shape === "terminator")
+    ? flowchartNodeVisual(data.shape, appearance, node.getSize())
+    : null;
   const attrs = mindStyle
     ? mindStyle.visual
-    : nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
+    : flowchartStyle ?? nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
   return {
     nodeId: node.id,
     originalValue: data?.label ?? "",
@@ -982,15 +997,18 @@ const nodeMetadata = (
   const mindStyle = kind === "mind-map"
     ? resolveMindMapNodeStyle([node], node.id, palette, theme, appearance, size, structure)
     : null;
-  const visualAttrs = mindStyle ? mindStyle.visual : nodeAttrs(node.shape, theme, appearance, isRootTopic);
-  if (mindStyle?.role === "root") {
-    visualAttrs.body.rx = mindMapRootRadius(size.height);
-    visualAttrs.body.ry = visualAttrs.body.rx;
-  }
+  const flowchartStyle = kind === "flowchart" ? flowchartNodeVisual(node.shape, appearance, size) : null;
+  const visualAttrs = mindStyle
+    ? mindStyle.visual
+    : flowchartStyle ?? nodeAttrs(node.shape, theme, appearance, isRootTopic);
   const hasPorts = isConnectableDiagram(kind) && node.shape !== "boundary";
   const architectureVisuals = kind === "architecture" && node.shape !== "boundary"
     ? architectureNodeVisuals(node.shape, size, appearance, node.resourceIcon)
     : null;
+  const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+  const portPalette = flowchartSurface
+    ? { ...palette, canvas: flowchartSurface.canvas, topicStroke: flowchartSurface.terminator.stroke }
+    : palette;
   return {
     id: node.id,
     shape: isDecision ? "polygon" : "rect",
@@ -1005,38 +1023,46 @@ const nodeMetadata = (
       ...(node.parentId ? { parentId: node.parentId } : {}),
       ...(node.resourceIcon ? { resourceIcon: node.resourceIcon } : {}),
     } satisfies NodeData,
-    ...(architectureVisuals ? { markup: architectureVisuals.markup } : mindStyle ? { markup: MIND_MAP_TOPIC_MARKUP } : {}),
+    ...(architectureVisuals ? { markup: architectureVisuals.markup } : mindStyle ? { markup: mindMapTopicMarkup(structure, mindStyle.role) } : {}),
     attrs: {
       body: visualAttrs.body,
       ...(mindStyle ? { underline: mindStyle.visual.underline } : {}),
       label: {
         ...visualAttrs.label,
         text: diagramNodePresentation(node, kind).text,
-        lineHeight: mindStyle?.visual.label.lineHeight ?? 18,
+        lineHeight: mindStyle?.visual.label.lineHeight ?? flowchartStyle?.label.lineHeight ?? 18,
         ...(architectureVisuals ? { refX: 54, refY: "50%", textAnchor: "start", textVerticalAnchor: "middle" } : {}),
       },
       ...(architectureVisuals?.attrs ?? {}),
     },
     ...(hasPorts ? { ports: {
       groups: {
-        top: flowPortGroup("top", palette),
-        right: flowPortGroup("right", palette),
-        bottom: flowPortGroup("bottom", palette),
-        left: flowPortGroup("left", palette),
+        top: flowPortGroup("top", portPalette),
+        right: flowPortGroup("right", portPalette),
+        bottom: flowPortGroup("bottom", portPalette),
+        left: flowPortGroup("left", portPalette),
       },
       items: ["top", "right", "bottom", "left"].map((group) => ({ id: group, group })),
     } } : {}),
   };
 };
 
-const diagramEdgeLabel = (text: string, palette: ReturnType<typeof resolveDiagramPalette>, kind: DiagramDocument["kind"]) => ({
-  position: { distance: 0.5, offset: kind === "architecture" ? { x: 0, y: -16 } : 0 },
-  attrs: {
-    label: { text, fill: palette.nodeText, fontSize: 12, lineHeight: 16, textWrap: { width: 140, height: 512 } },
-    body: { ref: "label", refWidth: 1, refHeight: 1, refWidth2: 12, refHeight2: 8, refX: -6, refY: -4,
-      fill: palette.canvas, stroke: palette.nodeStroke, strokeWidth: 1, rx: 4, ry: 4 },
-  },
-});
+const diagramEdgeLabel = (
+  text: string,
+  palette: ReturnType<typeof resolveDiagramPalette>,
+  kind: DiagramDocument["kind"],
+  appearance: DiagramAppearance = "light",
+) => {
+  const flowchart = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+  return {
+    position: { distance: 0.5, offset: kind === "architecture" ? { x: 0, y: -16 } : 0 },
+    attrs: {
+      label: { text, fill: flowchart?.process.text ?? palette.nodeText, fontSize: 12, lineHeight: 16, textWrap: { width: 140, height: 512 } },
+      body: { ref: "label", refWidth: 1, refHeight: 1, refWidth2: 12, refHeight2: 8, refX: -6, refY: -4,
+        fill: flowchart?.canvas ?? palette.canvas, stroke: flowchart?.process.stroke ?? palette.nodeStroke, strokeWidth: 1, rx: 4, ry: 4 },
+    },
+  };
+};
 
 const edgeMetadata = (
   edge: DiagramDocument["edges"][number],
@@ -1047,16 +1073,17 @@ const edgeMetadata = (
   const palette = resolveDiagramPalette(theme, appearance);
   const edgeKind = edge.kind ?? (kind === "architecture" ? "dependency" : undefined);
   const mindEdge = kind === "mind-map" ? mindMapEdgeVisual("primary", palette) : null;
+  const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
   const edgeStroke = edgeKind === "data"
     ? "#7C3AED"
     : edgeKind === "async"
       ? "#EA580C"
-      : mindEdge?.stroke ?? palette.flowEdge;
+      : mindEdge?.stroke ?? flowchartSurface?.edge ?? palette.flowEdge;
   return {
     id: edge.id,
     source: { cell: edge.source },
     target: { cell: edge.target },
-    router: kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : undefined,
+    router: kind === "flowchart" ? FLOWCHART_EDGE_ROUTER : undefined,
     connector: kind === "mind-map"
       ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth } }
       : { name: "rounded", args: { radius: 10 } },
@@ -1075,7 +1102,7 @@ const edgeMetadata = (
         } : { fill: "none" }),
       },
     },
-    labels: edge.label ? [diagramEdgeLabel(edge.label, palette, kind)] : undefined,
+    labels: edge.label ? [diagramEdgeLabel(edge.label, palette, kind, appearance)] : undefined,
   };
 };
 
@@ -1180,16 +1207,8 @@ const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: Di
   for (const node of graph.getNodes()) {
     const size = node.getSize();
     const { role, visual } = resolveMindMapNodeStyle(nodes, node.id, palette, theme, appearance, size, structure);
-    if (role === "root") {
-      visual.body.rx = mindMapRootRadius(size.height);
-      visual.body.ry = visual.body.rx;
-    }
-    node.setMarkup(MIND_MAP_TOPIC_MARKUP);
-    node.attr("body/fill", visual.body.fill);
-    node.attr("body/stroke", visual.body.stroke);
-    node.attr("body/strokeWidth", visual.body.strokeWidth);
-    node.attr("body/rx", visual.body.rx);
-    node.attr("body/ry", visual.body.ry);
+    node.setMarkup(mindMapTopicMarkup(structure, role));
+    node.attr("body", visual.body);
     node.attr("underline", visual.underline);
     node.attr("label/fill", visual.label.fill);
     node.attr("label/fontSize", visual.label.fontSize);
@@ -1242,7 +1261,8 @@ const applyGraphPalette = (
     for (const node of graph.getNodes()) {
       const data = node.getData<NodeData>();
       const shape = data?.shape ?? "process";
-      const attrs = nodeAttrs(shape, theme, appearance, shape === "topic" && !data?.parentId);
+      const flowchartStyle = kind === "flowchart" ? flowchartNodeVisual(shape, appearance, node.getSize()) : null;
+      const attrs = flowchartStyle ?? nodeAttrs(shape, theme, appearance, shape === "topic" && !data?.parentId);
       node.attr("body", attrs.body);
       node.attr("label", attrs.label);
       refreshNodeLabel(node, data?.label ?? "", structure);
@@ -1252,24 +1272,26 @@ const applyGraphPalette = (
           node.attr(selector, selectorAttrs);
         }
       }
+      const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
       for (const port of node.getPorts()) {
         if (!port.id) continue;
         node.portProp(port.id, "attrs/circle", {
-          stroke: palette.topicStroke,
-          fill: palette.canvas,
+          stroke: flowchartSurface?.terminator.stroke ?? palette.topicStroke,
+          fill: flowchartSurface?.canvas ?? palette.canvas,
         });
       }
     }
+    const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
     for (const edge of graph.getEdges()) {
       const edgeKind = edge.getData<EdgeData>()?.kind;
-      edge.attr("line/stroke", edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : kind === "mind-map" ? palette.mindMapEdge : palette.flowEdge);
+      edge.attr("line/stroke", edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : kind === "mind-map" ? palette.mindMapEdge : flowchartSurface?.edge ?? palette.flowEdge);
       if (kind !== "mind-map") edge.attr("line/fill", "none");
       if (edge.getLabels().length > 0) {
-        edge.setLabels(edge.getLabels().map((label) => diagramEdgeLabel(String(label.attrs?.label?.text ?? ""), palette, kind)));
+        edge.setLabels(edge.getLabels().map((label) => diagramEdgeLabel(String(label.attrs?.label?.text ?? ""), palette, kind, appearance)));
       }
     }
     if (kind === "mind-map") applyMindMapHierarchy(graph, theme, appearance, structure);
-    applyDiagramSurface(graph, theme, appearance);
+    applyDiagramSurface(graph, theme, appearance, kind);
   } finally {
     if (historyEnabled) graph.enableHistory();
     scroller?.enableAutoResize();
@@ -1305,7 +1327,7 @@ export const DiagramEditorPane = ({
   const editSessionRef = useRef<MemoEditSession | null>(null);
   const saveRef = useRef<() => void>(() => undefined);
   const document = parseDiagramDocument(memo.contentMarkdown);
-  const documentTheme = document?.theme ?? "brand";
+  const documentTheme = resolveDiagramTheme(document?.theme);
   const documentStructure = resolveDiagramStructure(document?.structure);
   const [title, setTitle] = useState(memo.title ?? "");
   const [tagsText, setTagsText] = useState(memo.tags.join(", "));
@@ -1547,7 +1569,7 @@ export const DiagramEditorPane = ({
       container: containerRef.current,
       autoResize: true,
       async: true,
-      background: { color: palette.canvas },
+      background: { color: diagramCanvasColor(document.kind, documentTheme, appearance) },
       grid: false,
       panning: false,
       mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: 0.3, maxScale: 2.5 },
@@ -1561,7 +1583,7 @@ export const DiagramEditorPane = ({
         allowMulti: false,
         highlight: isConnectableDiagram(document.kind),
         snap: { radius: 24 },
-        router: document.kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : "normal",
+        router: document.kind === "flowchart" ? FLOWCHART_EDGE_ROUTER : "normal",
         connector: document.kind === "mind-map" ? MIND_MAP_CONNECTOR_NAME : "rounded",
         validateConnection: ({ sourceCell, targetCell, sourcePort, targetPort }) => {
           if (!isConnectableDiagram(document.kind) || !sourceCell || !sourcePort) return false;
@@ -2247,7 +2269,7 @@ export const DiagramEditorPane = ({
       return;
     }
     const palette = resolveDiagramPalette(themeRef.current, appearanceRef.current);
-    edge.setLabels([diagramEdgeLabel(label, palette, document?.kind ?? "flowchart")]);
+    edge.setLabels([diagramEdgeLabel(label, palette, document?.kind ?? "flowchart", appearanceRef.current)]);
   };
 
   const createConnectedFlowNode = (shape: DiagramNodeShape) => {
@@ -2409,6 +2431,7 @@ export const DiagramEditorPane = ({
     setStructure(nextStructure);
     if (!graph || readOnly || document?.kind !== "mind-map") return;
     applyGraphPalette(graph, themeRef.current, "mind-map", appearanceRef.current, nextStructure);
+    applyAutoLayout();
     setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
       titleRef.current,
       graphToDocument(graph, "mind-map", themeRef.current, nextStructure),
@@ -2422,11 +2445,11 @@ export const DiagramEditorPane = ({
     const fileName = (title.trim() || fallbackName).replace(/[\\/:*?"<>|]/g, "-").slice(0, 80);
     setSaveError(null);
     try {
-      const palette = resolveDiagramPalette(themeRef.current, appearanceRef.current);
-      const beforeSerialize = prepareExportSvg(palette.canvas);
+      const canvas = diagramCanvasColor(document.kind, themeRef.current, appearanceRef.current);
+      const beforeSerialize = prepareExportSvg(canvas);
       const viewBox = graph.getCellsBBox(graph.getCells()) ?? undefined;
       if (format === "png") {
-        graph.exportPNG(fileName, { backgroundColor: palette.canvas, padding: 32, ratio: 2, copyStyles: false, beforeSerialize, viewBox });
+        graph.exportPNG(fileName, { backgroundColor: canvas, padding: 32, ratio: 2, copyStyles: false, beforeSerialize, viewBox });
       } else {
         graph.exportSVG(fileName, { preserveDimensions: true, copyStyles: false, beforeSerialize, viewBox });
       }
@@ -2832,6 +2855,7 @@ export const DiagramEditorPane = ({
           onExport={exportDiagram}
           onRedo={() => runHistoryAction("redo")}
           onThemeChange={applyTheme}
+          showTheme={document.kind !== "flowchart"}
           onStructureChange={document.kind === "mind-map" ? applyStructure : undefined}
           structure={structure}
           onUndo={() => runHistoryAction("undo")}
@@ -2961,7 +2985,7 @@ export const DiagramEditorPane = ({
                 color: nodeEditor.color,
                 background: nodeEditor.background,
                 border: `2px solid ${nodeEditor.borderColor}`,
-                borderRadius: nodeEditor.shape === "terminator" ? 999 : 11,
+                borderRadius: nodeEditor.shape === "terminator" ? 999 : 10,
                 clipPath: nodeEditor.shape === "decision" ? "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)" : undefined,
               }}
               value={nodeEditor.value}

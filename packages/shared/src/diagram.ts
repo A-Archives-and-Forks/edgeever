@@ -19,13 +19,42 @@ export type DiagramNodeShape =
   | "external"
   | "boundary";
 export type DiagramEdgeKind = "dependency" | "request" | "async" | "data";
-export const DIAGRAM_THEMES = ["brand", "ocean", "ink", "classic"] as const;
+export const DIAGRAM_SELECTABLE_THEMES = [
+  "brand", "sun", "wa", "island", "rose", "mint", "cosmos", "tea", "naive", "macaron",
+] as const;
+export const DIAGRAM_THEMES = [
+  "brand", "ocean", "ink", "classic", "sky", "sunset", "violet", "rose", "sand", "slate", "aurora", "mono",
+  "sun", "wa", "island", "mint", "cosmos", "tea", "naive", "macaron",
+] as const;
 export type DiagramTheme = (typeof DIAGRAM_THEMES)[number];
-export const DIAGRAM_STRUCTURES = ["map", "box"] as const;
+export const DIAGRAM_SELECTABLE_STRUCTURES = [
+  "map", "line", "capsule", "box", "circle", "ellipse", "hexagon", "logic", "tree", "brace",
+] as const;
+export const DIAGRAM_STRUCTURES = [
+  ...DIAGRAM_SELECTABLE_STRUCTURES, "rect", "diamond", "cloud",
+] as const;
 export type DiagramStructure = (typeof DIAGRAM_STRUCTURES)[number];
 
+const THEME_ALIASES: Partial<Record<DiagramTheme, typeof DIAGRAM_SELECTABLE_THEMES[number]>> = {
+  ocean: "brand",
+  ink: "brand",
+  classic: "sun",
+  sky: "cosmos",
+  sunset: "sun",
+  violet: "rose",
+  sand: "island",
+  slate: "cosmos",
+  aurora: "mint",
+  mono: "cosmos",
+};
+
+export const resolveDiagramTheme = (theme?: DiagramTheme): typeof DIAGRAM_SELECTABLE_THEMES[number] => {
+  if (theme && (DIAGRAM_SELECTABLE_THEMES as readonly string[]).includes(theme)) return theme as typeof DIAGRAM_SELECTABLE_THEMES[number];
+  return THEME_ALIASES[theme ?? "brand"] ?? "brand";
+};
+
 export const resolveDiagramStructure = (structure?: DiagramStructure): DiagramStructure => (
-  structure === "box" ? "box" : "map"
+  structure && (DIAGRAM_SELECTABLE_STRUCTURES as readonly string[]).includes(structure) ? structure : "map"
 );
 
 export const ARCHITECTURE_RESOURCE_ICONS = [
@@ -156,12 +185,11 @@ export const parseDiagramDocument = (markdown: string | null | undefined): Diagr
     if (isArchitecture
       ? value.schemaVersion !== ARCHITECTURE_DIAGRAM_SCHEMA_VERSION
       : value.schemaVersion !== DIAGRAM_SCHEMA_VERSION) return null;
-    if (
-      !Array.isArray(value.nodes)
-      || !Array.isArray(value.edges)
-      || (value.theme !== undefined && !DIAGRAM_THEMES.includes(value.theme as DiagramTheme))
-      || (value.structure !== undefined && !DIAGRAM_STRUCTURES.includes(value.structure as DiagramStructure))
-    ) return null;
+    if (!Array.isArray(value.nodes) || !Array.isArray(value.edges)) return null;
+    const theme = DIAGRAM_THEMES.includes(value.theme as DiagramTheme) ? value.theme as DiagramTheme : undefined;
+    const structure = DIAGRAM_STRUCTURES.includes(value.structure as DiagramStructure)
+      ? value.structure as DiagramStructure
+      : undefined;
     const nodes = value.nodes.map(parseNode);
     const edges = value.edges.map(parseEdge);
     if (nodes.some((node) => !node) || edges.some((edge) => !edge)) return null;
@@ -182,8 +210,8 @@ export const parseDiagramDocument = (markdown: string | null | undefined): Diagr
     return {
       schemaVersion: value.schemaVersion as DiagramDocument["schemaVersion"],
       kind: value.kind as DiagramKind,
-      ...(value.theme ? { theme: value.theme as DiagramTheme } : {}),
-      ...(value.kind === "mind-map" && value.structure ? { structure: value.structure as DiagramStructure } : {}),
+      ...(theme ? { theme } : {}),
+      ...(value.kind === "mind-map" && structure ? { structure } : {}),
       nodes: nodes as DiagramNode[],
       edges: edges as DiagramEdge[],
     };
@@ -307,6 +335,10 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
           ? `${id}("${label}")`
           : `${id}["${label}"]`;
     lines.push(`  ${declaration}`);
+    if (document.kind === "flowchart") {
+      const className = node.shape === "decision" ? "flowDecision" : node.shape === "terminator" ? "flowTerminator" : "flowProcess";
+      lines.push(`  class ${id} ${className}`);
+    }
   }
 
   for (const edge of document.edges) {
@@ -316,6 +348,12 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
     const label = edge.label ? `|"${escapeMermaidLabel(edge.label)}"|` : "";
     const connector = document.kind === "mind-map" ? "---" : "-->";
     lines.push(`  ${source} ${connector}${label} ${target}`);
+  }
+
+  if (document.kind === "flowchart") {
+    lines.push("  classDef flowProcess fill:#FFFFFF,stroke:#6F9B88,color:#1C3D31,stroke-width:1.5px");
+    lines.push("  classDef flowDecision fill:#FFF6E5,stroke:#D4A24A,color:#7A4A12,stroke-width:1.5px");
+    lines.push("  classDef flowTerminator fill:#E7F6EF,stroke:#16A06E,color:#145C40,stroke-width:1.5px");
   }
 
   if (document.kind === "mind-map") {
@@ -381,9 +419,9 @@ export const createDefaultDiagramDocument = (kind: DiagramKind): DiagramDocument
     schemaVersion: DIAGRAM_SCHEMA_VERSION,
     kind,
     nodes: [
-      { id: "flow-start", label: "开始", x: 80, y: 180, width: 104, height: 40, shape: "terminator" },
-      { id: "flow-process", label: "处理步骤", x: 256, y: 180, width: 112, height: 40, shape: "process" },
-      { id: "flow-end", label: "结束", x: 440, y: 180, width: 104, height: 40, shape: "terminator" },
+      { id: "flow-start", label: "开始", x: 86, y: 48, width: 116, height: 40, shape: "terminator" },
+      { id: "flow-process", label: "处理步骤", x: 82, y: 136, width: 124, height: 42, shape: "process" },
+      { id: "flow-end", label: "结束", x: 86, y: 226, width: 116, height: 40, shape: "terminator" },
     ],
     edges: [
       { id: "flow-edge-1", source: "flow-start", target: "flow-process" },

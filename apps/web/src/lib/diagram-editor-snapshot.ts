@@ -8,7 +8,7 @@ export const diagramEditorSnapshot = (title: string, document: DiagramDocument) 
     schemaVersion: document.schemaVersion,
     kind: document.kind,
     theme: document.theme ?? "brand",
-    structure: document.kind === "mind-map" ? (document.structure === "box" ? "box" : "map") : undefined,
+    structure: document.kind === "mind-map" ? document.structure ?? "map" : undefined,
     nodes: document.nodes.map((node) => ({
       id: node.id, label: node.label, x: node.x, y: node.y, shape: node.shape,
       parentId: node.parentId, resourceIcon: node.resourceIcon,

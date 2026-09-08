@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createDefaultDiagramDocument, diagramDocumentToMermaid, diagramFallbackMarkdown, hasDiagramDocumentMarker, parseDiagramDocument, serializeDiagramDocument, stripDiagramDocumentMarker } from "./diagram.ts";
+import { createDefaultDiagramDocument, DIAGRAM_SELECTABLE_STRUCTURES, DIAGRAM_SELECTABLE_THEMES, diagramDocumentToMermaid, diagramFallbackMarkdown, hasDiagramDocumentMarker, parseDiagramDocument, serializeDiagramDocument, stripDiagramDocumentMarker } from "./diagram.ts";
 import { diagramDocumentToX6Cells } from "./diagram-view.ts";
 import { markdownToDoc } from "./content.ts";
 
@@ -10,6 +10,20 @@ describe("diagram document", () => {
     document.theme = "ocean";
     document.structure = "box";
     expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
+  });
+
+  test("offers ten mind-map shapes and ten selectable color schemes", () => {
+    expect(DIAGRAM_SELECTABLE_STRUCTURES).toHaveLength(10);
+    expect(DIAGRAM_SELECTABLE_THEMES).toHaveLength(10);
+    const document = createDefaultDiagramDocument("mind-map");
+    document.theme = "mint";
+    document.structure = "logic";
+    expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
+    const unknown = structuredClone(document);
+    unknown.theme = "not-a-theme";
+    const encoded = serializeDiagramDocument(unknown);
+    const parsedUnknown = parseDiagramDocument(encoded.replace("not-a-theme", "not-a-theme"));
+    expect(parsedUnknown?.theme).toBeUndefined();
   });
 
   test("parses the envelope without browser base64 and text codec globals", () => {
@@ -53,6 +67,9 @@ describe("diagram document", () => {
     expect(markdown).toContain("# 流程图");
     expect(markdown).toContain("```mermaid\nflowchart TD");
     expect(markdown).toContain('n1["处理步骤"]');
+    expect(markdown).toContain("classDef flowProcess fill:#FFFFFF,stroke:#6F9B88");
+    expect(markdown).toContain("class n1 flowProcess");
+    expect(markdown).toContain("class n0 flowTerminator");
 
     const doc = markdownToDoc(markdown);
     expect(doc.content?.some((node) => node.type === "codeBlock" && node.attrs?.language === "mermaid")).toBe(true);
@@ -145,7 +162,7 @@ describe("diagram document", () => {
 
     const invalidTheme = createDefaultDiagramDocument("mind-map");
     invalidTheme.theme = "neon";
-    expect(parseDiagramDocument(serializeDiagramDocument(invalidTheme))).toBeNull();
+    expect(parseDiagramDocument(serializeDiagramDocument(invalidTheme))?.theme).toBeUndefined();
 
     const architecture = createDefaultDiagramDocument("architecture");
     architecture.nodes.find((node) => node.id === "api").parentId = "database";
@@ -161,6 +178,9 @@ test('native flowchart projection shares label sizing and obstacle routing witho
   expect(projection.nodes[1].height).toBeGreaterThan(document.nodes[1].height);
   expect(projection.nodes[1].attrs.label.text.replaceAll('\n', '')).toBe(document.nodes[1].label.replaceAll('\n', ''));
   expect(projection.edges[0].router.name).toBe('manhattan');
+  expect(projection.edges[0].router.args.padding).toBe(16);
   expect(projection.edges[0].attrs.line.fill).toBe('none');
+  expect(projection.nodes[0].attrs.body.fill).not.toBe('#16A06E');
+  expect(projection.nodes[0].attrs.label.fontFamily).toContain('Inter');
   expect(document).toEqual(original);
 });

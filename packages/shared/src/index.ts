@@ -30,6 +30,8 @@ export * from "./sync";
 export * from "./desktop-rpc";
 export * from "./deployment-metadata";
 export * from "./diagram";
+export * from "./diagram-palette";
+export * from "./diagram-flowchart-style";
 export * from "./diagram-mindmap-style";
 export * from "./diagram-view";
 export * from "./file-attachment";

@@ -276,11 +276,11 @@ const parseDiagramMemoIr = (args: Record<string, unknown>): DiagramIr => {
   if (args.edges !== undefined && (!Array.isArray(args.edges) || args.edges.length > 400)) {
     throw new AppError("invalid_params", "edges must be an array with at most 400 items", 400);
   }
-  if (args.theme !== undefined && !["brand", "ocean", "ink", "classic"].includes(String(args.theme))) {
-    throw new AppError("invalid_params", "theme must be brand, ocean, ink, or classic", 400);
+  if (args.theme !== undefined && !["brand", "sun", "wa", "island", "rose", "mint", "cosmos", "tea", "naive", "macaron", "ocean", "ink", "classic"].includes(String(args.theme))) {
+    throw new AppError("invalid_params", "theme is not a supported diagram color scheme", 400);
   }
-  if (args.structure !== undefined && !["map", "box"].includes(String(args.structure))) {
-    throw new AppError("invalid_params", "structure must be map or box", 400);
+  if (args.structure !== undefined && !["map", "line", "capsule", "box", "circle", "ellipse", "hexagon", "logic", "tree", "brace"].includes(String(args.structure))) {
+    throw new AppError("invalid_params", "structure is not a supported mind-map shape", 400);
   }
   if (args.title !== undefined && (typeof args.title !== "string" || args.title.length > 160)) {
     throw new AppError("invalid_params", "title must be a string with at most 160 characters", 400);

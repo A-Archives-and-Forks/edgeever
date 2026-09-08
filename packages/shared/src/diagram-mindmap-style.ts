@@ -1,4 +1,5 @@
 import type { DiagramStructure, DiagramTheme } from "./diagram";
+import { buildDiagramBranchTints, diagramThemeUsesBranchColors } from "./diagram-palette";
 import { visualTextUnits } from "./diagram-node-presentation";
 
 export type MindMapRole = "root" | "primary" | "nested";
@@ -38,6 +39,51 @@ export const MIND_MAP_TOPIC_MARKUP = [
   { tagName: "text", selector: "label" },
 ];
 
+export type MindMapTopicForm =
+  | "rounded"
+  | "rect"
+  | "capsule"
+  | "ellipse"
+  | "circle"
+  | "diamond"
+  | "hexagon"
+  | "cloud"
+  | "underline";
+
+export const mindMapIsOneSided = (structure?: DiagramStructure) => (
+  structure === "logic" || structure === "tree" || structure === "brace"
+);
+
+export const mindMapUsesUnderline = (role: MindMapRole, structure?: DiagramStructure) => {
+  if (role === "root") return false;
+  if (structure === "line" || structure === "brace") return true;
+  if (structure === "map" || structure === "tree" || !structure) return role === "nested";
+  return false;
+};
+
+export const mindMapTopicForm = (structure?: DiagramStructure, role: MindMapRole = "primary"): MindMapTopicForm => {
+  if (mindMapUsesUnderline(role, structure)) return "underline";
+  if (structure === "capsule") return "capsule";
+  if (structure === "ellipse") return "ellipse";
+  if (structure === "circle") return "circle";
+  if (structure === "hexagon") return "hexagon";
+  if (structure === "box" || structure === "logic") return "rounded";
+  if (role === "root") return "capsule";
+  return "rounded";
+};
+
+export const mindMapTopicMarkup = (structure?: DiagramStructure, role: MindMapRole = "primary") => {
+  const form = mindMapTopicForm(structure, role);
+  const body = form === "ellipse" || form === "circle"
+    ? { tagName: "ellipse", selector: "body" }
+    : form === "diamond" || form === "hexagon"
+      ? { tagName: "polygon", selector: "body" }
+      : form === "cloud"
+        ? { tagName: "path", selector: "body" }
+        : { tagName: "rect", selector: "body" };
+  return [body, { tagName: "path", selector: "underline" }, { tagName: "text", selector: "label" }];
+};
+
 export const MIND_MAP_BRANCH_TINTS: Record<MindMapAppearance, MindMapBranchTint[]> = {
   light: [
     { fill: "#E7F6EF", stroke: "#0F8A5C", text: "#145C40", edge: "#16A06E" },
@@ -73,11 +119,7 @@ const wrapVisualText = (label: string, capacity: number) => label.split("\n").fl
 
 const formatPoint = (value: number) => (Math.round(value * 100) / 100).toFixed(2);
 
-export const mindMapUsesBranchColors = (theme?: DiagramTheme) => theme === "classic";
-
-export const mindMapUsesUnderline = (role: MindMapRole, structure?: DiagramStructure) => (
-  role === "nested" && structure !== "box"
-);
+export const mindMapUsesBranchColors = (theme?: DiagramTheme) => diagramThemeUsesBranchColors(theme);
 
 export const mindMapNodeRole = (
   nodes: MindMapIndexedNode[],
@@ -122,22 +164,24 @@ export const mindMapBranchTintIndex = (
 export const mindMapBranchTint = (
   index: number | null,
   appearance: MindMapAppearance,
+  theme?: DiagramTheme,
 ): MindMapBranchTint | undefined => {
   if (index == null) return undefined;
-  const tints = MIND_MAP_BRANCH_TINTS[appearance];
+  const tints = theme ? buildDiagramBranchTints(theme, appearance) : MIND_MAP_BRANCH_TINTS[appearance];
   return tints[index % tints.length];
 };
 
 export const mindMapNodeSize = (label: string, role: MindMapRole = "primary", structure?: DiagramStructure) => {
   const isRoot = role === "root";
   const underline = mindMapUsesUnderline(role, structure);
-  return {
-    width: Math.round(Math.min(
-      isRoot ? 180 : 168,
-      Math.max(isRoot ? 124 : underline ? 88 : 96, visualTextUnits(label) * 13 + (isRoot ? 36 : underline ? 22 : 28)),
-    )),
-    height: isRoot ? 46 : underline ? 32 : 36,
-  };
+  const form = mindMapTopicForm(structure, role);
+  const padX = isRoot ? 36 : underline ? 22 : form === "diamond" || form === "hexagon" || form === "circle" ? 36 : 28;
+  const width = Math.round(Math.min(
+    isRoot ? 180 : form === "circle" ? 132 : 168,
+    Math.max(isRoot ? 124 : underline ? 88 : form === "circle" ? 108 : 96, visualTextUnits(label) * 13 + padX),
+  ));
+  const height = isRoot ? 46 : underline ? 32 : form === "circle" ? Math.max(40, width - 24) : 36;
+  return { width, height };
 };
 
 export const compactMindMapNodeSize = (label: string, isRoot: boolean) => (
@@ -164,6 +208,34 @@ export const mindMapUnderlinePath = (width: number, height: number) => (
   `M 1 ${formatPoint(Math.max(2, height - 2))} H ${formatPoint(Math.max(2, width - 1))}`
 );
 
+export const mindMapCloudPath = (width: number, height: number) => {
+  const w = Math.max(width, 12);
+  const h = Math.max(height, 12);
+  return [
+    `M ${formatPoint(w * 0.18)} ${formatPoint(h * 0.62)}`,
+    `Q ${formatPoint(w * 0.06)} ${formatPoint(h * 0.60)} ${formatPoint(w * 0.08)} ${formatPoint(h * 0.44)}`,
+    `Q ${formatPoint(w * 0.02)} ${formatPoint(h * 0.26)} ${formatPoint(w * 0.22)} ${formatPoint(h * 0.24)}`,
+    `Q ${formatPoint(w * 0.30)} ${formatPoint(h * 0.06)} ${formatPoint(w * 0.48)} ${formatPoint(h * 0.14)}`,
+    `Q ${formatPoint(w * 0.60)} ${formatPoint(h * 0.02)} ${formatPoint(w * 0.72)} ${formatPoint(h * 0.16)}`,
+    `Q ${formatPoint(w * 0.96)} ${formatPoint(h * 0.14)} ${formatPoint(w * 0.92)} ${formatPoint(h * 0.40)}`,
+    `Q ${formatPoint(w * 1.02)} ${formatPoint(h * 0.56)} ${formatPoint(w * 0.84)} ${formatPoint(h * 0.64)}`,
+    `Q ${formatPoint(w * 0.80)} ${formatPoint(h * 0.84)} ${formatPoint(w * 0.58)} ${formatPoint(h * 0.78)}`,
+    `Q ${formatPoint(w * 0.42)} ${formatPoint(h * 0.92)} ${formatPoint(w * 0.30)} ${formatPoint(h * 0.76)}`,
+    `Q ${formatPoint(w * 0.12)} ${formatPoint(h * 0.82)} ${formatPoint(w * 0.18)} ${formatPoint(h * 0.62)}`,
+    "Z",
+  ].join(" ");
+};
+
+const mindMapBodyGeometry = (form: MindMapTopicForm, width: number, height: number, rx: number) => {
+  if (form === "ellipse" || form === "circle") {
+    return { refCx: "50%", refCy: "50%", refRx: "50%", refRy: "50%" };
+  }
+  if (form === "diamond") return { refPoints: "5,0 10,5 5,10 0,5" };
+  if (form === "hexagon") return { refPoints: "2.5,0 7.5,0 10,5 7.5,10 2.5,10 0,5" };
+  if (form === "cloud") return { d: mindMapCloudPath(width, height) };
+  return { rx, ry: rx };
+};
+
 export const mindMapNodeVisual = (
   role: MindMapRole,
   palette: MindMapPalette,
@@ -179,28 +251,7 @@ export const mindMapNodeVisual = (
   const width = options.width ?? 96;
   const height = options.height ?? (role === "root" ? 46 : underline ? 32 : 36);
   const tint = options.tint;
-  if (role === "root") {
-    return {
-      body: {
-        fill: palette.topicFill,
-        stroke: palette.topicStroke,
-        strokeWidth: 1.5,
-        rx: mindMapRootRadius(height),
-        ry: mindMapRootRadius(height),
-      },
-      label: {
-        fill: palette.topicText,
-        fontSize: 15,
-        fontWeight: 650,
-        fontFamily: MIND_MAP_LABEL_FONT,
-        lineHeight: 20,
-        refY: "50%",
-        textAnchor: "middle" as const,
-        textVerticalAnchor: "middle" as const,
-      },
-      underline: { d: "", stroke: "none", fill: "none" },
-    };
-  }
+  const form = mindMapTopicForm(options.structure, role);
   if (underline) {
     const color = tint?.edge ?? palette.mindMapEdge;
     return {
@@ -213,8 +264,8 @@ export const mindMapNodeVisual = (
       },
       label: {
         fill: tint?.text ?? palette.nodeText,
-        fontSize: 13,
-        fontWeight: 500,
+        fontSize: role === "primary" ? 14 : 13,
+        fontWeight: role === "primary" ? 650 : 500,
         fontFamily: MIND_MAP_LABEL_FONT,
         lineHeight: 18,
         refX: "50%",
@@ -232,42 +283,25 @@ export const mindMapNodeVisual = (
       },
     };
   }
-  if (role === "nested") {
-    return {
-      body: {
-        fill: tint?.fill ?? palette.canvas,
-        stroke: tint?.stroke ?? palette.nodeStroke,
-        strokeWidth: 1,
-        rx: 8,
-        ry: 8,
-      },
-      label: {
-        fill: tint?.text ?? palette.nodeText,
-        fontSize: 13,
-        fontWeight: 500,
-        fontFamily: MIND_MAP_LABEL_FONT,
-        lineHeight: 18,
-        refY: "50%",
-        textAnchor: "middle" as const,
-        textVerticalAnchor: "middle" as const,
-      },
-      underline: { d: "", stroke: "none", fill: "none" },
-    };
-  }
+  const isRoot = role === "root";
+  const radius = form === "capsule" || (isRoot && form === "rounded")
+    ? mindMapRootRadius(height)
+    : form === "rect"
+      ? 2
+      : isRoot ? 12 : role === "nested" ? 8 : 10;
   return {
     body: {
-      fill: tint?.fill ?? palette.nodeFill,
-      stroke: tint?.stroke ?? palette.topicStroke,
-      strokeWidth: 1.5,
-      rx: 10,
-      ry: 10,
+      fill: isRoot ? palette.topicFill : tint?.fill ?? (role === "nested" ? palette.canvas : palette.nodeFill),
+      stroke: isRoot ? palette.topicStroke : tint?.stroke ?? (role === "nested" ? palette.nodeStroke : palette.topicStroke),
+      strokeWidth: role === "nested" && !isRoot ? 1 : 1.5,
+      ...mindMapBodyGeometry(form, width, height, radius),
     },
     label: {
-      fill: tint?.text ?? palette.nodeText,
-      fontSize: 14,
-      fontWeight: 650,
+      fill: isRoot ? palette.topicText : tint?.text ?? palette.nodeText,
+      fontSize: isRoot ? 15 : role === "primary" ? 14 : 13,
+      fontWeight: isRoot || role === "primary" ? 650 : 500,
       fontFamily: MIND_MAP_LABEL_FONT,
-      lineHeight: 18,
+      lineHeight: isRoot ? 20 : 18,
       refY: "50%",
       textAnchor: "middle" as const,
       textVerticalAnchor: "middle" as const,
@@ -288,7 +322,7 @@ export const resolveMindMapNodeStyle = (
   const role = mindMapNodeRole(nodes, nodeId);
   const underline = mindMapUsesUnderline(role, structure);
   const tint = mindMapUsesBranchColors(theme)
-    ? mindMapBranchTint(mindMapBranchTintIndex(nodes, nodeId), appearance)
+    ? mindMapBranchTint(mindMapBranchTintIndex(nodes, nodeId), appearance, theme)
     : undefined;
   return {
     role,

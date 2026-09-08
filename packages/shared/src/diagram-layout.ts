@@ -1,8 +1,11 @@
 import { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
 export { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
+import { FLOWCHART_LAYOUT_SPACING } from "./diagram-flowchart-style";
+export { FLOWCHART_EDGE_ROUTER, FLOWCHART_LAYOUT_SPACING } from "./diagram-flowchart-style";
 import {
   MIND_MAP_HORIZONTAL_GAP,
   MIND_MAP_VERTICAL_GAP,
+  mindMapIsOneSided,
   mindMapNodePresentation,
   mindMapNodeRole,
 } from "./diagram-mindmap-style";
@@ -86,7 +89,7 @@ export type DiagramIr = {
 };
 
 const MIND_MAP_TWO_SIDED_THRESHOLD = 5;
-const FLOWCHART_DETACHED_GAP = 72;
+const FLOWCHART_DETACHED_GAP = 56;
 const FLOWCHART_DETACHED_ROW_GAP = 24;
 const FLOWCHART_DETACHED_ROW_WIDTH = 960;
 const ARCHITECTURE_LAYOUT_ROW_WIDTH = 1480;
@@ -214,7 +217,7 @@ const computeMindMapLayout = (
     .sort((left, right) => left.y - right.y || left.id.localeCompare(right.id));
   for (const root of roots) {
     const childIds = (childrenByParent.get(root.id) ?? []).filter((childId) => childId !== root.id);
-    if (childIds.length < MIND_MAP_TWO_SIDED_THRESHOLD) {
+    if (childIds.length < MIND_MAP_TWO_SIDED_THRESHOLD || mindMapIsOneSided(document.structure)) {
       placeRootSide(root.id, childIds, 1);
       continue;
     }
@@ -375,17 +378,73 @@ const placeDetachedFlowchartNodes = (
   return positions;
 };
 
-const computeFlowchartLayout = (document: DiagramDocument, options: DiagramLayoutOptions) => (
-  placeDetachedFlowchartNodes(
-    document,
-    computeDagreLayout(
-      document,
-      { ...options, direction: options.direction ?? "top-to-bottom" },
-      false,
-      { rank: 80, node: 48 },
-    ),
-  )
-);
+const alignFlowchartSpine = (
+  document: DiagramDocument,
+  positions: DiagramLayoutPositions,
+  direction: "left-to-right" | "top-to-bottom",
+) => {
+  const topToBottom = direction !== "left-to-right";
+  const incoming = new Map<string, string[]>();
+  const outgoing = new Map<string, string[]>();
+  for (const node of document.nodes) {
+    incoming.set(node.id, []);
+    outgoing.set(node.id, []);
+  }
+  for (const edge of document.edges) {
+    if (!positions[edge.source] || !positions[edge.target]) continue;
+    outgoing.get(edge.source)?.push(edge.target);
+    incoming.get(edge.target)?.push(edge.source);
+  }
+  const isBackEdge = (source: string, target: string) => {
+    const from = positions[source];
+    const to = positions[target];
+    return topToBottom ? from.y > to.y + 8 : from.x > to.x + 8;
+  };
+  const sizeById = new Map(document.nodes.map((node) => [node.id, node]));
+  const ordered = [...document.nodes].sort((left, right) => {
+    const leftPosition = positions[left.id];
+    const rightPosition = positions[right.id];
+    return topToBottom
+      ? leftPosition.y - rightPosition.y || leftPosition.x - rightPosition.x
+      : leftPosition.x - rightPosition.x || leftPosition.y - rightPosition.y;
+  });
+  const boxesOverlap = (
+    left: { x: number; y: number; width: number; height: number },
+    right: { x: number; y: number; width: number; height: number },
+  ) => left.x < right.x + right.width && left.x + left.width > right.x
+    && left.y < right.y + right.height && left.y + left.height > right.y;
+
+  for (const node of ordered) {
+    const successors = (outgoing.get(node.id) ?? []).filter((target) => !isBackEdge(node.id, target));
+    if (successors.length !== 1) continue;
+    const targetId = successors[0];
+    const predecessors = (incoming.get(targetId) ?? []).filter((source) => !isBackEdge(source, targetId));
+    if (predecessors.length !== 1 || predecessors[0] !== node.id) continue;
+    const source = sizeById.get(node.id);
+    const target = sizeById.get(targetId);
+    if (!source || !target) continue;
+    const from = positions[node.id];
+    const current = positions[targetId];
+    const next = topToBottom
+      ? { x: Math.round(from.x + source.width / 2 - target.width / 2), y: current.y }
+      : { x: current.x, y: Math.round(from.y + source.height / 2 - target.height / 2) };
+    const nextBox = { ...next, width: target.width, height: target.height };
+    const overlaps = document.nodes.some((other) => {
+      if (other.id === node.id || other.id === targetId) return false;
+      const otherPosition = positions[other.id];
+      return boxesOverlap(nextBox, { ...otherPosition, width: other.width, height: other.height });
+    });
+    if (!overlaps) positions[targetId] = next;
+  }
+  return positions;
+};
+
+const computeFlowchartLayout = (document: DiagramDocument, options: DiagramLayoutOptions) => {
+  const direction = options.direction ?? "top-to-bottom";
+  const positions = computeDagreLayout(document, { ...options, direction }, false, FLOWCHART_LAYOUT_SPACING);
+  alignFlowchartSpine(document, positions, direction);
+  return placeDetachedFlowchartNodes(document, positions);
+};
 
 const computeArchitectureLayout = (document: DiagramDocument, options: DiagramLayoutOptions) => (
   wrapArchitectureGroups(

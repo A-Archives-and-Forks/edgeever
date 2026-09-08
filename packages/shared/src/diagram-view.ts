@@ -1,13 +1,20 @@
 import { flowchartNodePresentation } from "./diagram-node-presentation";
+import {
+  FLOWCHART_EDGE_ROUTER,
+  FLOWCHART_LABEL_FONT,
+  flowchartNodeVisual,
+  resolveFlowchartSurface,
+} from "./diagram-flowchart-style";
 import type { ArchitectureResourceIcon, DiagramDocument, DiagramNodeShape, DiagramTheme } from "./diagram";
+import { buildDiagramPalette } from "./diagram-palette";
 import {
   MIND_MAP_CONNECTOR_NAME,
-  MIND_MAP_TOPIC_MARKUP,
   mindMapBranchSides,
   mindMapEdgeTerminal,
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
+  mindMapTopicMarkup,
   resolveMindMapNodeStyle,
 } from "./diagram-mindmap-style";
 
@@ -27,29 +34,10 @@ export type DiagramPalette = {
 
 const BRAND_GREEN = "#16A06E";
 
-const PALETTES: Record<DiagramTheme, Record<DiagramAppearance, DiagramPalette>> = {
-  brand: {
-    light: { topicFill: BRAND_GREEN, topicText: "#FFFFFF", nodeFill: "#F0F8F4", nodeText: "#173B2E", nodeStroke: "#B8DFD0", topicStroke: "#12845B", mindMapEdge: "#55B891", flowEdge: "#408A6D", canvas: "#F8FAF9" },
-    dark: { topicFill: BRAND_GREEN, topicText: "#F4FFF9", nodeFill: "#18211D", nodeText: "#E8F2ED", nodeStroke: "#3B5248", topicStroke: "#58CDA4", mindMapEdge: "#4DB58B", flowEdge: "#72B99B", canvas: "#101311" },
-  },
-  ocean: {
-    light: { topicFill: "#DEF1E9", topicText: "#0F4432", nodeFill: "#FFFEFA", nodeText: "#26352E", nodeStroke: "#D5E3DB", topicStroke: BRAND_GREEN, mindMapEdge: "#8ACCB2", flowEdge: "#6B9281", canvas: "#FBFCFA" },
-    dark: { topicFill: "#244D3D", topicText: "#DFF7ED", nodeFill: "#17201C", nodeText: "#E6F0EB", nodeStroke: "#3B554A", topicStroke: "#65C9A4", mindMapEdge: "#55B992", flowEdge: "#77AD97", canvas: "#111713" },
-  },
-  ink: {
-    light: { topicFill: BRAND_GREEN, topicText: "#F5FBF8", nodeFill: "#19261F", nodeText: "#E5EEE9", nodeStroke: "#3C594A", topicStroke: "#68D6B0", mindMapEdge: "#58BA94", flowEdge: "#68A78D", canvas: "#101512" },
-    dark: { topicFill: BRAND_GREEN, topicText: "#F5FBF8", nodeFill: "#151D19", nodeText: "#E7F0EB", nodeStroke: "#3C594A", topicStroke: "#68D6B0", mindMapEdge: "#58BA94", flowEdge: "#72B296", canvas: "#0B0F0D" },
-  },
-  classic: {
-    light: { topicFill: BRAND_GREEN, topicText: "#FFFFFF", nodeFill: "#F7FAF8", nodeText: "#173B2E", nodeStroke: "#D5E3DB", topicStroke: "#12845B", mindMapEdge: "#16A06E", flowEdge: "#408A6D", canvas: "#FBFCFB" },
-    dark: { topicFill: BRAND_GREEN, topicText: "#F4FFF9", nodeFill: "#18211D", nodeText: "#E8F2ED", nodeStroke: "#3B5248", topicStroke: "#58CDA4", mindMapEdge: "#4DB58B", flowEdge: "#72B99B", canvas: "#101311" },
-  },
-};
-
 export const resolvePortableDiagramPalette = (
   theme: DiagramTheme = "brand",
   appearance: DiagramAppearance = "light",
-) => PALETTES[theme === "classic" ? "classic" : "brand"][appearance];
+) => buildDiagramPalette(theme, appearance);
 
 const architectureAccent: Partial<Record<DiagramNodeShape, string>> = {
   client: "#0891B2",
@@ -94,6 +82,7 @@ export const diagramDocumentToX6Cells = (
   appearance: DiagramAppearance,
 ) => {
   const palette = resolvePortableDiagramPalette(document.theme ?? "brand", appearance);
+  const flowchartSurface = document.kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
   const nodes = document.nodes.map((node) => {
     const mindMapRole = document.kind === "mind-map" ? mindMapNodeRole(document.nodes, node.id) : null;
     const presentation = document.kind === "flowchart"
@@ -105,6 +94,9 @@ export const diagramDocumentToX6Cells = (
       ? resolveMindMapNodeStyle(document.nodes, node.id, palette, document.theme, appearance, presentation, document.structure)
       : null;
     const mindVisual = mindStyle?.visual ?? null;
+    const flowchartVisual = document.kind === "flowchart"
+      ? flowchartNodeVisual(node.shape, appearance, presentation)
+      : null;
     const isRootTopic = node.shape === "topic" && !node.parentId;
     const isTerminator = node.shape === "terminator";
     const isBoundary = node.shape === "boundary";
@@ -112,6 +104,8 @@ export const diagramDocumentToX6Cells = (
     const emphasized = isRootTopic || isTerminator;
     const fill = mindVisual
       ? mindVisual.body.fill
+      : flowchartVisual
+        ? flowchartVisual.body.fill
       : isBoundary
         ? "transparent"
         : accent
@@ -119,6 +113,8 @@ export const diagramDocumentToX6Cells = (
           : emphasized ? palette.topicFill : palette.nodeFill;
     const stroke = mindVisual
       ? mindVisual.body.stroke
+      : flowchartVisual
+        ? flowchartVisual.body.stroke
       : isBoundary ? palette.nodeStroke : accent ?? (emphasized ? palette.topicStroke : palette.nodeStroke);
     const usesArchitectureIcon = document.kind === "architecture" && !isBoundary;
     const iconGlyph = node.resourceIcon
@@ -137,25 +133,27 @@ export const diagramDocumentToX6Cells = (
         { tagName: "rect", selector: "iconFrame" },
         { tagName: "text", selector: "resourceIcon" },
         { tagName: "text", selector: "label" },
-      ] } : mindMapRole ? { markup: MIND_MAP_TOPIC_MARKUP } : {}),
+      ] } : mindMapRole ? { markup: mindMapTopicMarkup(document.structure, mindMapRole) } : {}),
       attrs: {
         body: {
           fill,
           stroke,
-          strokeWidth: mindVisual?.body.strokeWidth ?? (isBoundary || emphasized || accent ? 1.5 : 1),
+          strokeWidth: mindVisual?.body.strokeWidth ?? flowchartVisual?.body.strokeWidth ?? (isBoundary || emphasized || accent ? 1.5 : 1),
           strokeDasharray: isBoundary || node.shape === "external" ? "7 5" : undefined,
-          rx: mindVisual?.body.rx ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
-          ry: mindVisual?.body.ry ?? (isTerminator ? 24 : node.shape === "database" ? 24 : 11),
+          ...(mindVisual?.body ?? flowchartVisual?.body ?? {
+            rx: isTerminator ? 24 : node.shape === "database" ? 24 : 11,
+            ry: isTerminator ? 24 : node.shape === "database" ? 24 : 11,
+          }),
           ...(node.shape === "decision" ? { refPoints: "0,10 10,0 20,10 10,20" } : {}),
         },
         label: {
           text: presentation.text,
-          lineHeight: mindVisual?.label.lineHeight ?? (mindMapRole === "root" ? 20 : 18),
-          fill: mindVisual?.label.fill ?? (emphasized ? palette.topicText : palette.nodeText),
-          fontSize: mindVisual?.label.fontSize ?? (node.shape === "topic" ? 14 : isBoundary ? 12 : 13),
-          fontWeight: mindVisual?.label.fontWeight ?? (emphasized || isBoundary || accent ? 650 : 500),
+          lineHeight: mindVisual?.label.lineHeight ?? flowchartVisual?.label.lineHeight ?? (mindMapRole === "root" ? 20 : 18),
+          fill: mindVisual?.label.fill ?? flowchartVisual?.label.fill ?? (emphasized ? palette.topicText : palette.nodeText),
+          fontSize: mindVisual?.label.fontSize ?? flowchartVisual?.label.fontSize ?? (node.shape === "topic" ? 14 : isBoundary ? 12 : 13),
+          fontWeight: mindVisual?.label.fontWeight ?? flowchartVisual?.label.fontWeight ?? (emphasized || isBoundary || accent ? 650 : 500),
+          fontFamily: mindVisual?.label.fontFamily ?? flowchartVisual?.label.fontFamily ?? FLOWCHART_LABEL_FONT,
           ...(mindVisual ? {
-            fontFamily: mindVisual.label.fontFamily,
             refX: mindVisual.label.refX,
             refY: mindVisual.label.refY,
             textAnchor: mindVisual.label.textAnchor,
@@ -210,7 +208,11 @@ export const diagramDocumentToX6Cells = (
     const targetTerminal = targetNode && mindMapTargetRole
       ? mindMapEdgeTerminal(targetNode, mindMapTargetRole, sides.target, document.structure)
       : null;
-    const stroke = edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : mindEdge?.stroke ?? palette.flowEdge;
+    const stroke = edgeKind === "data"
+      ? "#7C3AED"
+      : edgeKind === "async"
+        ? "#EA580C"
+        : mindEdge?.stroke ?? flowchartSurface?.edge ?? palette.flowEdge;
     return {
       id: edge.id,
       source: document.kind === "mind-map"
@@ -219,7 +221,7 @@ export const diagramDocumentToX6Cells = (
       target: document.kind === "mind-map"
         ? { cell: edge.target, ...(targetTerminal ?? { anchor: { name: sides.target } }) }
         : { cell: edge.target },
-      router: document.kind === "flowchart" ? { name: "manhattan", args: { padding: 28, step: 10 } } : undefined,
+      router: document.kind === "flowchart" ? FLOWCHART_EDGE_ROUTER : undefined,
       connector: document.kind === "mind-map"
         ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth } }
         : { name: "rounded", args: { radius: 10 } },
@@ -236,10 +238,22 @@ export const diagramDocumentToX6Cells = (
         } : { fill: "none" }),
       } },
       labels: edge.label ? [{ attrs: {
-        label: { text: edge.label, fill: palette.nodeText, fontSize: 12, lineHeight: 16, textWrap: { width: 140, height: 512 } },
-        body: { ref: "label", refWidth: 1, refHeight: 1, refWidth2: 12, refHeight2: 8, refX: -6, refY: -4, fill: palette.canvas, stroke: palette.nodeStroke, strokeWidth: 1, rx: 5, ry: 5 },
+        label: {
+          text: edge.label,
+          fill: flowchartSurface?.process.text ?? palette.nodeText,
+          fontSize: 12,
+          lineHeight: 16,
+          fontFamily: FLOWCHART_LABEL_FONT,
+          textWrap: { width: 140, height: 512 },
+        },
+        body: {
+          ref: "label", refWidth: 1, refHeight: 1, refWidth2: 12, refHeight2: 8, refX: -6, refY: -4,
+          fill: flowchartSurface?.canvas ?? palette.canvas,
+          stroke: flowchartSurface?.process.stroke ?? palette.nodeStroke,
+          strokeWidth: 1, rx: 5, ry: 5,
+        },
       } }] : undefined,
     };
   });
-  return { canvas: palette.canvas, edges, nodes };
+  return { canvas: flowchartSurface?.canvas ?? palette.canvas, edges, nodes };
 };

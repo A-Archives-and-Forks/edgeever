@@ -68,6 +68,32 @@ describe("diagram auto layout", () => {
     expect(positions.detached.y).toBeGreaterThan(positions["flow-end"].y + 44);
   });
 
+  test("aligns a sequential flowchart spine even when a loop returns from below", () => {
+    const document = compileDiagramIr({
+      kind: "flowchart",
+      nodes: [
+        { id: "a", type: "start", label: "开始" },
+        { id: "b", type: "process", label: "步骤一" },
+        { id: "c", type: "process", label: "Transformer 前向计算" },
+        { id: "d", type: "end", label: "结束" },
+        { id: "loop", type: "process", label: "回环" },
+      ],
+      edges: [
+        { source: "a", target: "b" },
+        { source: "b", target: "c" },
+        { source: "c", target: "d" },
+        { source: "d", target: "loop" },
+        { source: "loop", target: "b" },
+      ],
+    });
+    const centerX = (id) => {
+      const node = document.nodes.find((item) => item.id === id);
+      return node.x + node.width / 2;
+    };
+    expect(Math.abs(centerX("a") - centerX("b"))).toBeLessThanOrEqual(1);
+    expect(Math.abs(centerX("b") - centerX("c"))).toBeLessThanOrEqual(1);
+  });
+
   test("keeps an explicit horizontal flowchart direction", () => {
     const document = createDefaultDiagramDocument("flowchart");
     const positions = computeDiagramLayout(document, { direction: "left-to-right" });
@@ -76,9 +102,9 @@ describe("diagram auto layout", () => {
   });
 
   test("uses compact flowchart nodes with aligned process and terminator centers", () => {
-    expect(compactFlowchartNodeSize("process")).toEqual({ width: 124, height: 44 });
-    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 116, height: 44 });
-    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 116, height: 72 });
+    expect(compactFlowchartNodeSize("process")).toEqual({ width: 124, height: 42 });
+    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 116, height: 40 });
+    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 140, height: 72 });
   });
 
   test("balances a large mind map across both sides while keeping descendants with their branch", () => {
