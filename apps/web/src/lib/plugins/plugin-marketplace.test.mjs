@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseMarketplaceRegistry } from "@edgeever/plugin-api";
 import { sha256Hex } from "./github-plugin-distribution.ts";
+import { resolveOfficialPluginMarketplace } from "./plugin-marketplace.ts";
 
 describe("bundled plugin marketplace", () => {
   test("keeps verified checksums aligned with bundled extension files", async () => {
@@ -29,13 +30,100 @@ describe("bundled plugin marketplace", () => {
       repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss",
       distribution: { type: "github", repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss" },
       verification: {
-        version: "0.5.2",
+        version: "0.5.3",
         checksums: {
-          manifestJson: "b8063f246730da33f9cee342670ca776c9319eb5a07585cb44f8641d49caa989",
-          mainJs: "46bc00002a647f1f087ac2444e02192ec5ae2d1f04719e027de9386e8bf04934",
+          manifestJson: "b164bf6ab199f0ef4282319dd87294a876ef3e7701962bae35a7b65c4e3c1156",
+          mainJs: "7828d256ad758f85bd736742a72cac62ba46db6a2108c3a974bf9f429fcc3be4",
           stylesCss: "05cd135a1fe70c3f38d34850a2e9abf6b0c0530b09477960036f567375b2082e",
         },
       },
     });
+  });
+
+  test("resolves a newer official GitHub release with verified asset checksums", async () => {
+    const registry = parseMarketplaceRegistry({
+      registryVersion: "1",
+      updatedAt: "2026-09-08T00:00:00.000Z",
+      entries: [{
+        id: "org.edgeever.plugins.ai-rss",
+        name: "EdgeEver AI RSS",
+        description: "RSS",
+        author: "EdgeEver",
+        publisher: "edgeever",
+        category: "News & AI",
+        repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss",
+        distribution: { type: "github", repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss" },
+        verification: { version: "0.5.2", checksums: { manifestJson: "a".repeat(64), mainJs: "b".repeat(64) } },
+      }],
+    });
+    const manifest = {
+      type: "plugin",
+      id: "org.edgeever.plugins.ai-rss",
+      name: "EdgeEver AI RSS",
+      version: "0.5.3",
+      apiVersion: "2",
+      settingsUi: "host",
+      entry: "./main.js",
+      permissions: ["ui:notices"],
+    };
+    const manifestText = JSON.stringify(manifest);
+    const assets = {
+      "manifest.json": new TextEncoder().encode(manifestText).buffer,
+      "main.js": new TextEncoder().encode("export default {};").buffer,
+    };
+    const request = async (input) => {
+      const url = String(input);
+      if (url.includes("/contents/manifest.json")) return new Response(manifestText);
+      if (url.includes("/releases/tags/")) return Response.json({
+        tag_name: "v0.5.3",
+        draft: false,
+        assets: Object.entries(assets).map(([name, buffer], index) => ({
+          id: index + 1,
+          name,
+          size: buffer.byteLength,
+          url: `https://api.github.test/assets/${index + 1}`,
+          browser_download_url: `https://github.test/v0.5.3/${name}`,
+        })),
+      });
+      throw new Error(`Unexpected request: ${url}`);
+    };
+    const download = async (_coordinates, _releaseTag, asset) => assets[asset.name];
+
+    const resolved = await resolveOfficialPluginMarketplace(registry, request, download);
+
+    expect(resolved.resolutionErrors).toEqual({});
+    expect(resolved.entries[0].verification).toEqual({
+      version: "0.5.3",
+      checksums: {
+        manifestJson: await sha256Hex(assets["manifest.json"]),
+        mainJs: await sha256Hex(assets["main.js"]),
+      },
+    });
+  });
+
+  test("keeps the pinned release and reports an error when live resolution fails", async () => {
+    const registry = parseMarketplaceRegistry({
+      registryVersion: "1",
+      updatedAt: "2026-09-08T00:00:00.000Z",
+      entries: [{
+        id: "org.edgeever.plugins.ai-rss",
+        name: "EdgeEver AI RSS",
+        description: "RSS",
+        author: "EdgeEver",
+        publisher: "edgeever",
+        category: "News & AI",
+        repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss",
+        distribution: { type: "github", repositoryUrl: "https://github.com/tianma-if/edgeever-ai-rss" },
+        verification: { version: "0.5.3", checksums: { manifestJson: "a".repeat(64), mainJs: "b".repeat(64) } },
+      }],
+    });
+
+    const resolved = await resolveOfficialPluginMarketplace(
+      registry,
+      async () => new Response(null, { status: 503 }),
+    );
+
+    expect(resolved.entries[0]).toEqual(registry.entries[0]);
+    expect(resolved.resolutionErrors[registry.entries[0].id]).toContain("503");
   });
 });

@@ -16,4 +16,9 @@ describe("plugin manager card layout", () => {
     expect(source).toContain("href={entry.repositoryUrl}");
     expect(source).toContain("href={extension.source.repositoryUrl}");
   });
+
+  test("shows update checks when marketplace plugins exist without installed extensions", () => {
+    expect(source).toContain("snapshot.extensions.length > 0 || (marketplaceQuery.data?.entries.length ?? 0) > 0");
+    expect(source).not.toContain("{snapshot.extensions.length > 0 ? (\n              <Button");
+  });
 });

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { EdgeEverPluginHost, InstalledExtension, RegisteredPluginCommand, RegisteredPluginPanel } from "@/lib/plugins/plugin-host";
 import { PluginPanelDialog } from "@/components/plugins/PluginPanelDialog";
-import { loadPluginMarketplace } from "@/lib/plugins/plugin-marketplace";
+import { loadResolvedPluginMarketplace } from "@/lib/plugins/plugin-marketplace";
 import { GitHubMark, GitHubRepositoryLink } from "@/components/GitHubRepositoryLink";
 import { applyPluginUpdate, checkPluginUpdates, type PluginUpdateInfo } from "@/lib/plugins/plugin-updates";
 import { PluginUpdateDialog } from "@/components/plugins/PluginUpdateDialog";
@@ -310,7 +310,7 @@ export const PluginManagerCard = ({
   const [activePanel, setActivePanel] = useState<RegisteredPluginPanel | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<PluginUpdateInfo | null>(null);
   const [pendingTrustPluginId, setPendingTrustPluginId] = useState<string | null>(null);
-  const marketplaceQuery = useQuery({ queryKey: ["plugin-marketplace", "v1"], queryFn: () => loadPluginMarketplace(), staleTime: 5 * 60_000 });
+  const marketplaceQuery = useQuery({ queryKey: ["plugin-marketplace", "v1"], queryFn: () => loadResolvedPluginMarketplace(), staleTime: 5 * 60_000 });
   const extensionVersionKey = snapshot.extensions
     .map((extension) => `${extension.manifest.id}:${extension.manifest.version}:${extension.source.kind}`)
     .join("|");
@@ -374,8 +374,11 @@ export const PluginManagerCard = ({
         ["plugin-updates", extensionVersionKey, refreshedMarketplace.data?.updatedAt ?? "unavailable"],
         result,
       );
-      setLastManualCheckCount(result.updates.length);
-      const firstCheckError = Object.values(result.errors)[0];
+      const firstCheckError = Object.values({
+        ...(refreshedMarketplace.data?.resolutionErrors ?? {}),
+        ...result.errors,
+      })[0];
+      setLastManualCheckCount(firstCheckError ? null : result.updates.length);
       if (firstCheckError) setError(t("plugins.updates.checkFailed", { message: firstCheckError }));
     } catch (checkError) {
       setError(checkError instanceof Error ? checkError.message : String(checkError));
@@ -423,7 +426,7 @@ export const PluginManagerCard = ({
             </span>
           </CardTitle>
           <div className="flex items-center gap-1">
-            {snapshot.extensions.length > 0 ? (
+            {snapshot.extensions.length > 0 || (marketplaceQuery.data?.entries.length ?? 0) > 0 ? (
               <Button
                 variant="ghost"
                 size="sm"

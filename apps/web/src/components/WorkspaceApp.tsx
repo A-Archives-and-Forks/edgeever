@@ -100,7 +100,7 @@ import { useWorkspacePreferences } from "@/hooks/useWorkspacePreferences";
 import { useWorkspaceSelection } from "@/hooks/useWorkspaceSelection";
 import { useWorkspaceQueuedSync } from "@/hooks/useWorkspaceQueuedSync";
 import { EdgeEverPluginHost, type RegisteredPluginPanel } from "@/lib/plugins/plugin-host";
-import { loadPluginMarketplace } from "@/lib/plugins/plugin-marketplace";
+import { loadResolvedPluginMarketplace } from "@/lib/plugins/plugin-marketplace";
 import { updateOfficialMarketplacePlugins } from "@/lib/plugins/plugin-updates";
 import { createPublicNetworkAdapter } from "@/lib/plugins/public-network-adapter";
 import { clearRendererRecoveryRequired, isRendererRecoveryRequired } from "@/lib/renderer-recovery";
@@ -803,8 +803,12 @@ export const WorkspaceApp = ({
       if (!active || running) return;
       running = true;
       try {
-        const marketplace = await loadPluginMarketplace();
+        const marketplace = await loadResolvedPluginMarketplace();
         const result = await updateOfficialMarketplacePlugins(pluginHost, marketplace.entries);
+        const firstResolutionError = Object.entries(marketplace.resolutionErrors)[0];
+        if (firstResolutionError) {
+          console.error(`Official plugin ${firstResolutionError[0]} update resolution failed.`, firstResolutionError[1]);
+        }
         if (active && result.updated.length > 0) {
           setAppNoticeDialog({
             title: t("plugins.noticeTitle"),
