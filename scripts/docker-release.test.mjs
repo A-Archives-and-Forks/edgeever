@@ -72,6 +72,9 @@ describe("Docker release contract", () => {
     expect(dockerfile).toContain("--filter @edgeever/web");
     expect(dockerfile).toContain("--filter @edgeever/public-network");
     expect(dockerfile).toContain(
+      "RUN bun install --frozen-lockfile --linker hoisted \\\n  --filter edgeever \\\n  --filter @edgeever/api",
+    );
+    expect(dockerfile).toContain(
       "--production --linker hoisted \\\n  --filter edgeever \\\n  --filter @edgeever/public-network",
     );
     expect(dockerfile).toContain("USER bun");
