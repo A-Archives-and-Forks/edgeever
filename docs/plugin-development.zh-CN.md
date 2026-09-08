@@ -307,6 +307,16 @@ await context.settings.set("format", "html");
 await context.settings.remove("token");
 ```
 
+插件可以监听自己设置的变化，并重新读取宿主已经校验过的值。事件只会发送给拥有该设置的插件，且不会携带设置值，避免 secret 或其他配置进入事件载荷：
+
+```ts
+context.events.on("settings.changed", async ({ key }) => {
+  if (key !== "format") return;
+  const format = await context.settings.get("format");
+  // 应用更新后的格式。
+});
+```
+
 ## 插件存储与网络
 
 插件存储按照 EdgeEver 工作区和插件 ID 隔离：

@@ -632,9 +632,27 @@ describe("EdgeEverPluginHost", () => {
       apiVersion: "1",
       entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
       permissions: ["notes:read", "templates:read", "resources:read"],
+      settings: { fields: [{ key: "mode", type: "select", label: "Mode", default: "daily", options: [
+        { value: "daily", label: "Daily" },
+        { value: "weekly", label: "Weekly" },
+      ] }] },
     }, "https://plugins.example/events/manifest.json");
     await host.setEnabled("org.edgeever.events", true);
     await host.activateEnabled();
+
+    host.installManifest({
+      type: "plugin",
+      id: "org.edgeever.events-other",
+      name: "Other Events",
+      version: "1.0.0",
+      apiVersion: "1",
+      entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
+      permissions: [],
+      settings: { fields: [{ key: "mode", type: "text", label: "Mode" }] },
+    }, "https://plugins.example/events-other/manifest.json");
+    await host.setEnabled("org.edgeever.events-other", true);
+    await host.setSettingValue("org.edgeever.events", "mode", "weekly");
+    await host.removeSettingValue("org.edgeever.events", "mode");
 
     await repositoryWithEvents.updateMemo(updatedMemo, {});
     await repositoryWithEvents.createTemplate({ name: "Event template" });
@@ -652,9 +670,14 @@ describe("EdgeEverPluginHost", () => {
       id: "resource-events",
       contentHash: "resource-event-hash",
     });
+    expect(globalThis.edgeeverPluginObservedSettings).toEqual([
+      { pluginId: "org.edgeever.events", key: "mode" },
+      { pluginId: "org.edgeever.events", key: "mode" },
+    ]);
     delete globalThis.edgeeverPluginObservedNote;
     delete globalThis.edgeeverPluginObservedTemplate;
     delete globalThis.edgeeverPluginObservedResource;
+    delete globalThis.edgeeverPluginObservedSettings;
     await host.dispose();
   });
 });

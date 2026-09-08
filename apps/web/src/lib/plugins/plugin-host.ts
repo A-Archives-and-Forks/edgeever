@@ -421,7 +421,7 @@ export class EdgeEverPluginHost {
   private readonly mountedPanels = new Map<string, Set<() => void>>();
   private readonly embeds = new Map<string, PluginEmbedRenderer & { pluginId: string }>();
   private readonly mountedEmbeds = new Map<string, Set<() => void>>();
-  private readonly eventListeners = new Map<keyof PluginEventMap, Set<(payload: never) => void>>();
+  private readonly eventListeners = new Map<keyof PluginEventMap, Set<{ pluginId: string; listener: (payload: never) => void }>>();
   private extensions = readInstalledExtensions();
   private activeThemeId = readStorageItem(ACTIVE_THEME_STORAGE_KEY);
   private snapshot: PluginHostSnapshot = { extensions: [], commands: [], panels: [], embeds: [], recentActions: [], activeThemeId: null };
@@ -690,9 +690,11 @@ export class EdgeEverPluginHost {
     const normalized = validateSettingValue(field, value);
     if (field.type === "secret") {
       await this.secretStorage.set(`${this.scope}:${extensionId}`, `setting:${key}`, String(normalized));
+      this.emit("settings.changed", { key }, extensionId);
       return;
     }
     writeStorageItem(`${SETTINGS_STORAGE_PREFIX}:${this.scope}:${extensionId}:${key}`, JSON.stringify(normalized));
+    this.emit("settings.changed", { key }, extensionId);
   }
 
   async removeSettingValue(extensionId: string, key: string) {
@@ -701,9 +703,11 @@ export class EdgeEverPluginHost {
     const field = requireSettingField(extension.manifest, key);
     if (field.type === "secret") {
       await this.secretStorage.remove(`${this.scope}:${extensionId}`, `setting:${key}`);
+      this.emit("settings.changed", { key }, extensionId);
       return;
     }
     removeStorageItem(`${SETTINGS_STORAGE_PREFIX}:${this.scope}:${extensionId}:${key}`);
+    this.emit("settings.changed", { key }, extensionId);
   }
 
   async runCommand(pluginId: string, commandId: string) {
@@ -1205,9 +1209,10 @@ export class EdgeEverPluginHost {
           const permission = EVENT_PERMISSIONS[event];
           if (permission) assertPermission(manifest, permission);
           const listeners = this.eventListeners.get(event) ?? new Set();
-          listeners.add(listener as (payload: never) => void);
+          const entry = { pluginId: manifest.id, listener: listener as (payload: never) => void };
+          listeners.add(entry);
           this.eventListeners.set(event, listeners);
-          const dispose = () => listeners.delete(listener as (payload: never) => void);
+          const dispose = () => listeners.delete(entry);
           disposers.push(dispose);
           return dispose;
         },
@@ -1456,10 +1461,11 @@ export class EdgeEverPluginHost {
     }
   }
 
-  private emit<K extends keyof PluginEventMap>(event: K, payload: PluginEventMap[K]) {
-    for (const listener of this.eventListeners.get(event) ?? []) {
+  private emit<K extends keyof PluginEventMap>(event: K, payload: PluginEventMap[K], targetPluginId?: string) {
+    for (const entry of this.eventListeners.get(event) ?? []) {
+      if (targetPluginId && entry.pluginId !== targetPluginId) continue;
       try {
-        const result = (listener as (value: never) => unknown)(payload as never);
+        const result = (entry.listener as (value: never) => unknown)(payload as never);
         if (result && typeof (result as PromiseLike<unknown>).then === "function") {
           void Promise.resolve(result).catch((error) => console.error(`Plugin event listener failed for ${event}`, error));
         }

@@ -307,6 +307,16 @@ await context.settings.set("format", "html");
 await context.settings.remove("token");
 ```
 
+Plugins can listen for changes to their own settings and then read the host-validated value again. The event is delivered only to the plugin that owns the setting and does not include the value, keeping secrets and other configuration out of event payloads:
+
+```ts
+context.events.on("settings.changed", async ({ key }) => {
+  if (key !== "format") return;
+  const format = await context.settings.get("format");
+  // Apply the updated format.
+});
+```
+
 ## Storage and network
 
 Plugin storage is namespaced by EdgeEver workspace and plugin ID:

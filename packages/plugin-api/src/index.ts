@@ -260,6 +260,7 @@ export interface PluginTemplate {
 }
 
 export type PluginEventMap = {
+  "settings.changed": { key: string };
   "note.created": { note: PluginNote };
   "note.updated": { note: PluginNote };
   "note.deleted": { noteId: string };
