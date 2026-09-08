@@ -24,7 +24,7 @@ RUN bun install --frozen-lockfile \
   --filter @edgeever/web
 
 FROM manifests AS production-dependencies
-RUN bun install --frozen-lockfile --production \
+RUN bun install --frozen-lockfile --production --linker hoisted \
   --filter edgeever \
   --filter @edgeever/public-network
 
