@@ -102,9 +102,9 @@ describe("diagram auto layout", () => {
   });
 
   test("uses compact flowchart nodes with aligned process and terminator centers", () => {
-    expect(compactFlowchartNodeSize("process")).toEqual({ width: 124, height: 42 });
-    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 116, height: 40 });
-    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 140, height: 72 });
+    expect(compactFlowchartNodeSize("process")).toEqual({ width: 176, height: 56 });
+    expect(compactFlowchartNodeSize("terminator")).toEqual({ width: 140, height: 44 });
+    expect(compactFlowchartNodeSize("decision")).toEqual({ width: 176, height: 80 });
   });
 
   test("balances a large mind map across both sides while keeping descendants with their branch", () => {
@@ -208,5 +208,13 @@ describe("diagram auto layout", () => {
       expect(child.y + child.height).toBeLessThan(boundary.y + boundary.height);
     }
     expect(result.viewport.minScale).toBe(0.64);
+  });
+
+  test("keeps flowchart viewports at reading size instead of shrinking the whole stack", () => {
+    expect(getDiagramLayoutViewport("flowchart")).toEqual({
+      anchor: "center",
+      maxScale: 1,
+      minScale: 0.85,
+    });
   });
 });

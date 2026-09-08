@@ -1,7 +1,13 @@
 import { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
 export { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
-import { FLOWCHART_LAYOUT_SPACING } from "./diagram-flowchart-style";
-export { FLOWCHART_EDGE_ROUTER, FLOWCHART_LAYOUT_SPACING } from "./diagram-flowchart-style";
+import { FLOWCHART_LAYOUT_SPACING, FLOWCHART_READABLE_MIN_SCALE } from "./diagram-flowchart-style";
+export {
+  FLOWCHART_EDGE_ROUTER,
+  FLOWCHART_LAYOUT_SPACING,
+  flowchartEdgeIsStraight,
+  flowchartEdgePorts,
+  flowchartFitsReadableViewport,
+} from "./diagram-flowchart-style";
 import {
   MIND_MAP_HORIZONTAL_GAP,
   MIND_MAP_VERTICAL_GAP,
@@ -536,7 +542,7 @@ const DIAGRAM_LAYOUT_STRATEGIES: Record<DiagramKind, DiagramLayoutStrategy> = {
   flowchart: {
     kind: "flowchart",
     layout: computeFlowchartLayout,
-    viewport: { anchor: "center", maxScale: 0.9 },
+    viewport: { anchor: "center", maxScale: 1, minScale: FLOWCHART_READABLE_MIN_SCALE },
   },
   architecture: {
     kind: "architecture",
@@ -557,7 +563,11 @@ export const computeDiagramLayoutResult = (
   const strategy = DIAGRAM_LAYOUT_STRATEGIES[document.kind];
   const layoutDocument: DiagramDocument = {
     ...document,
-    nodes: document.nodes.map((node) => ({ ...node })),
+    nodes: document.nodes.map((node) => {
+      if (document.kind !== "flowchart") return { ...node };
+      const size = flowchartNodePresentation(node.shape, node.label);
+      return { ...node, width: size.width, height: size.height };
+    }),
     edges: document.edges.map((edge) => ({ ...edge })),
   };
   const positions = strategy.layout(layoutDocument, options);

@@ -7,10 +7,10 @@ export const visualTextUnits = (label: string) => Array.from(label).reduce(
 
 export const compactFlowchartNodeSize = (shape: DiagramNodeShape) => (
   shape === "decision"
-    ? { width: 140, height: 72 }
+    ? { width: 176, height: 80 }
     : shape === "terminator"
-      ? { width: 116, height: 40 }
-      : { width: 124, height: 42 }
+      ? { width: 140, height: 44 }
+      : { width: 176, height: 56 }
 );
 
 const FLOWCHART_CHAR_WIDTH = 13;
@@ -36,15 +36,8 @@ export const flowchartNodePresentation = (shape: DiagramNodeShape, label: string
   const base = compactFlowchartNodeSize(shape);
   const decision = shape === "decision";
   const terminator = shape === "terminator";
-  const units = Math.max(...label.split("\n").map(visualTextUnits), 0);
   const padX = terminator ? 36 : 28;
-  const width = Math.max(
-    base.width,
-    Math.min(
-      240,
-      Math.ceil(decision ? units * FLOWCHART_CHAR_WIDTH / FLOWCHART_DECISION_TEXT_RATIO + 12 : units * FLOWCHART_CHAR_WIDTH + padX),
-    ),
-  );
+  const width = base.width;
   const capacity = Math.max(4, (decision ? width * FLOWCHART_DECISION_TEXT_RATIO : width - padX) / FLOWCHART_CHAR_WIDTH);
   const lines = wrapFlowchartLabel(label, capacity);
   const textHeight = Math.max(lines.length, 1) * FLOWCHART_LINE_HEIGHT;

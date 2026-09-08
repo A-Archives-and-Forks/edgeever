@@ -83,7 +83,14 @@ import {
   resolveDiagramStructure,
   resolveDiagramTheme,
   serializeDiagramDocument,
+  architectureEdgeVisual,
+  architectureIconOffset,
+  architectureNodeVisual,
+  isArchitectureNodeShape,
+  resolveArchitectureSurface,
   FLOWCHART_EDGE_ROUTER,
+  flowchartEdgeIsStraight,
+  flowchartEdgePorts,
   flowchartNodeVisual,
   resolveFlowchartSurface,
   type ArchitectureResourceIcon,
@@ -316,11 +323,6 @@ const ARCHITECTURE_LIBRARY_CATEGORIES: Array<{
 const architectureResourceIcon = (item: ArchitectureLibraryItem) =>
   item.labelKey.slice("diagram.architectureResources.".length) as ArchitectureResourceIcon;
 
-const ARCHITECTURE_RESOURCE_ICON_COMPONENTS = Object.fromEntries(
-  ARCHITECTURE_LIBRARY_CATEGORIES.flatMap((category) => category.items)
-    .map((item) => [architectureResourceIcon(item), item.icon]),
-) as Record<ArchitectureResourceIcon, LucideIcon>;
-
 const ARCHITECTURE_LIBRARY_ITEMS = ARCHITECTURE_LIBRARY_CATEGORIES.flatMap((category) => category.items);
 
 const inferArchitectureResourceIcon = (
@@ -544,7 +546,9 @@ const diagramCanvasColor = (
   appearance: DiagramAppearance,
 ) => (kind === "flowchart"
   ? resolveFlowchartSurface(appearance).canvas
-  : resolveDiagramPalette(theme, appearance).canvas);
+  : kind === "architecture"
+    ? resolveArchitectureSurface(appearance).canvas
+    : resolveDiagramPalette(theme, appearance).canvas);
 
 const applyDiagramSurface = (
   graph: Graph,
@@ -755,9 +759,12 @@ const nodeEditorState = (
   const flowchartStyle = !mindRole && (data?.shape === "process" || data?.shape === "decision" || data?.shape === "terminator")
     ? flowchartNodeVisual(data.shape, appearance, node.getSize())
     : null;
+  const architectureStyle = !mindRole && !flowchartStyle && data?.shape && isArchitectureNodeShape(data.shape)
+    ? architectureNodeVisual(data.shape, appearance, node.getSize(), data.resourceIcon)
+    : null;
   const attrs = mindStyle
     ? mindStyle.visual
-    : flowchartStyle ?? nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
+    : flowchartStyle ?? architectureStyle ?? nodeAttrs(data?.shape ?? "process", theme, appearance, isRootTopic);
   return {
     nodeId: node.id,
     originalValue: data?.label ?? "",
@@ -769,7 +776,9 @@ const nodeEditorState = (
     height: Math.max(1, bottomRight.y - topLeft.y),
     fontSize: (mindRole ? attrs.label.fontSize : data?.shape === "topic" ? 14 : 13) * graph.scale().sx,
     color: String(attrs.label.fill),
-    background: String(attrs.body.fill === "transparent" ? resolveDiagramPalette(theme, appearance).canvas : attrs.body.fill),
+    background: String(attrs.body.fill === "transparent"
+      ? (architectureStyle ? resolveArchitectureSurface(appearance).canvas : resolveDiagramPalette(theme, appearance).canvas)
+      : attrs.body.fill),
     borderColor: String(attrs.body.stroke),
   };
 };
@@ -782,128 +791,20 @@ const nodeAttrs = (
 ) => {
   const palette = resolveDiagramPalette(theme, appearance);
   const isTerminator = shape === "terminator";
-  const isBoundary = shape === "boundary";
-  const architectureAccent = ARCHITECTURE_NODE_ACCENTS[shape];
   const isAccent = isRootTopic || isTerminator;
-  const architectureFill = appearance === "dark" ? palette.nodeFill : `${architectureAccent}12`;
-  const architectureRadius: Partial<Record<DiagramNodeShape, number>> = {
-    client: 6,
-    frontend: 12,
-    service: 8,
-    database: 24,
-    storage: 6,
-    queue: 18,
-    security: 16,
-    external: 28,
-  };
   return {
     body: {
-      fill: isBoundary ? "transparent" : architectureAccent ? architectureFill : isAccent ? palette.topicFill : palette.nodeFill,
-      stroke: isBoundary ? palette.nodeStroke : architectureAccent ?? (isAccent ? palette.topicStroke : palette.nodeStroke),
-      strokeWidth: isBoundary ? 1.5 : isAccent || architectureAccent ? 1.5 : 1,
-      strokeDasharray: isBoundary || shape === "external" ? "7 5" : undefined,
-      rx: isTerminator ? 24 : architectureRadius[shape] ?? 11,
-      ry: isTerminator ? 24 : architectureRadius[shape] ?? 11,
+      fill: isAccent ? palette.topicFill : palette.nodeFill,
+      stroke: isAccent ? palette.topicStroke : palette.nodeStroke,
+      strokeWidth: isAccent ? 1.5 : 1,
+      rx: isTerminator ? 24 : 11,
+      ry: isTerminator ? 24 : 11,
       ...(shape === "decision" ? { refPoints: "0,10 10,0 20,10 10,20" } : {}),
     },
     label: {
       fill: isAccent ? palette.topicText : palette.nodeText,
-      fontSize: shape === "topic" ? 14 : isBoundary ? 12 : 13,
-      fontWeight: isAccent || isBoundary || architectureAccent ? 650 : 500,
-      ...(isBoundary ? { refX: 18, refY: 22, textAnchor: "start", textVerticalAnchor: "middle" } : {}),
-    },
-  };
-};
-
-const ARCHITECTURE_NODE_ACCENTS: Partial<Record<DiagramNodeShape, string>> = {
-  client: "#0891B2",
-  frontend: "#2563EB",
-  service: "#16A06E",
-  database: "#7C3AED",
-  storage: "#D97706",
-  queue: "#EA580C",
-  security: "#E11D48",
-  external: "#64748B",
-};
-
-// Simple 24px pictograms are embedded in the X6 SVG so exports remain self-contained.
-const ARCHITECTURE_NODE_ICONS: Partial<Record<DiagramNodeShape, string>> = {
-  client: "M3 4h18v13H3z M8 21h8 M12 17v4",
-  frontend: "M3 4h18v16H3z M3 9h18 M7 6.5h.01 M10 6.5h.01",
-  service: "M4 3h16v7H4z M4 14h16v7H4z M7 6.5h.01 M7 17.5h.01 M16 6.5h2 M16 17.5h2",
-  database: "M20 6c0 2.2-3.6 4-8 4S4 8.2 4 6s3.6-4 8-4 8 1.8 8 4Z M4 6v6c0 2.2 3.6 4 8 4s8-1.8 8-4V6 M4 12v6c0 2.2 3.6 4 8 4s8-1.8 8-4v-6",
-  storage: "M4 4h16l2 6v10H2V10z M2 10h20 M17 15h.01",
-  queue: "M5 6h14 M5 12h14 M5 18h14 M3 6h.01 M3 12h.01 M3 18h.01",
-  security: "M12 2 20 5v6c0 5.2-3.4 9.2-8 11-4.6-1.8-8-5.8-8-11V5z M9 12l2 2 4-5",
-  external: "M16 16h3a4 4 0 0 0 .6-8A7 7 0 0 0 6.3 6.4 4.5 4.5 0 0 0 7.5 16H10 M14 4h6v6 M20 4l-8 8",
-};
-
-const architectureNodeVisuals = (
-  shape: DiagramNodeShape,
-  size: { width: number; height: number },
-  appearance: DiagramAppearance,
-  resourceIcon?: ArchitectureResourceIcon,
-) => {
-  const accent = ARCHITECTURE_NODE_ACCENTS[shape] ?? "#64748B";
-  const iconY = Math.round((size.height - 34) / 2);
-  const iconComponent = resourceIcon ? ARCHITECTURE_RESOURCE_ICON_COMPONENTS[resourceIcon] : undefined;
-  const iconNodes = iconComponent
-    ? (iconComponent as unknown as {
-        render: (props: Record<string, never>, ref: null) => {
-          props: { iconNode: Array<[string, Record<string, string>]> };
-        };
-      }).render({}, null).props.iconNode
-    : null;
-  const iconMarkup = iconNodes?.map(([tagName], index) => ({
-    tagName,
-    selector: `architectureIcon${index}`,
-  })) ?? [{ tagName: "path", selector: "architectureIcon" }];
-  const iconAttrs = iconNodes
-    ? Object.fromEntries(iconNodes.map(([, sourceAttrs], index) => {
-        const { key: _key, ...geometry } = sourceAttrs;
-        return [`architectureIcon${index}`, {
-          ...geometry,
-          transform: `translate(15 ${iconY + 5})`,
-          fill: "none",
-          stroke: accent,
-          strokeWidth: 1.8,
-          strokeLinecap: "round",
-          strokeLinejoin: "round",
-          pointerEvents: "none",
-        }];
-      }))
-    : {
-        architectureIcon: {
-          d: ARCHITECTURE_NODE_ICONS[shape],
-          transform: `translate(15 ${iconY + 5})`,
-          fill: "none",
-          stroke: accent,
-          strokeWidth: 1.8,
-          strokeLinecap: "round",
-          strokeLinejoin: "round",
-          pointerEvents: "none",
-        },
-      };
-  return {
-    markup: [
-      { tagName: "rect", selector: "body" },
-      { tagName: "rect", selector: "iconFrame" },
-      ...iconMarkup,
-      { tagName: "text", selector: "label" },
-    ],
-    attrs: {
-      iconFrame: {
-        x: 10,
-        y: iconY,
-        width: 34,
-        height: 34,
-        rx: shape === "database" ? 17 : shape === "security" ? 12 : 8,
-        ry: shape === "database" ? 17 : shape === "security" ? 12 : 8,
-        fill: appearance === "dark" ? `${accent}30` : `${accent}18`,
-        stroke: "none",
-        pointerEvents: "none",
-      },
-      ...iconAttrs,
+      fontSize: shape === "topic" ? 14 : 13,
+      fontWeight: isAccent ? 650 : 500,
     },
   };
 };
@@ -924,7 +825,7 @@ const diagramNodePresentation = (
   const fontSize = 13;
   const lineHeight = 18;
   const text = Dom.breakText(node.label, { width: size.width - (kind === "architecture" ? 66 : 24), height: 10000 }, {
-    fontSize, 'font-size': fontSize, 'font-weight': kind === "architecture" || !node.parentId ? 650 : 500,
+    fontSize, 'font-size': fontSize, 'font-weight': kind === "architecture" ? 600 : !node.parentId ? 650 : 500,
     lineHeight,
   });
   return { ...size, height: Math.max(size.height, text.split("\n").length * lineHeight + 16), text };
@@ -942,7 +843,7 @@ const refreshNodeLabel = (node: Node, label: string, structure?: DiagramStructur
     node.attr("label/text", label);
     return;
   }
-  const kind = shape === "topic" ? "mind-map" : ARCHITECTURE_NODE_ACCENTS[shape] ? "architecture" : "flowchart";
+  const kind = shape === "topic" ? "mind-map" : isArchitectureNodeShape(shape) ? "architecture" : "flowchart";
   const graphNodes = kind === "mind-map" ? node.model?.getNodes() : undefined;
   const allNodes = graphNodes?.map((item) => ({
     id: item.id,
@@ -954,6 +855,13 @@ const refreshNodeLabel = (node: Node, label: string, structure?: DiagramStructur
     node.resize(presentation.width, presentation.height);
   }
   node.attr("label/text", presentation.text);
+  if (kind === "architecture") {
+    const iconY = architectureIconOffset(presentation.height);
+    node.attr("iconFrame/y", iconY);
+    for (const selector of Object.keys(node.getAttrs()).filter((name) => name.startsWith("architectureIcon"))) {
+      node.attr(`${selector}/transform`, `translate(15 ${iconY + 5})`);
+    }
+  }
 };
 
 const flowPortGroup = (
@@ -998,17 +906,20 @@ const nodeMetadata = (
     ? resolveMindMapNodeStyle([node], node.id, palette, theme, appearance, size, structure)
     : null;
   const flowchartStyle = kind === "flowchart" ? flowchartNodeVisual(node.shape, appearance, size) : null;
+  const architectureStyle = kind === "architecture"
+    ? architectureNodeVisual(node.shape, appearance, size, node.resourceIcon)
+    : null;
   const visualAttrs = mindStyle
     ? mindStyle.visual
-    : flowchartStyle ?? nodeAttrs(node.shape, theme, appearance, isRootTopic);
+    : flowchartStyle ?? architectureStyle ?? nodeAttrs(node.shape, theme, appearance, isRootTopic);
   const hasPorts = isConnectableDiagram(kind) && node.shape !== "boundary";
-  const architectureVisuals = kind === "architecture" && node.shape !== "boundary"
-    ? architectureNodeVisuals(node.shape, size, appearance, node.resourceIcon)
-    : null;
   const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+  const architectureSurface = kind === "architecture" ? resolveArchitectureSurface(appearance) : null;
   const portPalette = flowchartSurface
     ? { ...palette, canvas: flowchartSurface.canvas, topicStroke: flowchartSurface.terminator.stroke }
-    : palette;
+    : architectureSurface
+      ? { ...palette, canvas: architectureSurface.canvas, topicStroke: architectureSurface.nodes.service.stroke }
+      : palette;
   return {
     id: node.id,
     shape: isDecision ? "polygon" : "rect",
@@ -1023,17 +934,16 @@ const nodeMetadata = (
       ...(node.parentId ? { parentId: node.parentId } : {}),
       ...(node.resourceIcon ? { resourceIcon: node.resourceIcon } : {}),
     } satisfies NodeData,
-    ...(architectureVisuals ? { markup: architectureVisuals.markup } : mindStyle ? { markup: mindMapTopicMarkup(structure, mindStyle.role) } : {}),
+    ...(architectureStyle ? { markup: architectureStyle.markup } : mindStyle ? { markup: mindMapTopicMarkup(structure, mindStyle.role) } : {}),
     attrs: {
       body: visualAttrs.body,
       ...(mindStyle ? { underline: mindStyle.visual.underline } : {}),
       label: {
         ...visualAttrs.label,
         text: diagramNodePresentation(node, kind).text,
-        lineHeight: mindStyle?.visual.label.lineHeight ?? flowchartStyle?.label.lineHeight ?? 18,
-        ...(architectureVisuals ? { refX: 54, refY: "50%", textAnchor: "start", textVerticalAnchor: "middle" } : {}),
+        lineHeight: mindStyle?.visual.label.lineHeight ?? flowchartStyle?.label.lineHeight ?? architectureStyle?.label.lineHeight ?? 18,
       },
-      ...(architectureVisuals?.attrs ?? {}),
+      ...(architectureStyle?.attrs ?? {}),
     },
     ...(hasPorts ? { ports: {
       groups: {
@@ -1054,12 +964,14 @@ const diagramEdgeLabel = (
   appearance: DiagramAppearance = "light",
 ) => {
   const flowchart = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+  const architecture = kind === "architecture" ? resolveArchitectureSurface(appearance) : null;
   return {
     position: { distance: 0.5, offset: kind === "architecture" ? { x: 0, y: -16 } : 0 },
     attrs: {
-      label: { text, fill: flowchart?.process.text ?? palette.nodeText, fontSize: 12, lineHeight: 16, textWrap: { width: 140, height: 512 } },
+      label: { text, fill: flowchart?.process.text ?? architecture?.nodes.service.text ?? palette.nodeText, fontSize: 12, lineHeight: 16, textWrap: { width: 140, height: 512 } },
       body: { ref: "label", refWidth: 1, refHeight: 1, refWidth2: 12, refHeight2: 8, refX: -6, refY: -4,
-        fill: flowchart?.canvas ?? palette.canvas, stroke: flowchart?.process.stroke ?? palette.nodeStroke, strokeWidth: 1, rx: 4, ry: 4 },
+        fill: flowchart?.canvas ?? architecture?.canvas ?? palette.canvas,
+        stroke: flowchart?.process.stroke ?? architecture?.nodes.service.stroke ?? palette.nodeStroke, strokeWidth: 1, rx: 4, ry: 4 },
     },
   };
 };
@@ -1074,11 +986,10 @@ const edgeMetadata = (
   const edgeKind = edge.kind ?? (kind === "architecture" ? "dependency" : undefined);
   const mindEdge = kind === "mind-map" ? mindMapEdgeVisual("primary", palette) : null;
   const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
-  const edgeStroke = edgeKind === "data"
-    ? "#7C3AED"
-    : edgeKind === "async"
-      ? "#EA580C"
-      : mindEdge?.stroke ?? flowchartSurface?.edge ?? palette.flowEdge;
+  const architectureEdge = kind === "architecture"
+    ? architectureEdgeVisual(edgeKind, appearance, edge.bidirectional)
+    : null;
+  const edgeStroke = architectureEdge?.stroke ?? mindEdge?.stroke ?? flowchartSurface?.edge ?? palette.flowEdge;
   return {
     id: edge.id,
     source: { cell: edge.source },
@@ -1091,10 +1002,12 @@ const edgeMetadata = (
     attrs: {
       line: {
         stroke: edgeStroke,
-        strokeWidth: mindEdge ? 0.5 : 1.5,
-        strokeDasharray: edgeKind === "async" ? "7 5" : undefined,
-        sourceMarker: edge.bidirectional ? { name: "block", width: 8, height: 6 } : null,
-        targetMarker: kind === "mind-map" ? null : { name: "block", width: 8, height: 6 },
+        strokeWidth: architectureEdge?.strokeWidth ?? (mindEdge ? 0.5 : 1.5),
+        strokeDasharray: architectureEdge?.strokeDasharray,
+        sourceMarker: architectureEdge
+          ? architectureEdge.sourceMarker
+          : edge.bidirectional ? { name: "block", width: 8, height: 6 } : null,
+        targetMarker: kind === "mind-map" ? null : architectureEdge?.targetMarker ?? { name: "block", width: 8, height: 6 },
         ...(mindEdge ? {
           fill: edgeStroke,
           strokeLinejoin: "round",
@@ -1104,6 +1017,20 @@ const edgeMetadata = (
     },
     labels: edge.label ? [diagramEdgeLabel(edge.label, palette, kind, appearance)] : undefined,
   };
+};
+
+const applyFlowchartEdgePorts = (graph: Graph) => {
+  for (const edge of graph.getEdges()) {
+    const source = edge.getSourceNode();
+    const target = edge.getTargetNode();
+    if (!source || !target) continue;
+    const sourceBox = { ...source.getPosition(), ...source.getSize() };
+    const targetBox = { ...target.getPosition(), ...target.getSize() };
+    const ports = flowchartEdgePorts(sourceBox, targetBox);
+    edge.setSource({ cell: source.id, port: ports.source });
+    edge.setTarget({ cell: target.id, port: ports.target });
+    edge.setRouter(flowchartEdgeIsStraight(sourceBox, targetBox) ? { name: "normal" } : FLOWCHART_EDGE_ROUTER);
+  }
 };
 
 const graphToDocument = (graph: Graph, kind: DiagramDocument["kind"], theme: DiagramTheme, structure?: DiagramStructure): DiagramDocument => ({
@@ -1170,10 +1097,26 @@ const removeGraphSelection = (graph: Graph) => {
 };
 
 
+const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLElement | null) => {
+  if (!document.nodes.length) return;
+  const incoming = new Set(document.edges.map((edge) => edge.target));
+  const start = document.nodes.find((node) => !incoming.has(node.id)) ?? document.nodes[0];
+  const cell = graph.getCellById(start.id);
+  if (!cell?.isNode()) return;
+  graph.zoomTo(1);
+  const box = cell.getBBox();
+  const scroller = getDiagramScroller(graph);
+  const viewportHeight = scroller?.container.clientHeight
+    || container?.clientHeight
+    || graph.container.clientHeight
+    || 640;
+  graph.centerPoint(box.x + box.width / 2, box.y + viewportHeight / 2 - 48);
+};
+
 const fitDiagramContent = (
   graph: Graph,
   document: DiagramDocument,
-  _container: HTMLElement | null,
+  container: HTMLElement | null,
   padding = 32,
   viewport?: DiagramLayoutViewport,
 ) => {
@@ -1183,17 +1126,13 @@ const fitDiagramContent = (
   // Fit every node, including mind-map branches left of the root. Zooming to a
   // visible subset or to edge paths lets Scroller shrink the paper and clip.
   graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale });
-};
-
-const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLElement | null) => {
-  if (!container || !document.nodes.length) return;
-  const incoming = new Set(document.edges.map((edge) => edge.target));
-  const start = document.nodes.find((node) => !incoming.has(node.id)) ?? document.nodes[0];
-  const cell = graph.getCellById(start.id);
-  if (!cell?.isNode()) return;
-  graph.zoomTo(1);
-  const bounds = cell.getBBox();
-  graph.translate(container.clientWidth / 2 - bounds.center.x, 48 - bounds.y);
+  if (
+    document.kind === "flowchart"
+    && policy.minScale != null
+    && graph.scale().sx < policy.minScale
+  ) {
+    readFlowchart(graph, document, container);
+  }
 };
 
 const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: DiagramAppearance, structure?: DiagramStructure) => {
@@ -1261,30 +1200,44 @@ const applyGraphPalette = (
     for (const node of graph.getNodes()) {
       const data = node.getData<NodeData>();
       const shape = data?.shape ?? "process";
-      const flowchartStyle = kind === "flowchart" ? flowchartNodeVisual(shape, appearance, node.getSize()) : null;
-      const attrs = flowchartStyle ?? nodeAttrs(shape, theme, appearance, shape === "topic" && !data?.parentId);
-      node.attr("body", attrs.body);
-      node.attr("label", attrs.label);
       refreshNodeLabel(node, data?.label ?? "", structure);
-      if (kind === "architecture" && shape !== "boundary") {
-        const architectureVisuals = architectureNodeVisuals(shape, node.getSize(), appearance, data?.resourceIcon);
-        for (const [selector, selectorAttrs] of Object.entries(architectureVisuals.attrs)) {
-          node.attr(selector, selectorAttrs);
+      const flowchartStyle = kind === "flowchart" ? flowchartNodeVisual(shape, appearance, node.getSize()) : null;
+      const architectureStyle = kind === "architecture"
+        ? architectureNodeVisual(shape, appearance, node.getSize(), data?.resourceIcon)
+        : null;
+      const attrs = flowchartStyle
+        ?? (architectureStyle ? { body: architectureStyle.body, label: architectureStyle.label } : null)
+        ?? nodeAttrs(shape, theme, appearance, shape === "topic" && !data?.parentId);
+      node.attr("body", attrs.body);
+      node.attr("label", { ...attrs.label, text: node.attr("label/text") ?? data?.label ?? "" });
+      if (architectureStyle) {
+        for (const [selector, selectorAttrs] of Object.entries(architectureStyle.attrs)) {
+          node.attr(selector, selectorAttrs as Record<string, string | number | undefined>);
         }
       }
       const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+      const architectureSurface = kind === "architecture" ? resolveArchitectureSurface(appearance) : null;
       for (const port of node.getPorts()) {
         if (!port.id) continue;
         node.portProp(port.id, "attrs/circle", {
-          stroke: flowchartSurface?.terminator.stroke ?? palette.topicStroke,
-          fill: flowchartSurface?.canvas ?? palette.canvas,
+          stroke: flowchartSurface?.terminator.stroke ?? architectureSurface?.nodes.service.stroke ?? palette.topicStroke,
+          fill: flowchartSurface?.canvas ?? architectureSurface?.canvas ?? palette.canvas,
         });
       }
     }
     const flowchartSurface = kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
     for (const edge of graph.getEdges()) {
       const edgeKind = edge.getData<EdgeData>()?.kind;
-      edge.attr("line/stroke", edgeKind === "data" ? "#7C3AED" : edgeKind === "async" ? "#EA580C" : kind === "mind-map" ? palette.mindMapEdge : flowchartSurface?.edge ?? palette.flowEdge);
+      const architectureEdge = kind === "architecture"
+        ? architectureEdgeVisual(edgeKind, appearance, edge.getData<EdgeData>()?.bidirectional)
+        : null;
+      edge.attr("line/stroke", architectureEdge?.stroke ?? (kind === "mind-map" ? palette.mindMapEdge : flowchartSurface?.edge ?? palette.flowEdge));
+      if (architectureEdge) {
+        edge.attr("line/strokeWidth", architectureEdge.strokeWidth);
+        edge.attr("line/strokeDasharray", architectureEdge.strokeDasharray);
+        edge.attr("line/sourceMarker", architectureEdge.sourceMarker);
+        edge.attr("line/targetMarker", architectureEdge.targetMarker);
+      }
       if (kind !== "mind-map") edge.attr("line/fill", "none");
       if (edge.getLabels().length > 0) {
         edge.setLabels(edge.getLabels().map((label) => diagramEdgeLabel(String(label.attrs?.label?.text ?? ""), palette, kind, appearance)));
@@ -1651,6 +1604,7 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance)));
+    if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
     applyGraphPalette(graph, documentTheme, document.kind, appearance, documentStructure);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
@@ -1662,7 +1616,6 @@ export const DiagramEditorPane = ({
     settleLoadedViewport();
     graph.once("render:done", settleLoadedViewport);
     requestAnimationFrame(settleLoadedViewport);
-    if (document.kind === "flowchart" && graph.scale().sx < 0.8) readFlowchart(graph, document, containerRef.current);
 
     const updateHistory = () => setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     const markDirty = () => {
@@ -1822,6 +1775,7 @@ export const DiagramEditorPane = ({
           target: { cell: currentCell.id, ...(currentPort ? { port: currentPort } : {}) },
         });
         graph.stopBatch("connect");
+        if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
         return;
       }
       if (!currentPoint || !containerRef.current) {
@@ -2314,6 +2268,7 @@ export const DiagramEditorPane = ({
       target: { cell: id, ...(oppositeFlowPort(pending.sourcePort) ? { port: oppositeFlowPort(pending.sourcePort) } : {}) },
     });
     graph.stopBatch("quick-create");
+    applyFlowchartEdgePorts(graph);
     settleScroller();
     graph.cleanSelection();
     graph.select(node);
@@ -2392,6 +2347,7 @@ export const DiagramEditorPane = ({
         node.resize(geometry.width, geometry.height);
       }
     }
+    if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
     if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
     ensureDiagramPaperContainsNodes(graph);
@@ -2855,7 +2811,7 @@ export const DiagramEditorPane = ({
           onExport={exportDiagram}
           onRedo={() => runHistoryAction("redo")}
           onThemeChange={applyTheme}
-          showTheme={document.kind !== "flowchart"}
+          showTheme={document.kind === "mind-map"}
           onStructureChange={document.kind === "mind-map" ? applyStructure : undefined}
           structure={structure}
           onUndo={() => runHistoryAction("undo")}

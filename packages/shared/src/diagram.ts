@@ -1,4 +1,9 @@
 import { Base64 } from "js-base64";
+import {
+  architectureMermaidBoundaryStyle,
+  architectureMermaidClassDefs,
+  architectureMermaidClassName,
+} from "./diagram-architecture-style";
 
 export const DIAGRAM_SCHEMA_VERSION = 1 as const;
 export const ARCHITECTURE_DIAGRAM_SCHEMA_VERSION = 2 as const;
@@ -268,16 +273,6 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
       security: "hex",
       external: "cloud",
     };
-    const classNames: Partial<Record<DiagramNodeShape, string>> = {
-      client: "archClient",
-      frontend: "archFrontend",
-      service: "archService",
-      database: "archDatabase",
-      storage: "archStorage",
-      queue: "archQueue",
-      security: "archSecurity",
-      external: "archExternal",
-    };
     const rendered = new Set<string>();
     const renderNode = (node: DiagramNode, indent: string) => {
       if (rendered.has(node.id)) return;
@@ -292,7 +287,7 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
         return;
       }
       lines.push(`${indent}${id}@{ shape: ${shapeNames[node.shape] ?? "rect"}, label: "${label}" }`);
-      const className = classNames[node.shape];
+      const className = architectureMermaidClassName(node.shape);
       if (className) lines.push(`${indent}class ${id} ${className}`);
     };
 
@@ -310,16 +305,9 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
       lines.push(`  ${source} ${connector} ${target}`);
     }
 
-    lines.push("  classDef archClient fill:#ECFEFF,stroke:#0891B2,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archFrontend fill:#EFF6FF,stroke:#2563EB,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archService fill:#ECFDF5,stroke:#16A06E,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archDatabase fill:#F5F3FF,stroke:#7C3AED,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archStorage fill:#FFFBEB,stroke:#D97706,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archQueue fill:#FFF7ED,stroke:#EA580C,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archSecurity fill:#FFF1F2,stroke:#E11D48,color:#0F172A,stroke-width:2px");
-    lines.push("  classDef archExternal fill:#F8FAFC,stroke:#64748B,color:#0F172A,stroke-width:2px,stroke-dasharray:6 4");
+    lines.push(...architectureMermaidClassDefs("light"));
     for (const boundary of document.nodes.filter((node) => node.shape === "boundary")) {
-      lines.push(`  style ${nodeIds.get(boundary.id)} fill:transparent,stroke:#64748B,stroke-width:1.5px,stroke-dasharray:7 5`);
+      lines.push(`  style ${nodeIds.get(boundary.id)} ${architectureMermaidBoundaryStyle("light")}`);
     }
     return lines.join("\n");
   }
@@ -419,9 +407,9 @@ export const createDefaultDiagramDocument = (kind: DiagramKind): DiagramDocument
     schemaVersion: DIAGRAM_SCHEMA_VERSION,
     kind,
     nodes: [
-      { id: "flow-start", label: "开始", x: 86, y: 48, width: 116, height: 40, shape: "terminator" },
-      { id: "flow-process", label: "处理步骤", x: 82, y: 136, width: 124, height: 42, shape: "process" },
-      { id: "flow-end", label: "结束", x: 86, y: 226, width: 116, height: 40, shape: "terminator" },
+      { id: "flow-start", label: "开始", x: 98, y: 48, width: 140, height: 44, shape: "terminator" },
+      { id: "flow-process", label: "处理步骤", x: 80, y: 140, width: 176, height: 56, shape: "process" },
+      { id: "flow-end", label: "结束", x: 98, y: 244, width: 140, height: 44, shape: "terminator" },
     ],
     edges: [
       { id: "flow-edge-1", source: "flow-start", target: "flow-process" },

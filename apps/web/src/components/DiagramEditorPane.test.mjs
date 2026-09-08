@@ -165,7 +165,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('{ fill: "none" }');
     expect(source).toContain('if (kind !== "mind-map") edge.attr("line/fill", "none")');
     expect(source).toContain("FLOWCHART_EDGE_ROUTER");
-    expect(source).toContain('showTheme={document.kind !== "flowchart"}');
+    expect(source).toContain("applyFlowchartEdgePorts(graph)");
+    expect(source).toContain("flowchartEdgeIsStraight");
+    expect(source).toContain('showTheme={document.kind === "mind-map"}');
     expect(toolbarSource).toContain("showTheme = true");
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");
@@ -175,6 +177,10 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("bindDiagramScrollerFit(graph)");
     expect(source).toContain("applyDiagramScrollerFitOptions(");
     expect(source).toContain("diagramNodeBounds(graph)");
+    expect(source).toContain("graph.scale().sx < policy.minScale");
+    expect(source).toContain("readFlowchart(graph, document, container)");
+    expect(source).toContain("scroller?.container.clientHeight");
+    expect(source).toContain("graph.centerPoint(box.x + box.width / 2, box.y + viewportHeight / 2 - 48)");
     expect(source).toContain("graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale })");
     expect(source).toContain("getDiagramLayoutViewport(document.kind)");
     expect(source).toContain("fitDiagramContent(graph, document, containerRef.current);");
@@ -248,9 +254,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("parent.addChild(node)");
     expect(source).toContain("updateSelectedEdgeLabel");
     expect(source).toContain('t("diagram.edgeText")');
-    expect(source).toContain("ARCHITECTURE_NODE_ICONS");
-    expect(source).toContain('{ tagName: "path", selector: "architectureIcon" }');
-    expect(source).toContain('shape === "external" ? "7 5"');
+    expect(source).toContain("architectureNodeVisual");
+    expect(source).toContain("architectureEdgeVisual");
+    expect(source).toContain("resolveArchitectureSurface");
     expect(globalStyles).toContain('[data-diagram-kind="architecture"] .x6-port-body');
   });
 
@@ -277,9 +283,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('options.label ??');
     expect(source).toContain('resourceIcon: architectureResourceIcon(item)');
     expect(source).toContain('...(data?.resourceIcon ? { resourceIcon: data.resourceIcon } : {})');
-    expect(source).toContain('architectureNodeVisuals(node.shape, size, appearance, node.resourceIcon)');
+    expect(source).toContain('architectureNodeVisual(node.shape, appearance, size, node.resourceIcon)');
     expect(source).toContain('inferArchitectureResourceIcon(node.label, t)');
-    expect(source).toContain('.render({}, null).props.iconNode');
+    expect(source).not.toContain('.render({}, null).props.iconNode');
     expect(source).not.toContain('className="line-clamp-2"');
   });
 

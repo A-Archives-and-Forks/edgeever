@@ -145,9 +145,14 @@ describe("diagram document", () => {
     const projected = diagramDocumentToX6Cells(legacy, "light");
     const containerCell = projected.nodes.find((node) => node.id === "api");
     const databaseCell = projected.nodes.find((node) => node.id === "database");
-    expect(containerCell.attrs.resourceIcon.text).toBe("⬡");
-    expect(databaseCell.attrs.resourceIcon.text).toBe("ϟ");
-    expect(containerCell.attrs.resourceIcon.text).not.toBe(databaseCell.attrs.resourceIcon.text);
+    expect(containerCell.attrs.architectureIcon0.d).toContain("M22 7.7");
+    expect(databaseCell.markup.some((item) => item.selector === "architectureIcon0" && item.tagName === "ellipse")).toBe(true);
+    expect(containerCell.attrs.body.fill).toHaveLength(7);
+    expect(containerCell.attrs.body.fill).not.toBe(databaseCell.attrs.body.fill);
+    const dark = diagramDocumentToX6Cells(legacy, "dark");
+    expect(dark.nodes.find((node) => node.id === "api").attrs.body.fill).not.toBe(
+      dark.nodes.find((node) => node.id === "database").attrs.body.fill,
+    );
   });
 
   test("rejects malformed and dangling graph data", () => {
@@ -177,8 +182,9 @@ test('native flowchart projection shares label sizing and obstacle routing witho
   const projection = diagramDocumentToX6Cells(document, 'dark');
   expect(projection.nodes[1].height).toBeGreaterThan(document.nodes[1].height);
   expect(projection.nodes[1].attrs.label.text.replaceAll('\n', '')).toBe(document.nodes[1].label.replaceAll('\n', ''));
-  expect(projection.edges[0].router.name).toBe('manhattan');
-  expect(projection.edges[0].router.args.padding).toBe(16);
+  expect(projection.edges[0].router.name).toBe('normal');
+  expect(projection.edges[0].source.port).toBe('bottom');
+  expect(projection.edges[0].target.port).toBe('top');
   expect(projection.edges[0].attrs.line.fill).toBe('none');
   expect(projection.nodes[0].attrs.body.fill).not.toBe('#16A06E');
   expect(projection.nodes[0].attrs.label.fontFamily).toContain('Inter');

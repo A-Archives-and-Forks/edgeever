@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { flowchartNodePresentation } from "./diagram-node-presentation.ts";
 import {
+  FLOWCHART_READABLE_MIN_SCALE,
   FLOWCHART_SURFACES,
+  flowchartEdgeIsStraight,
+  flowchartEdgePorts,
+  flowchartFitsReadableViewport,
   flowchartNodeVisual,
   resolveFlowchartSurface,
 } from "./diagram-flowchart-style.ts";
@@ -60,6 +64,42 @@ describe("flowchart node presentation", () => {
     const label = "Transformer 前向计算\n因果注意力＋前馈网络以及更长的说明文字";
     const presentation = flowchartNodePresentation("process", label);
     expect(presentation.text.replaceAll("\n", "")).toBe(label.replaceAll("\n", ""));
-    expect(presentation.width).toBeLessThanOrEqual(240);
+    expect(presentation.width).toBe(176);
+  });
+
+  test("keeps every process node the same width regardless of label length", () => {
+    const short = flowchartNodePresentation("process", "短");
+    const long = flowchartNodePresentation("process", "Transformer 前向计算\n因果注意力＋前馈网络");
+    expect(short.width).toBe(long.width);
+    expect(short.width).toBe(176);
+  });
+});
+
+describe("flowchart edge geometry", () => {
+  const above = { x: 80, y: 40, width: 176, height: 56 };
+  const below = { x: 80, y: 160, width: 176, height: 56 };
+
+  test("routes a stacked pair through the top and bottom ports as a straight line", () => {
+    expect(flowchartEdgePorts(above, below)).toEqual({ source: "bottom", target: "top" });
+    expect(flowchartEdgeIsStraight(above, below)).toBe(true);
+  });
+
+  test("sends a returning loop around the left side", () => {
+    const loop = { x: 80, y: 520, width: 176, height: 56 };
+    expect(flowchartEdgePorts(loop, above)).toEqual({ source: "left", target: "left" });
+    expect(flowchartEdgeIsStraight(loop, above)).toBe(false);
+  });
+});
+
+describe("flowchart readable viewport", () => {
+  const viewport = { width: 960, height: 720 };
+
+  test("keeps compact flows inside the canvas", () => {
+    expect(flowchartFitsReadableViewport({ width: 180, height: 280 }, viewport)).toBe(true);
+  });
+
+  test("refuses to shrink a tall flow below reading size", () => {
+    expect(flowchartFitsReadableViewport({ width: 220, height: 1680 }, viewport)).toBe(false);
+    expect(FLOWCHART_READABLE_MIN_SCALE).toBe(0.85);
   });
 });
