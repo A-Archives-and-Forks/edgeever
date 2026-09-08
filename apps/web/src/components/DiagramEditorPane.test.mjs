@@ -24,6 +24,16 @@ describe("diagram editor keyboard workflow", () => {
   test("does not let scroller auto-fit flash a detached node while inserting", () => {
     expect(source).toContain("disableAutoResize()");
     expect(source).toContain("enableAutoResize()");
+    expect(source).toContain("scroller.updateScroller()");
+    const settleHelper = source.slice(
+      source.indexOf("const suspendScrollerAutoResize"),
+      source.indexOf("const nodeEditorState"),
+    );
+    expect(settleHelper).not.toContain("graph.centerPoint");
+    expect(settleHelper).toContain("anchorAfter.left - anchorBefore.left");
+    expect(settleHelper).toContain("anchorAfter.top - anchorBefore.top");
+    expect(settleHelper).toContain("scroller.setScrollbarPosition(");
+    expect(settleHelper).toContain("requestAnimationFrame(restoreAnchor)");
     expect(source).toContain("SCROLLER_AUTORESIZE_SETTLE_MS");
     expect(source).toContain("graph.localToClient");
     expect(source).toContain("canvasSurfaceRef.current");
@@ -251,13 +261,25 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("onPointerDownOutside={(event) => {");
     expect(source).toContain("onDragOver={handleArchitectureDragOver}");
     expect(source).toContain("onDrop={handleArchitectureDrop}");
-    expect(source).toContain("graph.clientToLocal({ x: event.clientX, y: event.clientY })");
+    expect(source).toContain("placeArchitectureItem(item, diagramClientToLocalPoint(graph, dropPoint))");
+    expect(source).toContain("placeArchitectureItem(pendingArchitectureItem, diagramClientToLocalPoint(graph, placementPoint))");
+    expect(source).toContain("point.y - clientBounds.top");
+    expect(source).toContain("scroller.clientToLocalPoint(point.x - bounds.left, point.y - bounds.top)");
+    expect(source).toContain("clampArchitectureDropClientPoint(");
+    expect(source).toContain("ARCHITECTURE_DROP_VIEWPORT_PADDING");
     expect(source).toContain("position: { x: number; y: number }");
     expect(source).toContain("x: options.position.x - authoredSize.width / 2");
     expect(source).toContain("onPick={setPendingArchitectureItem}");
     expect(source).toContain("onPointerDownCapture={handlePendingArchitecturePlacement}");
     expect(source).toContain("ref={canvasSurfaceRef}");
     expect(source).toContain('t("diagram.placeShapeHint"');
+  });
+
+  test("does not rebuild the visible diagram after its own autosave", () => {
+    expect(source).toContain("incomingSnapshot !== canvasSnapshot");
+    expect(source).toContain("setGraphReloadVersion((current) => current + 1)");
+    expect(source).toContain("graphReloadVersion, memo.id, readOnly");
+    expect(source).not.toContain("dismissFlowQuickCreate, memo.contentHash, memo.id, readOnly");
   });
 
   test("opens every diagram insertion library immediately on pointer hover", () => {

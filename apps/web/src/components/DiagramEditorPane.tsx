@@ -554,11 +554,58 @@ const createLocalEditSession = (memo: MemoDetail): MemoEditSession => ({
   expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
 });
 
-// X6 Scroller autoResize is debounced 200ms and then calls fitToContent, which
-// shifts the graph origin after insert and leaves a stranded editor overlay.
+// X6 Scroller autoResize is debounced 200ms and then calls fitToContent. Batch
+// inserts must settle it synchronously so rendering and hit-testing share the
+// same paper bounds. Preserve an existing rendered node as a pixel anchor:
+// X6's center restoration uses paper coordinates and can drift when
+// fitToContent changes a negative origin.
 const SCROLLER_AUTORESIZE_SETTLE_MS = 250;
+const ARCHITECTURE_DROP_VIEWPORT_PADDING = 12;
 
 const getDiagramScroller = (graph: Graph) => graph.getPlugin("scroller") as Scroller | undefined;
+
+const diagramClientToLocalPoint = (graph: Graph, point: { x: number; y: number }) => {
+  const anchorNode = graph.getNodes().find((node) => node.isVisible());
+  const anchorView = anchorNode ? graph.findViewByCell(anchorNode) : null;
+  if (anchorNode && anchorView) {
+    const clientBounds = anchorView.container.getBoundingClientRect();
+    const localBounds = anchorNode.getBBox();
+    if (clientBounds.width > 0 && clientBounds.height > 0) {
+      return {
+        x: localBounds.x + (point.x - clientBounds.left) * localBounds.width / clientBounds.width,
+        y: localBounds.y + (point.y - clientBounds.top) * localBounds.height / clientBounds.height,
+      };
+    }
+  }
+  const scroller = getDiagramScroller(graph);
+  if (!scroller) return graph.clientToLocal(point);
+  const bounds = scroller.container.getBoundingClientRect();
+  return scroller.clientToLocalPoint(point.x - bounds.left, point.y - bounds.top);
+};
+
+const clampArchitectureDropClientPoint = (
+  graph: Graph,
+  surface: HTMLElement | null,
+  item: ArchitectureLibraryItem,
+  point: { x: number; y: number },
+) => {
+  if (!surface) return point;
+  const bounds = surface.getBoundingClientRect();
+  const size = compactArchitectureNodeSize(item.shape);
+  const scale = graph.scale();
+  const horizontalInset = size.width * scale.sx / 2 + ARCHITECTURE_DROP_VIEWPORT_PADDING;
+  const verticalInset = size.height * scale.sy / 2 + ARCHITECTURE_DROP_VIEWPORT_PADDING;
+  return {
+    x: Math.min(
+      Math.max(point.x, bounds.left + horizontalInset),
+      Math.max(bounds.left + horizontalInset, bounds.right - horizontalInset),
+    ),
+    y: Math.min(
+      Math.max(point.y, bounds.top + verticalInset),
+      Math.max(bounds.top + verticalInset, bounds.bottom - verticalInset),
+    ),
+  };
+};
 
 const suspendScrollerAutoResize = (
   graph: Graph,
@@ -566,14 +613,36 @@ const suspendScrollerAutoResize = (
   isCurrent: () => boolean,
 ) => {
   const scroller = getDiagramScroller(graph);
-  if (!scroller) return;
-  scroller.disableAutoResize();
-  if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-  timerRef.current = window.setTimeout(() => {
+  if (!scroller) return () => undefined;
+  const anchorView = graph.getNodes()
+    .map((node) => graph.findViewByCell(node))
+    .find((view) => view?.container.isConnected);
+  const anchorBefore = anchorView?.container.getBoundingClientRect();
+  let settled = false;
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
     timerRef.current = null;
     if (!isCurrent()) return;
     scroller.enableAutoResize();
-  }, SCROLLER_AUTORESIZE_SETTLE_MS);
+    scroller.updateScroller();
+    const restoreAnchor = () => {
+      if (!isCurrent() || !anchorView || !anchorBefore) return;
+      const anchorAfter = anchorView.container.getBoundingClientRect();
+      const scroll = scroller.getScrollbarPosition();
+      scroller.setScrollbarPosition(
+        scroll.left + anchorAfter.left - anchorBefore.left,
+        scroll.top + anchorAfter.top - anchorBefore.top,
+      );
+    };
+    restoreAnchor();
+    requestAnimationFrame(restoreAnchor);
+  };
+  scroller.disableAutoResize();
+  if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+  timerRef.current = window.setTimeout(settle, SCROLLER_AUTORESIZE_SETTLE_MS);
+  return settle;
 };
 
 const nodeEditorState = (
@@ -1107,6 +1176,7 @@ export const DiagramEditorPane = ({
   const [dirty, setDirty] = useState(false);
   const [tagsDirty, setTagsDirty] = useState(false);
   const [dirtyVersion, setDirtyVersion] = useState(0);
+  const [graphReloadVersion, setGraphReloadVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [editSessionReady, setEditSessionReady] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1299,6 +1369,19 @@ export const DiagramEditorPane = ({
     nodeEditorRef.current = nextEditor;
     setNodeEditor(nextEditor);
   }, [resolvedTheme, document?.kind]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || !document) return;
+    const incomingSnapshot = diagramEditorSnapshot(memo.title ?? "", document);
+    const canvasSnapshot = diagramEditorSnapshot(
+      titleRef.current,
+      graphToDocument(graph, document.kind, themeRef.current),
+    );
+    if (incomingSnapshot !== canvasSnapshot) {
+      setGraphReloadVersion((current) => current + 1);
+    }
+  }, [memo.contentHash]);
 
   useEffect(() => {
     if (!containerRef.current || !document) return;
@@ -1750,7 +1833,7 @@ export const DiagramEditorPane = ({
       graphRef.current = null;
       graph.dispose();
     };
-  }, [beginNodeEdit, dismissFlowQuickCreate, memo.contentHash, memo.id, readOnly]);
+  }, [beginNodeEdit, dismissFlowQuickCreate, graphReloadVersion, memo.id, readOnly]);
 
   useEffect(() => {
     if (!editorDirty) return;
@@ -1784,7 +1867,7 @@ export const DiagramEditorPane = ({
   ) => {
     const graph = graphRef.current;
     if (!graph || !document || readOnly) return;
-    suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
+    const settleScroller = suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
     const baseNodeId = options.baseNodeId ?? selectedNodeId;
     const selected = baseNodeId
       ? graph.getCellById(baseNodeId) as Node | undefined
@@ -1898,6 +1981,7 @@ export const DiagramEditorPane = ({
       }
     }
     graph.stopBatch("add");
+    settleScroller();
     graph.cleanSelection();
     graph.select(node);
     setSelectedNodeId(id);
@@ -1939,7 +2023,13 @@ export const DiagramEditorPane = ({
     const item = ARCHITECTURE_LIBRARY_ITEMS.find((candidate) => architectureResourceIcon(candidate) === resourceIcon);
     const graph = graphRef.current;
     if (!item || !graph) return;
-    placeArchitectureItem(item, graph.clientToLocal({ x: event.clientX, y: event.clientY }));
+    const dropPoint = clampArchitectureDropClientPoint(
+      graph,
+      canvasSurfaceRef.current,
+      item,
+      { x: event.clientX, y: event.clientY },
+    );
+    placeArchitectureItem(item, diagramClientToLocalPoint(graph, dropPoint));
   };
 
   const handlePendingArchitecturePlacement = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1950,7 +2040,13 @@ export const DiagramEditorPane = ({
     if (!graph) return;
     event.preventDefault();
     event.stopPropagation();
-    placeArchitectureItem(pendingArchitectureItem, graph.clientToLocal({ x: event.clientX, y: event.clientY }));
+    const placementPoint = clampArchitectureDropClientPoint(
+      graph,
+      canvasSurfaceRef.current,
+      pendingArchitectureItem,
+      { x: event.clientX, y: event.clientY },
+    );
+    placeArchitectureItem(pendingArchitectureItem, diagramClientToLocalPoint(graph, placementPoint));
   };
 
   insertNodeRef.current = (relation, baseNodeId) => {
@@ -1981,7 +2077,7 @@ export const DiagramEditorPane = ({
     const graph = graphRef.current;
     const pending = flowQuickCreate;
     if (!graph || !document || document.kind !== "flowchart" || !pending || readOnly) return;
-    suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
+    const settleScroller = suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
     if (!graph.getCellById(pending.sourceNodeId)?.isNode()) {
       dismissFlowQuickCreate();
       return;
@@ -2019,6 +2115,7 @@ export const DiagramEditorPane = ({
       target: { cell: id, ...(oppositeFlowPort(pending.sourcePort) ? { port: oppositeFlowPort(pending.sourcePort) } : {}) },
     });
     graph.stopBatch("quick-create");
+    settleScroller();
     graph.cleanSelection();
     graph.select(node);
     setSelectedNodeId(id);
