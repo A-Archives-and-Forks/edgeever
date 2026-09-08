@@ -175,7 +175,7 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('themeCatalog={document.kind === "flowchart" ? "flowchart" : "mind-map"}');
     expect(toolbarSource).toContain("showTheme = true");
     expect(toolbarSource).toContain("themeCatalog = \"mind-map\"");
-    expect(toolbarSource).toContain("FLOWCHART_SELECTABLE_THEMES");
+    expect(toolbarSource).toContain("FLOWCHART_THEME_GROUPS");
     expect(toolbarSource).toContain("flowchartThemeSwatches");
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");

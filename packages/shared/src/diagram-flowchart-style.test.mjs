@@ -4,6 +4,7 @@ import {
   FLOWCHART_READABLE_MIN_SCALE,
   FLOWCHART_SELECTABLE_THEMES,
   FLOWCHART_SURFACES,
+  FLOWCHART_THEME_GROUPS,
   flowchartEdgeIsStraight,
   flowchartEdgePorts,
   flowchartFitsReadableViewport,
@@ -29,7 +30,7 @@ const contrast = (foreground, background) => {
 
 describe("flowchart semantic paint", () => {
   test("keeps process, decision, and terminator visually distinct", () => {
-    for (const theme of ["brand", "ink", "paper"]) {
+    for (const theme of FLOWCHART_SELECTABLE_THEMES) {
       for (const appearance of ["light", "dark"]) {
         const surface = resolveFlowchartSurface(appearance, theme);
         expect(surface.process.fill).not.toBe(surface.decision.fill);
@@ -41,7 +42,7 @@ describe("flowchart semantic paint", () => {
   });
 
   test("keeps node labels readable on their fills", () => {
-    for (const theme of ["brand", "ink", "paper"]) {
+    for (const theme of FLOWCHART_SELECTABLE_THEMES) {
       for (const appearance of ["light", "dark"]) {
         const surface = FLOWCHART_SURFACES[theme][appearance];
         for (const paint of [surface.process, surface.decision, surface.terminator]) {
@@ -58,18 +59,17 @@ describe("flowchart semantic paint", () => {
     expect(visual.label.fontFamily).toContain("Inter");
   });
 
-  test("offers three quiet surfaces and maps unknown themes to forest", () => {
-    expect(FLOWCHART_SELECTABLE_THEMES).toEqual(["brand", "ink", "paper"]);
-    expect(resolveFlowchartTheme("mint")).toBe("brand");
-    expect(resolveFlowchartTheme("classic")).toBe("brand");
+  test("offers ten flowchart surfaces and maps leftover ids onto them", () => {
+    expect(FLOWCHART_SELECTABLE_THEMES).toHaveLength(10);
+    expect([...FLOWCHART_THEME_GROUPS.classic, ...FLOWCHART_THEME_GROUPS.vivid]).toEqual([...FLOWCHART_SELECTABLE_THEMES]);
+    expect(resolveFlowchartTheme("mint")).toBe("mint");
+    expect(resolveFlowchartTheme("classic")).toBe("paper");
+    expect(resolveFlowchartTheme("naive")).toBe("brand");
     expect(FLOWCHART_SURFACES.brand.light.terminator.stroke).toBe("#16A06E");
-    expect(resolveFlowchartSurface("light", "mint")).toEqual(FLOWCHART_SURFACES.brand.light);
+    expect(new Set(FLOWCHART_SELECTABLE_THEMES.map((theme) => FLOWCHART_SURFACES[theme].light.terminator.stroke)).size).toBe(10);
     expect(resolveFlowchartSurface("light", "ink").terminator.stroke).toBe("#3A4656");
     expect(resolveFlowchartSurface("light", "paper").canvas).toBe("#F6F1E8");
-    expect(resolveFlowchartSurface("light", "ink").decision.fill)
-      .not.toBe(resolveFlowchartSurface("light", "brand").decision.fill);
-    expect(resolveFlowchartSurface("light", "paper").terminator.stroke)
-      .not.toBe(resolveFlowchartSurface("light", "brand").terminator.stroke);
+    expect(resolveFlowchartSurface("light", "mint").terminator.stroke).toBe("#1A7A70");
   });
 });
 

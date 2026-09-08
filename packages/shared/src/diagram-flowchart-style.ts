@@ -63,8 +63,14 @@ export const flowchartFitsReadableViewport = (
 };
 
 export type FlowchartAppearance = "light" | "dark";
-export const FLOWCHART_SELECTABLE_THEMES = ["brand", "ink", "paper"] as const;
+export const FLOWCHART_SELECTABLE_THEMES = [
+  "brand", "ink", "paper", "island", "tea", "cosmos", "sun", "wa", "rose", "mint",
+] as const;
 export type FlowchartTheme = (typeof FLOWCHART_SELECTABLE_THEMES)[number];
+export const FLOWCHART_THEME_GROUPS = {
+  classic: ["brand", "ink", "paper", "island", "tea", "cosmos"],
+  vivid: ["sun", "wa", "rose", "mint"],
+} as const;
 
 export type FlowchartShapePaint = {
   fill: string;
@@ -82,8 +88,14 @@ export type FlowchartSurface = {
 
 const FLOWCHART_THEME_ALIASES: Partial<Record<DiagramTheme, FlowchartTheme>> = {
   ocean: "brand",
-  ink: "ink",
-  paper: "paper",
+  slate: "ink",
+  mono: "ink",
+  classic: "paper",
+  sand: "island",
+  sky: "cosmos",
+  sunset: "sun",
+  violet: "rose",
+  aurora: "mint",
 };
 
 export const resolveFlowchartTheme = (theme?: DiagramTheme): FlowchartTheme => {
@@ -138,6 +150,118 @@ export const FLOWCHART_SURFACES: Record<FlowchartTheme, Record<FlowchartAppearan
       process: { fill: "#221E19", stroke: "#7A6A56", text: "#F3EBE0" },
       decision: { fill: "#2C2418", stroke: "#D4A06A", text: "#F6E2C4" },
       terminator: { fill: "#2A2118", stroke: "#C4A07A", text: "#F0E4D4" },
+    },
+  },
+  island: {
+    light: {
+      canvas: "#F6EEE8",
+      edge: "#8A6550",
+      process: { fill: "#FFF8F3", stroke: "#C4A090", text: "#3A2A22" },
+      decision: { fill: "#F3D8C8", stroke: "#C46A48", text: "#6A3220" },
+      terminator: { fill: "#EBD0C0", stroke: "#8B4A32", text: "#3F2418" },
+    },
+    dark: {
+      canvas: "#161210",
+      edge: "#C4A082",
+      process: { fill: "#231C18", stroke: "#8A6A56", text: "#F3E8E0" },
+      decision: { fill: "#2C2018", stroke: "#D49070", text: "#F6D8C4" },
+      terminator: { fill: "#281A16", stroke: "#C48868", text: "#F0D8CC" },
+    },
+  },
+  tea: {
+    light: {
+      canvas: "#F4F6EE",
+      edge: "#6A7A52",
+      process: { fill: "#FFFFFF", stroke: "#8A9A72", text: "#2A3420" },
+      decision: { fill: "#E8EED4", stroke: "#8A9A48", text: "#3F4A18" },
+      terminator: { fill: "#DCE6C8", stroke: "#4F6A32", text: "#243018" },
+    },
+    dark: {
+      canvas: "#121410",
+      edge: "#A0B07A",
+      process: { fill: "#1C2018", stroke: "#6A7A56", text: "#E8F0DC" },
+      decision: { fill: "#222618", stroke: "#B8C46A", text: "#E8F0C4" },
+      terminator: { fill: "#1A2418", stroke: "#8AAA5A", text: "#D8E8C4" },
+    },
+  },
+  cosmos: {
+    light: {
+      canvas: "#F2F5F8",
+      edge: "#4D6F8A",
+      process: { fill: "#FFFFFF", stroke: "#7A94A8", text: "#1C2A38" },
+      decision: { fill: "#E4EEF5", stroke: "#5A82A0", text: "#1E3A52" },
+      terminator: { fill: "#D8E6F0", stroke: "#2A5470", text: "#163044" },
+    },
+    dark: {
+      canvas: "#101218",
+      edge: "#7AA0C0",
+      process: { fill: "#181E26", stroke: "#5A7088", text: "#E0E8F0" },
+      decision: { fill: "#1C2834", stroke: "#7AA0C0", text: "#D0E4F4" },
+      terminator: { fill: "#162028", stroke: "#8AB4D0", text: "#D8E8F4" },
+    },
+  },
+  sun: {
+    light: {
+      canvas: "#F8F6EC",
+      edge: "#C4A030",
+      process: { fill: "#FFFEF6", stroke: "#D4C47A", text: "#3A3418" },
+      decision: { fill: "#FFF0C4", stroke: "#E0B040", text: "#6A4A08" },
+      terminator: { fill: "#F8E8B0", stroke: "#C09020", text: "#4A3808" },
+    },
+    dark: {
+      canvas: "#16140C",
+      edge: "#E0C060",
+      process: { fill: "#242018", stroke: "#8A7A48", text: "#F6F0D8" },
+      decision: { fill: "#2C2410", stroke: "#E0B848", text: "#F8E8B8" },
+      terminator: { fill: "#28240C", stroke: "#D4B040", text: "#F4E8C0" },
+    },
+  },
+  wa: {
+    light: {
+      canvas: "#F4F7F9",
+      edge: "#4A7AA0",
+      process: { fill: "#FFFFFF", stroke: "#8AA8C0", text: "#1C2C3A" },
+      decision: { fill: "#FCE8DC", stroke: "#E09070", text: "#7A3A24" },
+      terminator: { fill: "#DCE8F4", stroke: "#2A5A88", text: "#1A3858" },
+    },
+    dark: {
+      canvas: "#101418",
+      edge: "#7AA8C8",
+      process: { fill: "#182028", stroke: "#5A7088", text: "#E0E8F0" },
+      decision: { fill: "#2C2018", stroke: "#E0A080", text: "#F8DCC8" },
+      terminator: { fill: "#162030", stroke: "#6A98C0", text: "#D4E4F4" },
+    },
+  },
+  rose: {
+    light: {
+      canvas: "#F8F3F5",
+      edge: "#A06078",
+      process: { fill: "#FFFFFF", stroke: "#C49AAC", text: "#3A2430" },
+      decision: { fill: "#F8E4EC", stroke: "#D0809A", text: "#7A3048" },
+      terminator: { fill: "#F0D8E2", stroke: "#A04060", text: "#4A2030" },
+    },
+    dark: {
+      canvas: "#161014",
+      edge: "#D0809A",
+      process: { fill: "#24181C", stroke: "#8A5A6A", text: "#F4E4EA" },
+      decision: { fill: "#2C1A22", stroke: "#E090A8", text: "#F8D8E4" },
+      terminator: { fill: "#28141C", stroke: "#E07090", text: "#F4D0DC" },
+    },
+  },
+  mint: {
+    light: {
+      canvas: "#F2F8F7",
+      edge: "#3A8A82",
+      process: { fill: "#FFFFFF", stroke: "#7AB0A8", text: "#1C3A38" },
+      decision: { fill: "#E4F4F0", stroke: "#4AA89A", text: "#1A5A52" },
+      terminator: { fill: "#D4EEE8", stroke: "#1A7A70", text: "#145048" },
+    },
+    dark: {
+      canvas: "#101614",
+      edge: "#6AB8AC",
+      process: { fill: "#182422", stroke: "#4A786E", text: "#DCF0EC" },
+      decision: { fill: "#1A2C28", stroke: "#6AC4B4", text: "#D0F0E8" },
+      terminator: { fill: "#162824", stroke: "#5AB8A8", text: "#D0EEE6" },
     },
   },
 };

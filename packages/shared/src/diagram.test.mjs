@@ -79,7 +79,10 @@ describe("diagram document", () => {
     expect(diagramDocumentToMermaid(paper)).toContain("classDef flowTerminator fill:#F0E4D0,stroke:#7A5230");
     const mint = createDefaultDiagramDocument("flowchart");
     mint.theme = "mint";
-    expect(diagramDocumentToMermaid(mint)).toContain("classDef flowProcess fill:#FFFFFF,stroke:#6F9B88");
+    expect(diagramDocumentToMermaid(mint)).toContain("classDef flowTerminator fill:#D4EEE8,stroke:#1A7A70");
+    const naive = createDefaultDiagramDocument("flowchart");
+    naive.theme = "naive";
+    expect(diagramDocumentToMermaid(naive)).toContain("classDef flowProcess fill:#FFFFFF,stroke:#6F9B88");
 
     const doc = markdownToDoc(markdown);
     expect(doc.content?.some((node) => node.type === "codeBlock" && node.attrs?.language === "mermaid")).toBe(true);
