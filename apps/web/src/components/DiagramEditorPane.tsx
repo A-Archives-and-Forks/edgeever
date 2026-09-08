@@ -645,11 +645,41 @@ const ensureDiagramPaperContainsNodes = (graph: Graph) => {
   if (!bounds) return;
   graph.transform.fitToContent({
     allowNewOrigin: "any",
-    padding: 32,
+    padding: 48,
     gridWidth: 1,
     gridHeight: 1,
     contentArea: bounds,
   });
+};
+
+const zoomDiagram = (graph: Graph, factor: number, absolute = false) => {
+  const scroller = getDiagramScroller(graph);
+  if (scroller) {
+    if (absolute) scroller.zoomTo(factor);
+    else scroller.zoom(factor);
+    return;
+  }
+  if (absolute) graph.zoomTo(factor);
+  else graph.zoom(factor);
+};
+
+const fitDiagramRect = (
+  graph: Graph,
+  bounds: { x: number; y: number; width: number; height: number },
+  options: { padding: number; maxScale: number },
+) => {
+  const scroller = getDiagramScroller(graph);
+  if (scroller) scroller.zoomToRect(bounds, options);
+  else graph.zoomToRect(bounds, options);
+};
+
+const centerDiagramContent = (graph: Graph) => {
+  const scroller = getDiagramScroller(graph);
+  if (scroller) {
+    scroller.centerContent();
+    return;
+  }
+  graph.centerContent();
 };
 
 const diagramClientToLocalPoint = (graph: Graph, point: { x: number; y: number }) => {
@@ -1103,14 +1133,17 @@ const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLE
   const start = document.nodes.find((node) => !incoming.has(node.id)) ?? document.nodes[0];
   const cell = graph.getCellById(start.id);
   if (!cell?.isNode()) return;
-  graph.zoomTo(1);
+  ensureDiagramPaperContainsNodes(graph);
+  zoomDiagram(graph, 1, true);
+  ensureDiagramPaperContainsNodes(graph);
   const box = cell.getBBox();
   const scroller = getDiagramScroller(graph);
-  const viewportHeight = scroller?.container.clientHeight
-    || container?.clientHeight
-    || graph.container.clientHeight
-    || 640;
-  graph.centerPoint(box.x + box.width / 2, box.y + viewportHeight / 2 - 48);
+  if (scroller) {
+    scroller.positionPoint({ x: box.x + box.width / 2, y: box.y }, "50%", 48);
+  } else {
+    graph.centerPoint(box.x + box.width / 2, box.y);
+  }
+  ensureDiagramPaperContainsNodes(graph);
 };
 
 const fitDiagramContent = (
@@ -1123,9 +1156,11 @@ const fitDiagramContent = (
   const policy = viewport ?? getDiagramLayoutViewport(document.kind);
   const bounds = diagramNodeBounds(graph);
   if (!bounds) return;
+  ensureDiagramPaperContainsNodes(graph);
   // Fit every node, including mind-map branches left of the root. Zooming to a
   // visible subset or to edge paths lets Scroller shrink the paper and clip.
-  graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale });
+  fitDiagramRect(graph, bounds, { padding, maxScale: policy.maxScale });
+  ensureDiagramPaperContainsNodes(graph);
   if (
     document.kind === "flowchart"
     && policy.minScale != null
@@ -1929,8 +1964,10 @@ export const DiagramEditorPane = ({
     });
     graph.bindKey("1", (event) => {
       event.preventDefault();
-      graph.zoomTo(1);
-      graph.centerContent();
+      ensureDiagramPaperContainsNodes(graph);
+      zoomDiagram(graph, 1, true);
+      ensureDiagramPaperContainsNodes(graph);
+      centerDiagramContent(graph);
     });
     graph.bindKey("esc", (event) => {
       if (!flowQuickCreateRef.current) return;
@@ -2821,12 +2858,26 @@ export const DiagramEditorPane = ({
           onResetZoom={() => {
             const graph = graphRef.current;
             if (!graph) return;
-            graph.zoomTo(1);
+            ensureDiagramPaperContainsNodes(graph);
+            zoomDiagram(graph, 1, true);
+            ensureDiagramPaperContainsNodes(graph);
             const bounds = diagramNodeBounds(graph);
-            if (bounds) graph.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            const scroller = getDiagramScroller(graph);
+            if (bounds && scroller) scroller.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            else if (bounds) graph.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
           }}
-          onZoomIn={() => graphRef.current?.zoom(0.1)}
-          onZoomOut={() => graphRef.current?.zoom(-0.1)}
+          onZoomIn={() => {
+            const graph = graphRef.current;
+            if (!graph) return;
+            zoomDiagram(graph, 0.1);
+            ensureDiagramPaperContainsNodes(graph);
+          }}
+          onZoomOut={() => {
+            const graph = graphRef.current;
+            if (!graph) return;
+            zoomDiagram(graph, -0.1);
+            ensureDiagramPaperContainsNodes(graph);
+          }}
           readOnly={readOnly}
           selectionEditor={(
             <>

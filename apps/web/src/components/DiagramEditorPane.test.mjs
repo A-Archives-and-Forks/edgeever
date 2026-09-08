@@ -171,7 +171,8 @@ describe("diagram editor canvas surface", () => {
     expect(toolbarSource).toContain("showTheme = true");
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");
-    expect(source).toContain("graph.centerContent()");
+    expect(source).toContain("centerDiagramContent(graph)");
+    expect(source).toContain("scroller.centerContent()");
     expect(source).not.toContain("desiredLeft - contentLeft");
     expect(source).not.toContain("visibleNodes.length !== graph.getNodes().length");
     expect(source).toContain("bindDiagramScrollerFit(graph)");
@@ -179,9 +180,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("diagramNodeBounds(graph)");
     expect(source).toContain("graph.scale().sx < policy.minScale");
     expect(source).toContain("readFlowchart(graph, document, container)");
-    expect(source).toContain("scroller?.container.clientHeight");
-    expect(source).toContain("graph.centerPoint(box.x + box.width / 2, box.y + viewportHeight / 2 - 48)");
-    expect(source).toContain("graph.zoomToRect(bounds, { padding, maxScale: policy.maxScale })");
+    expect(source).toContain("scroller.positionPoint({ x: box.x + box.width / 2, y: box.y }, \"50%\", 48)");
+    expect(source).toContain("fitDiagramRect(graph, bounds, { padding, maxScale: policy.maxScale })");
+    expect(source).toContain("scroller.zoomToRect(bounds, options)");
     expect(source).toContain("getDiagramLayoutViewport(document.kind)");
     expect(source).toContain("fitDiagramContent(graph, document, containerRef.current);");
   });
