@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { groupPluginSettingFields } from "./plugin-settings-layout";
 
 const PluginSettingFieldRow = ({
   configuredSecret,
+  compact = false,
   disabled,
   field,
   inputId,
@@ -16,6 +18,7 @@ const PluginSettingFieldRow = ({
   value,
 }: {
   configuredSecret: boolean;
+  compact?: boolean;
   disabled: boolean;
   field: PluginSettingField;
   inputId: string;
@@ -32,7 +35,9 @@ const PluginSettingFieldRow = ({
   );
 
   return (
-    <div className="grid min-w-0 gap-3 py-5 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] md:gap-8">
+    <div className={compact
+      ? "flex min-w-0 items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4"
+      : "grid min-w-0 gap-3 py-5 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] md:gap-8"}>
       <div className="min-w-0">
         {label}
         {field.description ? <p id={descriptionId} className="mt-1 text-xs leading-5 text-slate-500">{field.description}</p> : null}
@@ -92,6 +97,7 @@ export const PluginSettingsSection = ({ host, manifest }: { host: EdgeEverPlugin
   const { t } = useTranslation();
   const formId = useId();
   const fields = manifest.settings?.fields ?? [];
+  const fieldGroups = groupPluginSettingFields(fields);
   const [values, setValues] = useState<Record<string, PluginSettingValue | "">>({});
   const [configuredSecrets, setConfiguredSecrets] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(fields.length > 0);
@@ -179,25 +185,35 @@ export const PluginSettingsSection = ({ host, manifest }: { host: EdgeEverPlugin
       ) : (
         <form onChange={clearFeedback} onSubmit={(event) => { event.preventDefault(); void save(); }}>
           <fieldset disabled={saving} className="min-w-0">
-            <div className="divide-y divide-slate-100 py-5">
-            {fields.map((field) => {
-              const value = values[field.key] ?? "";
-              const inputId = `${formId}-${field.key}`;
-              return (
-                <PluginSettingFieldRow
-                  key={field.key}
-                  configuredSecret={Boolean(configuredSecrets[field.key])}
-                  disabled={saving}
-                  field={field}
-                  inputId={inputId}
-                  value={value}
-                  onChange={(nextValue) => {
-                    clearFeedback();
-                    setValues((current) => ({ ...current, [field.key]: nextValue }));
-                  }}
-                />
-              );
-            })}
+            <div className="py-5">
+            {fieldGroups.map((group, groupIndex) => (
+              <div
+                key={group.id}
+                className={group.compact
+                  ? `grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4${groupIndex > 0 ? " mt-5 border-t border-slate-100 pt-5" : ""}`
+                  : groupIndex > 0 ? "border-t border-slate-100" : ""}
+              >
+                {group.fields.map((field) => {
+                  const value = values[field.key] ?? "";
+                  const inputId = `${formId}-${field.key}`;
+                  return (
+                    <PluginSettingFieldRow
+                      key={field.key}
+                      compact={group.compact}
+                      configuredSecret={Boolean(configuredSecrets[field.key])}
+                      disabled={saving}
+                      field={field}
+                      inputId={inputId}
+                      value={value}
+                      onChange={(nextValue) => {
+                        clearFeedback();
+                        setValues((current) => ({ ...current, [field.key]: nextValue }));
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
             </div>
             <div className="flex min-h-14 flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
               {message ? <span className="mr-auto text-sm text-emerald-700" role="status">{message}</span> : null}
