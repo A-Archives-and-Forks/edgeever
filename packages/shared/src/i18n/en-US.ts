@@ -759,7 +759,6 @@ export const enUS = {
     },
     toolbar: {
       open: "Plugins",
-      recent: "Recently used",
       empty: "Enabled plugins have not provided any commands or panels yet.",
       manage: "Manage plugins and themes",
     },

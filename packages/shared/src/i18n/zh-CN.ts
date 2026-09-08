@@ -759,7 +759,6 @@ export const zhCN = {
     },
     toolbar: {
       open: "插件",
-      recent: "最近使用",
       empty: "已启用的插件还没有提供命令或面板。",
       manage: "管理插件与主题",
     },

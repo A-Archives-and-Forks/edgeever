@@ -227,7 +227,6 @@ describe("EdgeEverPluginHost", () => {
     expect(host.getSnapshot().commands).toHaveLength(7);
     expect(host.getSnapshot().panels).toEqual([{ pluginId: "org.edgeever.test-plugin", id: "fixture", title: "Fixture panel", presentation: "dialog" }]);
     expect(notices).toEqual(["hello from plugin"]);
-    expect(host.getSnapshot().recentActions[0]).toMatchObject({ id: "hello", type: "command" });
     await host.runCommand("org.edgeever.test-plugin", "read-without-permission");
     await host.runCommand("org.edgeever.test-plugin", "subscribe-without-read-permission");
     await host.runCommand("org.edgeever.test-plugin", "replace-selection");
@@ -245,7 +244,6 @@ describe("EdgeEverPluginHost", () => {
     const container = {};
     const disposePanel = await host.mountPanel("org.edgeever.test-plugin", "fixture", container);
     expect(container.mountedByFixture).toBe(true);
-    expect(host.getSnapshot().recentActions[0]).toMatchObject({ id: "fixture", type: "panel" });
     disposePanel();
     expect(container.mountedByFixture).toBe(false);
     const mountedDuringDisable = {};
@@ -253,7 +251,6 @@ describe("EdgeEverPluginHost", () => {
     await host.setEnabled("org.edgeever.test-plugin", false);
     expect(mountedDuringDisable.mountedByFixture).toBe(false);
     expect(host.getSnapshot().panels).toHaveLength(0);
-    expect(host.getSnapshot().recentActions).toHaveLength(0);
     await host.uninstall("org.edgeever.test-plugin");
     expect(secrets.has("test:org.edgeever.test-plugin:token")).toBe(false);
     expect(secrets.has("test:org.edgeever.test-plugin:setting:token")).toBe(false);
