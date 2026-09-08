@@ -50,8 +50,8 @@ describe("extension manifests", () => {
     })).toThrow("must use #RRGGBB");
   });
 
-  test("requires an allowlist for direct network plugins", () => {
-    expect(() => parseExtensionManifest({
+  test("allows direct network plugins without a static host list", () => {
+    expect(parseExtensionManifest({
       type: "plugin",
       id: "org.edgeever.network",
       name: "Network",
@@ -59,7 +59,7 @@ describe("extension manifests", () => {
       apiVersion: "1",
       entry: "./main.js",
       permissions: ["network"],
-    })).toThrow("must declare networkHosts");
+    })).toMatchObject({ permissions: ["network"] });
   });
 
   test("allows public read-only network plugins without a static host list", () => {

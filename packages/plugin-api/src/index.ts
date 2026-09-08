@@ -627,9 +627,6 @@ export const parseExtensionManifest = (value: unknown): ExtensionManifest => {
     if (networkHosts?.some((host) => !/^(?:\*\.)?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(host))) {
       throw new Error("networkHosts entries must be hostnames without a scheme, port, or path.");
     }
-    if (permissions.includes("network") && !permissions.includes("network:public") && !networkHosts?.length) {
-      throw new Error("Plugins requesting direct network access must declare networkHosts.");
-    }
     const platforms = value.platforms === undefined
       ? undefined
       : Array.isArray(value.platforms) && value.platforms.every((platform) => ["web", "desktop", "android", "ios"].includes(String(platform)))

@@ -111,7 +111,7 @@ Registry 格式：
 - `ui:panels`
 - `ui:embeds`
 
-通过 `context.network.fetch()` 直接使用浏览器网络时，必须在 Manifest 的 `networkHosts` 中声明目标域名。匿名只读的 `network:public` 传输可以访问任意公开 HTTPS 域名，不使用静态域名列表。
+通过 `context.network.fetch()` 访问网络时需要声明 `network` 能力，但不受静态域名列表限制。`networkHosts` 仅作为兼容旧版的描述性元数据保留，不参与拦截。插件需要无凭据读取跨域公开响应时，可以声明匿名只读的 `network:public` 传输。
 
 ## 插件入口
 
@@ -312,17 +312,19 @@ await context.storage.set("cursor", "next-page");
 const cursor = await context.storage.get<string>("cursor");
 ```
 
-浏览器直接请求只能使用 HTTPS；本地开发允许 localhost HTTP，并且目标域名必须提前声明：
+直接请求可以访问任意 HTTP 或 HTTPS 地址，并使用任意方法、请求头、正文和浏览器凭据模式。Web 运行时仍遵循浏览器的 CORS 与 Cookie 规则：
 
 ```json
 {
-  "permissions": ["network"],
-  "networkHosts": ["api.example.com", "*.trusted.example.com"]
+  "permissions": ["network"]
 }
 ```
 
 ```ts
-await context.network.fetch("https://api.example.com/items");
+await context.network.fetch("https://api.example.com/items", {
+  headers: { Authorization: `Bearer ${token}`, "X-Client": "my-plugin" },
+  credentials: "include",
+});
 ```
 
 普通 `storage` 适合游标和偏好设置。API Key 等敏感字符串应使用 `secrets`：
@@ -487,7 +489,7 @@ const result = await context.ai.generate({
 
 `system` 最多 8,000 字符，`prompt` 最多 90,000 字符，输出最多 5,000 token，生成最长 120 秒。后端要求交互式用户会话，公开演示模式禁用 AI，供应商错误脱敏。每个后端实例对每工作区的 AI 调用设置四路并发保护，不是分布式配额。模型费用沿用已配置供应商的计费；停用插件会中止其调用。
 
-已有 `network.fetch(url, init)` 保留浏览器 fetch 行为，受 CORS 限制、省略浏览器凭据，并要求 `networkHosts` 白名单。需要无凭据读取任意公开订阅或 API 时，同时声明 `network` 和 `network:public`，并显式选择 `transport: "public"`。公开传输是一项统一能力，不要求也不执行静态域名列表。下述匿名公开传输的请求头限制不适用于普通直连；需要 Cookie 等浏览器凭据的能力应使用独立、明确的授权能力，不能借用 `network:public`：
+默认的 `network.fetch(url, init)` 是受信任的浏览器请求，可以访问任意 HTTP／HTTPS 地址，使用任意方法、正文、`Authorization` 等请求头以及调用方指定的浏览器凭据模式；它仍受所在运行时的 CORS 与 Cookie 策略约束。`networkHosts` 仅为兼容旧版保留，不是安全边界。需要无凭据读取跨域公开订阅或 API 时，同时声明 `network` 和 `network:public`，并显式选择 `transport: "public"`：
 
 ```json
 {
@@ -511,4 +513,4 @@ const feed = await response.text(); // 插件自己解析。
 
 桌面端、自托管与云端驱动共用同一策略包。桌面端和 Bun 自托管会校验全部 DNS 结果，并把已校验地址直接交给 TLS；私网、特殊用途和混合公私地址全部拒绝。Cloudflare 回退使用 workerd 默认的仅公开 Internet 出口，不使用私网服务绑定。VPN／fake-IP DNS 返回的保留地址也会拒绝，不应禁用检查；非标准 workerd 部署须保留仅公开网络出口。Web 回退返回有大小限制的二进制正文，不再使用 Base64 JSON，避免 Base64 的额外传输体积。
 
-插件权限检查和直接请求的域名白名单在可信客户端宿主执行。公开传输有意允许匿名读取任意公开 HTTPS 域名。后端独立要求用户认证并限制仅公开网络，不信任客户端提交的插件 ID，也不声称提供服务端证明的插件隔离；仍遵循可信 JavaScript 边界。后端不接收来源枚举、搜索时间范围、证据结构或报告流程。
+插件能力声明主要用于告知意图并发现误用；启用后的插件属于受信任 JavaScript，不是安全沙箱。一个同时能够读取笔记和访问网络的插件可以把笔记发送出去。公开传输有意允许匿名读取任意公开 HTTPS 域名。后端仍独立要求用户认证并限制仅公开网络，避免共享的 EdgeEver 服务被用来访问私网；它不声称提供服务端证明的插件隔离。后端不接收来源枚举、搜索时间范围、证据结构或报告流程。

@@ -111,7 +111,7 @@ Supported permissions:
 - `ui:panels`
 - `ui:embeds`
 
-Direct browser access through `context.network.fetch()` requires a `networkHosts` allowlist. The anonymous, read-only `network:public` transport may reach any public HTTPS host and does not use a static host list.
+Network access through `context.network.fetch()` requires the `network` capability declaration, but it is not restricted to a static host list. `networkHosts` remains accepted as legacy descriptive metadata and is not enforced. The anonymous, read-only `network:public` transport is available when a plugin needs a cross-origin public response without credentials.
 
 ## Plugin entry
 
@@ -312,17 +312,19 @@ await context.storage.set("cursor", "next-page");
 const cursor = await context.storage.get<string>("cursor");
 ```
 
-Direct browser requests are limited to HTTPS, except localhost development, and to declared hosts:
+Direct requests may use HTTP or HTTPS with arbitrary destinations, methods, headers, bodies, and browser credential modes. The Web runtime still follows the browser's CORS and cookie rules:
 
 ```json
 {
-  "permissions": ["network"],
-  "networkHosts": ["api.example.com", "*.trusted.example.com"]
+  "permissions": ["network"]
 }
 ```
 
 ```ts
-await context.network.fetch("https://api.example.com/items");
+await context.network.fetch("https://api.example.com/items", {
+  headers: { Authorization: `Bearer ${token}`, "X-Client": "my-plugin" },
+  credentials: "include",
+});
 ```
 
 Use regular `storage` for cursors and preferences. Sensitive strings such as API keys belong in `secrets`:
@@ -487,7 +489,7 @@ const result = await context.ai.generate({
 
 `system` is limited to 8,000 characters, `prompt` to 90,000, output to 5,000 tokens, and generation to 120 seconds. The backend requires an interactive user session, disables AI in public demo mode, and redacts provider errors. AI calls have a four-request per-workspace guard in each backend instance; this is not a distributed quota. Model charges follow the configured provider. Plugin deactivation aborts outstanding calls.
 
-Existing `network.fetch(url, init)` remains browser fetch with CORS, omitted browser credentials, and a required `networkHosts` allowlist. To read arbitrary public feeds or APIs without credentials, add both `network` and `network:public` and explicitly select `transport: "public"`. This public transport is a single broad capability: it does not require or enforce a static host list. The anonymous public transport header restrictions below do not apply to ordinary direct requests; capabilities that need browser credentials such as cookies should use a separate, explicit authorization capability instead of borrowing `network:public`.
+The default `network.fetch(url, init)` transport is a trusted browser request. It accepts arbitrary HTTP/HTTPS destinations, methods, bodies, request headers such as `Authorization`, and the requested browser credential mode. It remains subject to the runtime browser's CORS and cookie policy. `networkHosts` is legacy descriptive metadata and is not a security boundary. To read a cross-origin public feed or API without credentials, add both `network` and `network:public` and explicitly select `transport: "public"`.
 
 ```json
 {
@@ -511,4 +513,4 @@ The host selects the least expensive safe transport without changing the plugin 
 
 All native/server drivers share one policy package. Desktop and self-hosted Bun validate every DNS answer and pass the validated address directly to TLS; private, special-use and mixed public/private answers are rejected. Cloudflare fallback uses workerd's default public-only Internet egress and no private-service bindings. Synthetic VPN/fake-IP DNS answers in reserved ranges are rejected; do not disable this check. Nonstandard workerd deployments must preserve public-only global egress. The Web fallback returns bounded binary bytes rather than Base64 JSON, avoiding Base64's transfer expansion.
 
-Plugin permission checks and direct-request host allowlists run in the trusted client host. The public transport intentionally grants anonymous read access to arbitrary public HTTPS hosts. Backend routes independently require user authentication and enforce public-only egress; they do not trust client-supplied plugin IDs and do not claim server-attested per-plugin isolation. The trusted-JavaScript limitation still applies. The backend never receives a source enum, search window, evidence schema or report workflow.
+Plugin capability declarations primarily communicate intent and catch accidental API use; enabled plugins are trusted JavaScript, not a security sandbox. A plugin that can read notes and use the network can transmit those notes. The public transport intentionally grants anonymous read access to arbitrary public HTTPS hosts. Backend routes independently require user authentication and enforce public-only egress so the shared EdgeEver service cannot be used to reach private networks; they do not claim server-attested per-plugin isolation. The backend never receives a source enum, search window, evidence schema or report workflow.
