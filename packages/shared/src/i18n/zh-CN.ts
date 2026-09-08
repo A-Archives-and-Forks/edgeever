@@ -659,7 +659,6 @@ export const zhCN = {
     permissions: {
       publicNetwork: "读取任意公开网站内容",
     },
-    trustedCodeNotice: "启用插件即代表信任其代码。插件可以读写全部笔记、访问网络并使用已开放的宿主能力；请只启用你信任的插件。",
     toggle: "启用或停用 {{name}}",
     uninstall: "卸载",
     settings: {

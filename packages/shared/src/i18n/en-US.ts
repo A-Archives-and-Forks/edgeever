@@ -659,7 +659,6 @@ export const enUS = {
     permissions: {
       publicNetwork: "Read content from any public website",
     },
-    trustedCodeNotice: "Enabling a plugin means trusting its code. Plugins can read and modify all notes, access the network, and use available host capabilities. Enable only plugins you trust.",
     toggle: "Enable or disable {{name}}",
     uninstall: "Uninstall",
     settings: {
