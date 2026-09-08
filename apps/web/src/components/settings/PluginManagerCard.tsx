@@ -18,6 +18,13 @@ import { getPluginDetailPage, getPluginDetailPath, hasPluginSettings, type Plugi
 import type { ScheduledTask } from "@edgeever/shared";
 import { api, getOrCreateClientDeviceId } from "@/lib/api";
 import { ScheduledTaskRunHistoryDialog } from "@/components/execution/ScheduledTaskRunHistoryDialog";
+import { AppConfirmDialog } from "@/components/dialogs/ConfirmDialogs";
+import {
+  acknowledgePluginTrustWarning,
+  hasAcknowledgedPluginTrustWarning,
+  PLUGIN_TRUST_WARNING_COPY,
+  shouldRequestPluginTrustAcknowledgement,
+} from "@/lib/plugins/plugin-trust";
 
 const permissionLabel = (permission: string) => permission.replace(":", " · ");
 
@@ -301,6 +308,7 @@ export const PluginManagerCard = ({
   const [error, setError] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<RegisteredPluginPanel | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<PluginUpdateInfo | null>(null);
+  const [pendingTrustPluginId, setPendingTrustPluginId] = useState<string | null>(null);
   const marketplaceQuery = useQuery({ queryKey: ["plugin-marketplace", "v1"], queryFn: () => loadPluginMarketplace(), staleTime: 5 * 60_000 });
   const extensionVersionKey = snapshot.extensions
     .map((extension) => `${extension.manifest.id}:${extension.manifest.version}:${extension.source.kind}`)
@@ -373,6 +381,26 @@ export const PluginManagerCard = ({
     } finally {
       setManuallyChecking(false);
     }
+  };
+
+  const toggleExtension = (extension: InstalledExtension, enabled: boolean) => {
+    if (shouldRequestPluginTrustAcknowledgement({
+      acknowledged: hasAcknowledgedPluginTrustWarning(),
+      enabled,
+      extensionType: extension.manifest.type,
+    })) {
+      setPendingTrustPluginId(extension.manifest.id);
+      return;
+    }
+    void run(extension.manifest.id, () => host.setEnabled(extension.manifest.id, enabled));
+  };
+
+  const confirmPluginTrust = () => {
+    const pluginId = pendingTrustPluginId;
+    if (!pluginId) return;
+    acknowledgePluginTrustWarning();
+    setPendingTrustPluginId(null);
+    void run(pluginId, () => host.setEnabled(pluginId, true));
   };
 
   const applyUpdate = async (update: PluginUpdateInfo) => {
@@ -453,7 +481,7 @@ export const PluginManagerCard = ({
               commands={snapshot.commands.filter((command) => command.pluginId === selectedExtension.manifest.id)}
               panels={snapshot.panels.filter((panel) => panel.pluginId === selectedExtension.manifest.id)}
               pendingId={pendingId}
-              onToggle={(enabled) => void run(selectedExtension.manifest.id, () => host.setEnabled(selectedExtension.manifest.id, enabled))}
+              onToggle={(enabled) => toggleExtension(selectedExtension, enabled)}
               onUpdate={() => {
                 const update = updateQuery.data?.updates.find((candidate) => candidate.pluginId === selectedExtension.manifest.id);
                 if (update) setPendingUpdate(update);
@@ -605,7 +633,7 @@ export const PluginManagerCard = ({
                       aria-label={t("plugins.toggle", { name: extension.manifest.name })}
                       checked={extension.enabled}
                       disabled={pendingId === id}
-                      onCheckedChange={(enabled) => void run(id, () => host.setEnabled(id, enabled))}
+                      onCheckedChange={(enabled) => toggleExtension(extension, enabled)}
                     />
                   </div>
 
@@ -697,6 +725,16 @@ export const PluginManagerCard = ({
             isUpdating={pendingId === `update:${pendingUpdate.pluginId}`}
             onCancel={() => setPendingUpdate(null)}
             onConfirm={() => void run(`update:${pendingUpdate.pluginId}`, () => applyUpdate(pendingUpdate))}
+          />
+        ) : null}
+        {pendingTrustPluginId ? (
+          <AppConfirmDialog
+            title={t(PLUGIN_TRUST_WARNING_COPY.titleKey)}
+            description={t(PLUGIN_TRUST_WARNING_COPY.descriptionKey)}
+            confirmLabel={t(PLUGIN_TRUST_WARNING_COPY.confirmLabelKey)}
+            tone="neutral"
+            onCancel={() => setPendingTrustPluginId(null)}
+            onConfirm={confirmPluginTrust}
           />
         ) : null}
       </CardContent>

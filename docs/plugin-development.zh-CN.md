@@ -8,6 +8,8 @@ EdgeEver P0 扩展 API 支持受信任的客户端插件和无代码主题包。
 
 客户端插件采用类似 Obsidian 的受信任代码模型。启用插件即代表信任它使用完整的 EdgeEver 插件上下文；能力声明只是可选的描述性元数据，不限制 API 调用。插件模块运行在客户端 JavaScript 环境中，因此用户只能安装来自可信开发者的插件。
 
+用户在一台设备上首次启用客户端插件时，EdgeEver 会显示一次社区插件信任确认；确认后不会对每个插件重复提示。主题包不能执行 JavaScript，因此不会触发该确认。
+
 公开 API 不会向插件暴露 EdgeEver Repository、IndexedDB 数据库、Cloudflare Binding 或 React 内部状态。
 
 ## 插件 Manifest

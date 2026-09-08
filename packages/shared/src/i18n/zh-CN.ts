@@ -659,6 +659,11 @@ export const zhCN = {
     permissions: {
       publicNetwork: "读取任意公开网站内容",
     },
+    trustWarning: {
+      title: "开启社区插件？",
+      description: "社区插件会代表你运行第三方代码，并继承 EdgeEver 的访问能力，包括读取和修改笔记、连接互联网。请仅启用你信任的插件。",
+      confirm: "开启社区插件",
+    },
     toggle: "启用或停用 {{name}}",
     uninstall: "卸载",
     settings: {

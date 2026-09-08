@@ -659,6 +659,11 @@ export const enUS = {
     permissions: {
       publicNetwork: "Read content from any public website",
     },
+    trustWarning: {
+      title: "Turn on community plugins?",
+      description: "Community plugins run third-party code on your behalf and inherit EdgeEver's access, including the ability to read and modify notes and connect to the internet. Enable only plugins you trust.",
+      confirm: "Turn on community plugins",
+    },
     toggle: "Enable or disable {{name}}",
     uninstall: "Uninstall",
     settings: {
