@@ -20,7 +20,8 @@ Plugins never receive EdgeEver's repository, IndexedDB database, Cloudflare bind
   "id": "com.example.recent-notes",
   "name": "Recent Notes",
   "version": "1.0.0",
-  "apiVersion": "1",
+  "apiVersion": "2",
+  "settingsUi": "host",
   "description": "Adds a command for recent notes.",
   "entry": "./main.js",
   "platforms": ["web", "desktop"],
@@ -281,7 +282,7 @@ context.events.on("template.updated", ({ template }) => console.log(template.nam
 
 Plugins can declare settings that EdgeEver renders consistently on a dedicated Plugin settings page within plugin details. Installed plugin cards and the plugin toolbar menu link directly to this page. Plugins without settings fields have no settings entry, while disabled plugins remain configurable. Settings are stored on the current device only. Put defaults and credentials in settings, and use plugin commands or functional panels for actual operations; ordinary configuration does not need a separate custom panel. Supported field types are `text`, `secret`, `number`, `boolean`, and `select`:
 
-The settings Schema is deliberately declarative. EdgeEver owns field layout, controls, spacing, validation, responsive behavior, accessibility, save states, and secret presentation. Presentation properties such as HTML, components, CSS classes, inline styles, colors, typography, or custom setting-page navigation are ignored. A plugin decides what can be configured, not how the settings page looks. Use commands or a clearly named functional panel for complex workflows such as authorization, connectivity tests, migrations, and index rebuilding; do not recreate ordinary settings in a custom panel.
+Plugin API v2 requires `settingsUi: "host"`. The settings Schema is deliberately declarative: EdgeEver owns field layout, controls, spacing, validation, responsive behavior, accessibility, save states, and secret presentation. Presentation properties such as HTML, components, CSS classes, inline styles, colors, typography, or custom setting-page navigation are ignored. A plugin decides what can be configured, not how the settings page looks. Custom settings pages are rejected by the host. Use commands or a clearly named functional panel for workflows such as authorization, connectivity tests, migrations, and index rebuilding; do not recreate ordinary settings in a custom panel.
 
 ```json
 {
@@ -415,6 +416,7 @@ Plugins can register framework-independent DOM panels. Users open them from the 
 context.ui.panels.register({
   id: "dashboard",
   title: "Dashboard",
+  purpose: "dashboard",
   presentation: "fullscreen",
   mount(container, { state, requestClose }) {
     const heading = document.createElement("h2");
@@ -431,6 +433,8 @@ context.ui.panels.register({
 
 await context.ui.panels.open("dashboard", { state: { resourceId } });
 ```
+
+Every API v2 panel must declare one business purpose: `workflow`, `dashboard`, `preview`, or `onboarding`. A panel is not an alternative settings surface. Persistent booleans, text, numbers, secrets, and fixed-option selections belong in the Manifest settings Schema. Workspace-backed choices that are meaningful only while performing an operation may remain workflow controls until the host settings Schema supports them.
 
 `presentation` accepts `dialog` (the default) or `fullscreen`. `panels.open()` can only open a panel registered by the calling plugin; its optional JSON state is limited to 64 KiB and is delivered through the mount context. `beforeClose()` may return `true` to close, `false` to stay open, or confirmation copy for a host-rendered dialog. The mount context's `requestClose()` follows the same guard.
 

@@ -65,6 +65,28 @@ beforeEach(() => {
 });
 
 describe("EdgeEverPluginHost", () => {
+  test("rejects custom settings panels for API v2 plugins", async () => {
+    const host = new EdgeEverPluginHost({ repository, scope: "settings-policy" });
+    const id = "org.edgeever.settings-policy";
+    host.installManifest({
+      type: "plugin",
+      id,
+      name: "Settings policy",
+      version: "1.0.0",
+      apiVersion: "2",
+      settingsUi: "host",
+      entry: new URL("./plugin-settings-policy.fixture.mjs", import.meta.url).href,
+      permissions: ["ui:panels"],
+    }, "https://example.org/manifest.json");
+
+    await expect(host.setEnabled(id, true)).rejects.toThrow("custom settings panels are not allowed");
+    expect(host.getSnapshot().extensions.find((extension) => extension.manifest.id === id)).toMatchObject({
+      enabled: false,
+      error: expect.stringContaining("custom settings panels are not allowed"),
+    });
+    await host.dispose();
+  });
+
   test('enabled plugins can use host capabilities without manifest permission declarations', async () => {
     const calls = [];
     const directCalls = [];
@@ -74,7 +96,7 @@ describe("EdgeEverPluginHost", () => {
       publicNetworkAdapter: { fetchPublic: async input => { calls.push(input); return { url: input.url, status: 429, statusText: 'Too Many Requests', headers: {}, body: new TextEncoder().encode('limited').buffer }; } },
     });
     const install = async (id, permissions) => {
-      host.installManifest({ type: 'plugin', id, name: id, version: '1.0.0', apiVersion: '1', entry: new URL('./plugin-capabilities.fixture.mjs', import.meta.url).href, ...(permissions ? { permissions } : {}) }, 'https://example.org/manifest.json');
+      host.installManifest({ type: 'plugin', id, name: id, version: '1.0.0', apiVersion: '2', settingsUi: 'host', entry: new URL('./plugin-capabilities.fixture.mjs', import.meta.url).href, ...(permissions ? { permissions } : {}) }, 'https://example.org/manifest.json');
       await host.setEnabled(id, true);
     };
     await install('org.test.trusted');
@@ -112,7 +134,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.schedule-test",
       name: "Schedule Test",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: new URL("./plugin-host-schedules.fixture.mjs", import.meta.url).href,
       permissions: ["ui:commands", "schedules"],
     }, "https://example.com/schedule-plugin/manifest.json");
@@ -185,7 +208,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.test-plugin",
       name: "Test plugin",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry,
       permissions: ["notes:write", "ui:commands", "ui:notices", "ui:panels", "editor:read", "editor:write", "secrets", "storage"],
       settings: {
@@ -244,7 +268,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.marketplace-test",
       name: "Marketplace Test",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: [],
     };
@@ -313,7 +338,8 @@ describe("EdgeEverPluginHost", () => {
       id: pluginId,
       name: "Rollback Test",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry,
       permissions: ["notes:write", "ui:commands", "ui:notices", "ui:panels", "editor:read", "editor:write", "secrets", "storage"],
     }, "https://plugins.example/v1/manifest.json");
@@ -324,7 +350,8 @@ describe("EdgeEverPluginHost", () => {
       id: pluginId,
       name: "Rollback Test",
       version: "2.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: [],
     };
@@ -471,7 +498,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.capabilities",
       name: "Capabilities",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry,
       permissions: [],
       settings: { fields: [{ key: "endpoint", type: "text", label: "Endpoint", default: "https://api.example" }] },
@@ -629,7 +657,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.events",
       name: "Events",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
       permissions: ["notes:read", "templates:read", "resources:read"],
       settings: { fields: [{ key: "mode", type: "select", label: "Mode", default: "daily", options: [
@@ -645,7 +674,8 @@ describe("EdgeEverPluginHost", () => {
       id: "org.edgeever.events-other",
       name: "Other Events",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: new URL("./plugin-host-events.fixture.mjs", import.meta.url).href,
       permissions: [],
       settings: { fields: [{ key: "mode", type: "text", label: "Mode" }] },

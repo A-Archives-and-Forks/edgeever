@@ -1,4 +1,5 @@
 import {
+  PLUGIN_API_VERSION,
   parseExtensionManifest,
   type MarketplaceEntry,
   type EdgeEverPlugin,
@@ -1420,6 +1421,10 @@ export class EdgeEverPluginHost {
             assertPermission(manifest, "ui:panels");
             if (!/^[a-z0-9][a-z0-9._-]*$/i.test(panel.id)) throw new Error("Plugin panel id is invalid.");
             if (!panel.title.trim()) throw new Error("Plugin panel title is required.");
+            const allowedPurposes = new Set(["workflow", "dashboard", "preview", "onboarding"]);
+            if (manifest.apiVersion === PLUGIN_API_VERSION && !allowedPurposes.has(panel.purpose)) {
+              throw new Error("Plugin API v2 panels require a supported business purpose; custom settings panels are not allowed.");
+            }
             const key = `${manifest.id}:${panel.id}`;
             if (this.panels.has(key)) throw new Error(`Plugin panel already exists: ${panel.id}`);
             this.panels.set(key, {
@@ -1455,6 +1460,9 @@ export class EdgeEverPluginHost {
   ) {
     if (manifest.id !== entry.id) throw new Error("Marketplace plugin id does not match the downloaded manifest.");
     if (manifest.version !== entry.verification.version) throw new Error("Downloaded version does not match the marketplace verified version.");
+    if (manifest.type === "plugin" && manifest.apiVersion !== PLUGIN_API_VERSION) {
+      throw new Error(`Marketplace plugins must use plugin API v${PLUGIN_API_VERSION}.`);
+    }
     for (const [name, expected] of Object.entries(entry.verification.checksums ?? {})) {
       const actual = actualChecksums[name as keyof CachedPluginPackage["checksums"]];
       if (!actual || actual.toLocaleLowerCase() !== expected) throw new Error(`${name} does not match the marketplace verified checksum.`);

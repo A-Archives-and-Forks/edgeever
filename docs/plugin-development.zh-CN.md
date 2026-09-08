@@ -20,7 +20,8 @@ EdgeEver P0 扩展 API 支持受信任的客户端插件和无代码主题包。
   "id": "com.example.recent-notes",
   "name": "Recent Notes",
   "version": "1.0.0",
-  "apiVersion": "1",
+  "apiVersion": "2",
+  "settingsUi": "host",
   "description": "Adds a command for recent notes.",
   "entry": "./main.js",
   "platforms": ["web", "desktop"],
@@ -281,7 +282,7 @@ context.events.on("template.updated", ({ template }) => console.log(template.nam
 
 插件可以在 Manifest 中声明设置，由 EdgeEver 在插件详情的独立「插件设置」页面统一渲染。已安装插件卡片和插件工具菜单均可直达该页面；未声明配置项的插件不显示设置入口，停用的插件仍可配置。设置仅保存在当前设备。默认行为和凭据应放在设置中，实际操作使用插件命令或功能面板，无需为普通配置另建面板。目前支持 `text`、`secret`、`number`、`boolean` 和 `select`：
 
-设置 Schema 有意保持为声明式结构。字段布局、控件、间距、校验、响应式行为、无障碍、保存状态和密钥呈现均由 EdgeEver 管理；Manifest 中的 HTML、组件、CSS class、内联样式、颜色、字体以及自定义设置页导航等展示属性会被忽略。插件决定“配置什么”，而不是“设置页长什么样”。授权、连通性测试、数据迁移、索引重建等复杂流程应使用命令或命名清晰的功能面板，不要在自定义面板中重复实现普通设置。
+插件 API v2 强制要求 `settingsUi: "host"`。设置 Schema 有意保持为声明式结构：字段布局、控件、间距、校验、响应式行为、无障碍、保存状态和密钥呈现均由 EdgeEver 管理；Manifest 中的 HTML、组件、CSS class、内联样式、颜色、字体以及自定义设置页导航等展示属性会被忽略。插件决定“配置什么”，而不是“设置页长什么样”。宿主会拒绝自定义设置页。授权、连通性测试、数据迁移、索引重建等流程应使用命令或命名清晰的功能面板，不要在自定义面板中重复实现普通设置。
 
 ```json
 {
@@ -415,6 +416,7 @@ await context.ui.openNote(noteId, { search: "- [ ] 发布版本" });
 context.ui.panels.register({
   id: "dashboard",
   title: "Dashboard",
+  purpose: "dashboard",
   presentation: "fullscreen",
   mount(container, { state, requestClose }) {
     const heading = document.createElement("h2");
@@ -431,6 +433,8 @@ context.ui.panels.register({
 
 await context.ui.panels.open("dashboard", { state: { resourceId } });
 ```
+
+每个 API v2 面板必须声明一种业务用途：`workflow`、`dashboard`、`preview` 或 `onboarding`。面板不能作为另一套设置入口。持久化的布尔值、文本、数字、密钥和固定选项必须放进 Manifest 设置 Schema。只有在执行某项操作时才有意义的工作区动态选项，可在宿主设置 Schema 尚不支持时保留为工作流控件。
 
 `presentation` 可以使用 `dialog`（默认）或 `fullscreen`。`panels.open()` 只能打开调用插件自己注册的面板；可选 JSON 状态上限为 64 KiB，并通过挂载上下文传入。`beforeClose()` 可以返回 `true` 关闭、返回 `false` 保持打开，或返回由宿主显示确认框所需的文案。挂载上下文中的 `requestClose()` 同样会经过这项保护。
 

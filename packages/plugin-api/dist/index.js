@@ -1,5 +1,5 @@
 // src/index.ts
-var PLUGIN_API_VERSION = "1";
+var PLUGIN_API_VERSION = "2";
 var THEME_API_VERSION = "1";
 var PLUGIN_PERMISSIONS = [
   "notes:read",
@@ -197,6 +197,9 @@ var parseExtensionManifest = (value) => {
   if (value.type === "plugin") {
     if (value.apiVersion !== PLUGIN_API_VERSION)
       throw new Error(`Unsupported plugin API version: ${String(value.apiVersion)}`);
+    if (value.settingsUi !== "host") {
+      throw new Error('Plugin API v2 requires settingsUi to be "host".');
+    }
     if (typeof value.entry !== "string" || !value.entry.trim())
       throw new Error("Plugin entry is required.");
     if (value.permissions !== undefined && !Array.isArray(value.permissions))

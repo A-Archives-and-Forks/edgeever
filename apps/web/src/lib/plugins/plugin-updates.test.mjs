@@ -6,7 +6,8 @@ const pluginManifest = {
   id: "org.edgeever.update-test",
   name: "Update Test",
   version: "1.0.0",
-  apiVersion: "1",
+  apiVersion: "2",
+  settingsUi: "host",
   entry: "./main.js",
   permissions: ["ui:notices"],
 };

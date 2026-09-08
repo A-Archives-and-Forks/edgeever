@@ -1,4 +1,4 @@
-export const PLUGIN_API_VERSION = "1" as const;
+export const PLUGIN_API_VERSION = "2" as const;
 export const THEME_API_VERSION = "1" as const;
 
 export const PLUGIN_PERMISSIONS = [
@@ -35,6 +35,8 @@ export interface PluginManifest {
   name: string;
   version: string;
   apiVersion: typeof PLUGIN_API_VERSION;
+  /** Plugins must delegate ordinary persistent configuration to EdgeEver. */
+  settingsUi: "host";
   description?: string;
   author?: string;
   entry: string;
@@ -330,6 +332,7 @@ export interface PluginOpenNoteOptions {
 
 export type PluginJsonValue = null | boolean | number | string | PluginJsonValue[] | { [key: string]: PluginJsonValue };
 export type PluginPanelPresentation = "dialog" | "fullscreen";
+export type PluginPanelPurpose = "workflow" | "dashboard" | "preview" | "onboarding";
 
 export interface PluginPanelOpenOptions {
   state?: PluginJsonValue;
@@ -370,6 +373,8 @@ export interface PluginEmbedRenderer {
 export interface PluginPanel {
   id: string;
   title: string;
+  /** Business purpose of this panel. Custom settings pages are intentionally unsupported. */
+  purpose: PluginPanelPurpose;
   presentation?: PluginPanelPresentation;
   mount(container: HTMLElement, context: PluginPanelMountContext): void | (() => void) | Promise<void | (() => void)>;
   beforeClose?(): PluginPanelCloseDecision | Promise<PluginPanelCloseDecision>;
@@ -613,6 +618,9 @@ export const parseExtensionManifest = (value: unknown): ExtensionManifest => {
 
   if (value.type === "plugin") {
     if (value.apiVersion !== PLUGIN_API_VERSION) throw new Error(`Unsupported plugin API version: ${String(value.apiVersion)}`);
+    if (value.settingsUi !== "host") {
+      throw new Error('Plugin API v2 requires settingsUi to be "host".');
+    }
     if (typeof value.entry !== "string" || !value.entry.trim()) throw new Error("Plugin entry is required.");
     if (value.permissions !== undefined && !Array.isArray(value.permissions)) throw new Error("Plugin permissions must be an array.");
     const allowedPermissions = new Set<string>(PLUGIN_PERMISSIONS);

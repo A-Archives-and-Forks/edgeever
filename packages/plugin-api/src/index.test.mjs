@@ -8,7 +8,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.example",
       name: "Example",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: ["notes:read", "notes:read", "templates:read", "templates:write", "schedules", "ui:commands", "ui:navigation", "ui:embeds"],
     })).toMatchObject({ permissions: ["notes:read", "templates:read", "templates:write", "schedules", "ui:commands", "ui:navigation", "ui:embeds"] });
@@ -20,10 +21,25 @@ describe("extension manifests", () => {
       id: "org.edgeever.bad",
       name: "Bad",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: ["database:raw"],
     })).toThrow("Unsupported plugin permission");
+  });
+
+  test("requires API v2 plugins to use host-rendered settings", () => {
+    const base = {
+      type: "plugin",
+      id: "org.edgeever.policy",
+      name: "Policy",
+      version: "1.0.0",
+      entry: "./main.js",
+      permissions: [],
+    };
+    expect(() => parseExtensionManifest({ ...base, apiVersion: "1", settingsUi: "host" })).toThrow("Unsupported plugin API version");
+    expect(() => parseExtensionManifest({ ...base, apiVersion: "2" })).toThrow('settingsUi to be "host"');
+    expect(() => parseExtensionManifest({ ...base, apiVersion: "2", settingsUi: "custom" })).toThrow('settingsUi to be "host"');
   });
 
   test("rejects unknown theme tokens", () => {
@@ -56,7 +72,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.network",
       name: "Network",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: ["network"],
     })).toMatchObject({ permissions: ["network"] });
@@ -68,7 +85,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.trusted",
       name: "Trusted",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
     })).toMatchObject({ permissions: [] });
   });
@@ -79,7 +97,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.public-network",
       name: "Public network",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: ["network", "network:public"],
     })).toMatchObject({ permissions: ["network", "network:public"] });
@@ -91,7 +110,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.settings",
       name: "Settings",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: [],
       settings: {
@@ -127,7 +147,8 @@ describe("extension manifests", () => {
       id: "org.edgeever.settings-invalid",
       name: "Settings",
       version: "1.0.0",
-      apiVersion: "1",
+      apiVersion: "2",
+      settingsUi: "host",
       entry: "./main.js",
       permissions: [],
     };
