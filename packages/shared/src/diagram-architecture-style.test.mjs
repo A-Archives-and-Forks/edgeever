@@ -35,6 +35,14 @@ describe("architecture semantic paint", () => {
     }
   });
 
+  test("keeps light fills pale instead of saturated chips", () => {
+    const light = resolveArchitectureSurface("light");
+    for (const shape of ARCHITECTURE_COMPONENT_SHAPES) {
+      expect(luminance(light.nodes[shape].fill)).toBeGreaterThan(0.75);
+      expect(luminance(light.nodes[shape].fill)).toBeLessThan(luminance("#FFFFFF"));
+    }
+  });
+
   test("preserves hue on dark cards instead of sharing one fill", () => {
     const dark = resolveArchitectureSurface("dark");
     const light = resolveArchitectureSurface("light");
