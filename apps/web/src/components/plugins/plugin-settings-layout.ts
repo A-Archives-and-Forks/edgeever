@@ -12,18 +12,15 @@ export const groupPluginSettingFields = (fields: PluginSettingField[]): PluginSe
   const groups: PluginSettingFieldGroup[] = [];
   for (let index = 0; index < fields.length;) {
     const field = fields[index]!;
-    if (field.type !== "boolean") {
-      groups.push({ id: field.key, compact: false, fields: [field] });
-      index += 1;
-      continue;
-    }
-
     const namespace = fieldNamespace(field);
     let end = index + 1;
-    while (end < fields.length && fields[end]!.type === "boolean" && fieldNamespace(fields[end]!) === namespace) end += 1;
+    while (end < fields.length && fieldNamespace(fields[end]!) === namespace) end += 1;
     const run = fields.slice(index, end);
-    if (run.length >= 3) groups.push({ id: `${namespace}:${field.key}`, compact: true, fields: run });
-    else for (const item of run) groups.push({ id: item.key, compact: false, fields: [item] });
+    groups.push({
+      id: `${namespace}:${field.key}`,
+      compact: run.length >= 3 && run.every((item) => item.type === "boolean"),
+      fields: run,
+    });
     index = end;
   }
   return groups;

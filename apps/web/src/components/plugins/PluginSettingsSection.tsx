@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { PluginManifest, PluginSettingField, PluginSettingValue } from "@edgeever/plugin-api";
 import type { EdgeEverPluginHost } from "@/lib/plugins/plugin-host";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,15 +35,13 @@ const PluginSettingFieldRow = ({
     </label>
   );
 
-  return (
-    <div className={compact
-      ? "flex min-w-0 items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4"
-      : "grid min-w-0 gap-3 py-5 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] md:gap-8"}>
+  const content = (
+    <>
       <div className="min-w-0">
         {label}
         {field.description ? <p id={descriptionId} className="mt-1 text-xs leading-5 text-slate-500">{field.description}</p> : null}
       </div>
-      <div className="min-w-0 md:max-w-xl">
+      <div className={field.type === "boolean" ? "shrink-0 pt-0.5" : "min-w-0 md:max-w-xl"}>
         {field.type === "boolean" ? (
           <Switch
             id={inputId}
@@ -89,6 +88,18 @@ const PluginSettingFieldRow = ({
           />
         )}
       </div>
+    </>
+  );
+
+  if (compact) {
+    return <Card className="flex min-w-0 items-start justify-between gap-4 p-4 shadow-none">{content}</Card>;
+  }
+
+  return (
+    <div className={field.type === "boolean"
+      ? "flex min-w-0 items-start justify-between gap-4 px-4 py-4 sm:px-5"
+      : "grid min-w-0 gap-3 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] md:gap-8"}>
+      {content}
     </div>
   );
 };
@@ -186,14 +197,8 @@ export const PluginSettingsSection = ({ host, manifest }: { host: EdgeEverPlugin
         <form onChange={clearFeedback} onSubmit={(event) => { event.preventDefault(); void save(); }}>
           <fieldset disabled={saving} className="min-w-0">
             <div className="py-5">
-            {fieldGroups.map((group, groupIndex) => (
-              <div
-                key={group.id}
-                className={group.compact
-                  ? `grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4${groupIndex > 0 ? " mt-5 border-t border-slate-100 pt-5" : ""}`
-                  : groupIndex > 0 ? "border-t border-slate-100" : ""}
-              >
-                {group.fields.map((field) => {
+              {fieldGroups.map((group, groupIndex) => {
+                const rows = group.fields.map((field) => {
                   const value = values[field.key] ?? "";
                   const inputId = `${formId}-${field.key}`;
                   return (
@@ -211,9 +216,23 @@ export const PluginSettingsSection = ({ host, manifest }: { host: EdgeEverPlugin
                       }}
                     />
                   );
-                })}
-              </div>
-            ))}
+                });
+                return group.compact ? (
+                  <div
+                    key={group.id}
+                    className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4${groupIndex > 0 ? " mt-5" : ""}`}
+                  >
+                    {rows}
+                  </div>
+                ) : (
+                  <Card
+                    key={group.id}
+                    className={`${groupIndex > 0 ? "mt-5 " : ""}divide-y divide-slate-100 overflow-hidden shadow-none`}
+                  >
+                    {rows}
+                  </Card>
+                );
+              })}
             </div>
             <div className="flex min-h-14 flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-4">
               {message ? <span className="mr-auto text-sm text-emerald-700" role="status">{message}</span> : null}

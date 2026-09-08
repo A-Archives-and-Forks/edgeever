@@ -15,8 +15,7 @@ describe("plugin settings layout", () => {
     const groups = groupPluginSettingFields(fields);
     expect(groups.map((group) => ({ compact: group.compact, keys: group.fields.map((field) => field.key) }))).toEqual([
       { compact: true, keys: ["topics.ai", "topics.engineering", "topics.science"] },
-      { compact: false, keys: ["translation.auto-enabled"] },
-      { compact: false, keys: ["translation.target-language"] },
+      { compact: false, keys: ["translation.auto-enabled", "translation.target-language"] },
       { compact: false, keys: ["digest.auto-enabled"] },
     ]);
   });
@@ -27,6 +26,8 @@ describe("plugin settings layout", () => {
       { key: "alerts.push", type: "boolean", label: "Push" },
     ];
 
-    expect(groupPluginSettingFields(fields).every((group) => !group.compact)).toBe(true);
+    expect(groupPluginSettingFields(fields).map((group) => ({ compact: group.compact, keys: group.fields.map((field) => field.key) }))).toEqual([
+      { compact: false, keys: ["alerts.email", "alerts.push"] },
+    ]);
   });
 });
