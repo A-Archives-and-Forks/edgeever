@@ -656,6 +656,9 @@ export const zhCN = {
     install: "安装",
     installing: "安装中…",
     empty: "当前设备尚未安装插件或主题。",
+    permissions: {
+      publicNetwork: "读取任意公开网站内容",
+    },
     toggle: "启用或停用 {{name}}",
     uninstall: "卸载",
     settings: {

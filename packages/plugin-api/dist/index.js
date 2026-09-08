@@ -214,8 +214,8 @@ var parseExtensionManifest = (value) => {
     if (networkHosts?.some((host) => !/^(?:\*\.)?[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(host))) {
       throw new Error("networkHosts entries must be hostnames without a scheme, port, or path.");
     }
-    if (permissions.includes("network") && !networkHosts?.length) {
-      throw new Error("Plugins requesting network permission must declare networkHosts.");
+    if (permissions.includes("network") && !permissions.includes("network:public") && !networkHosts?.length) {
+      throw new Error("Plugins requesting direct network access must declare networkHosts.");
     }
     const platforms = value.platforms === undefined ? undefined : Array.isArray(value.platforms) && value.platforms.every((platform) => ["web", "desktop", "android", "ios"].includes(String(platform))) ? [...new Set(value.platforms.map(String))] : (() => {
       throw new Error("Plugin platforms contains an unsupported platform.");

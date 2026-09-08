@@ -656,6 +656,9 @@ export const enUS = {
     install: "Install",
     installing: "Installing…",
     empty: "No plugins or themes are installed on this device.",
+    permissions: {
+      publicNetwork: "Read content from any public website",
+    },
     toggle: "Enable or disable {{name}}",
     uninstall: "Uninstall",
     settings: {

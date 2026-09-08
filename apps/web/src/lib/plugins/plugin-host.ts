@@ -1386,9 +1386,6 @@ export class EdgeEverPluginHost {
           if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
             throw new Error("Plugin network requests must use HTTPS, except for localhost development.");
           }
-          if (!manifest.networkHosts?.length || !isAllowedNetworkHost(url.hostname.toLocaleLowerCase(), manifest.networkHosts)) {
-            throw new Error(`${url.hostname} is not declared in this plugin's networkHosts.`);
-          }
           const { transport = 'direct', ...requestInit } = init ?? {};
           const signal = AbortSignal.any([lifetime.signal, ...(requestInit.signal ? [requestInit.signal] : [])]);
           if (transport === 'public') {
@@ -1404,6 +1401,9 @@ export class EdgeEverPluginHost {
             return response;
           }
           if (transport !== 'direct') throw new Error('Unsupported network transport.');
+          if (!manifest.networkHosts?.length || !isAllowedNetworkHost(url.hostname.toLocaleLowerCase(), manifest.networkHosts)) {
+            throw new Error(`${url.hostname} is not declared in this plugin's networkHosts.`);
+          }
           return window.fetch(url, { ...requestInit, signal, credentials: "omit" });
         },
       },
