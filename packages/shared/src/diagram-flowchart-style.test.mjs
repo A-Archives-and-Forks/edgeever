@@ -2,12 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { flowchartNodePresentation } from "./diagram-node-presentation.ts";
 import {
   FLOWCHART_READABLE_MIN_SCALE,
+  FLOWCHART_SELECTABLE_THEMES,
   FLOWCHART_SURFACES,
   flowchartEdgeIsStraight,
   flowchartEdgePorts,
   flowchartFitsReadableViewport,
   flowchartNodeVisual,
   resolveFlowchartSurface,
+  resolveFlowchartTheme,
 } from "./diagram-flowchart-style.ts";
 
 const channel = (value) => {
@@ -27,20 +29,24 @@ const contrast = (foreground, background) => {
 
 describe("flowchart semantic paint", () => {
   test("keeps process, decision, and terminator visually distinct", () => {
-    for (const appearance of ["light", "dark"]) {
-      const surface = resolveFlowchartSurface(appearance);
-      expect(surface.process.fill).not.toBe(surface.decision.fill);
-      expect(surface.process.fill).not.toBe(surface.terminator.fill);
-      expect(surface.decision.stroke).not.toBe(surface.process.stroke);
-      expect(surface.terminator.fill).not.toBe("#16A06E");
+    for (const theme of ["brand", "ink", "paper"]) {
+      for (const appearance of ["light", "dark"]) {
+        const surface = resolveFlowchartSurface(appearance, theme);
+        expect(surface.process.fill).not.toBe(surface.decision.fill);
+        expect(surface.process.fill).not.toBe(surface.terminator.fill);
+        expect(surface.decision.stroke).not.toBe(surface.process.stroke);
+        expect(surface.terminator.fill).not.toBe("#16A06E");
+      }
     }
   });
 
   test("keeps node labels readable on their fills", () => {
-    for (const appearance of ["light", "dark"]) {
-      const surface = FLOWCHART_SURFACES[appearance];
-      for (const paint of [surface.process, surface.decision, surface.terminator]) {
-        expect(contrast(paint.text, paint.fill)).toBeGreaterThanOrEqual(4.5);
+    for (const theme of ["brand", "ink", "paper"]) {
+      for (const appearance of ["light", "dark"]) {
+        const surface = FLOWCHART_SURFACES[theme][appearance];
+        for (const paint of [surface.process, surface.decision, surface.terminator]) {
+          expect(contrast(paint.text, paint.fill)).toBeGreaterThanOrEqual(4.5);
+        }
       }
     }
   });
@@ -48,8 +54,22 @@ describe("flowchart semantic paint", () => {
   test("uses outlined capsules and Inter for terminator labels", () => {
     const visual = flowchartNodeVisual("terminator", "light", { width: 116, height: 40 });
     expect(visual.body.rx).toBe(20);
-    expect(visual.body.fill).toBe(FLOWCHART_SURFACES.light.terminator.fill);
+    expect(visual.body.fill).toBe(FLOWCHART_SURFACES.brand.light.terminator.fill);
     expect(visual.label.fontFamily).toContain("Inter");
+  });
+
+  test("offers three quiet surfaces and maps unknown themes to forest", () => {
+    expect(FLOWCHART_SELECTABLE_THEMES).toEqual(["brand", "ink", "paper"]);
+    expect(resolveFlowchartTheme("mint")).toBe("brand");
+    expect(resolveFlowchartTheme("classic")).toBe("brand");
+    expect(FLOWCHART_SURFACES.brand.light.terminator.stroke).toBe("#16A06E");
+    expect(resolveFlowchartSurface("light", "mint")).toEqual(FLOWCHART_SURFACES.brand.light);
+    expect(resolveFlowchartSurface("light", "ink").terminator.stroke).toBe("#3A4656");
+    expect(resolveFlowchartSurface("light", "paper").canvas).toBe("#F6F1E8");
+    expect(resolveFlowchartSurface("light", "ink").decision.fill)
+      .not.toBe(resolveFlowchartSurface("light", "brand").decision.fill);
+    expect(resolveFlowchartSurface("light", "paper").terminator.stroke)
+      .not.toBe(resolveFlowchartSurface("light", "brand").terminator.stroke);
   });
 });
 

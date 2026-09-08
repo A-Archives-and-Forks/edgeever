@@ -18,6 +18,34 @@ describe("diagram auto layout", () => {
     expect(new Set(document.nodes.map((node) => positions[node.id].y)).size).toBeGreaterThan(1);
   });
 
+  test("lays out org, timeline, fishbone, brace, and hanging tree as distinct map families", () => {
+    const document = createDefaultDiagramDocument("mind-map");
+    const org = computeDiagramLayout({ ...document, structure: "org" });
+    expect(org["topic-1"].y).toBeGreaterThan(org["topic-root"].y + 40);
+    expect(org["topic-2"].y).toBe(org["topic-1"].y);
+    expect(org["topic-1-a"].y).toBeGreaterThan(org["topic-1"].y);
+
+    const timeline = computeDiagramLayout({ ...document, structure: "timeline" });
+    expect(timeline["topic-1"].x).toBeGreaterThan(timeline["topic-root"].x);
+    expect(timeline["topic-2"].x).toBeGreaterThan(timeline["topic-1"].x);
+    expect(timeline["topic-1"].y).toBeLessThan(timeline["topic-root"].y);
+    expect(timeline["topic-2"].y).toBeGreaterThan(timeline["topic-root"].y);
+
+    const fishbone = computeDiagramLayout({ ...document, structure: "fishbone" });
+    expect(fishbone["topic-1"].x).toBeLessThan(fishbone["topic-root"].x);
+    expect(fishbone["topic-1"].y).toBeLessThan(fishbone["topic-root"].y);
+    expect(fishbone["topic-2"].y).toBeGreaterThan(fishbone["topic-root"].y);
+
+    const brace = computeDiagramLayout({ ...document, structure: "brace" });
+    expect(brace["topic-1"].x).toBeGreaterThan(brace["topic-root"].x);
+    expect(brace["topic-1"].x).toBeGreaterThan(computeDiagramLayout(document)["topic-1"].x);
+
+    const tree = computeDiagramLayout({ ...document, structure: "tree" });
+    expect(tree["topic-1"].y).toBe(tree["topic-root"].y);
+    expect(tree["topic-2"].y).toBeGreaterThan(tree["topic-1"].y);
+    expect(tree["topic-1"].x).toBeGreaterThan(tree["topic-root"].x);
+  });
+
   test("uses compact topic sizes while allowing longer labels to grow within a cap", () => {
     expect(compactMindMapNodeSize("分支主题", false)).toEqual({ width: 96, height: 36 });
     expect(compactMindMapNodeSize("核心主题", true)).toEqual({ width: 124, height: 46 });

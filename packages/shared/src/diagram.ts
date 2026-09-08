@@ -4,6 +4,7 @@ import {
   architectureMermaidClassDefs,
   architectureMermaidClassName,
 } from "./diagram-architecture-style";
+import { flowchartMermaidClassDefs, flowchartMermaidClassName } from "./diagram-flowchart-style";
 
 export const DIAGRAM_SCHEMA_VERSION = 1 as const;
 export const ARCHITECTURE_DIAGRAM_SCHEMA_VERSION = 2 as const;
@@ -29,12 +30,25 @@ export const DIAGRAM_SELECTABLE_THEMES = [
 ] as const;
 export const DIAGRAM_THEMES = [
   "brand", "ocean", "ink", "classic", "sky", "sunset", "violet", "rose", "sand", "slate", "aurora", "mono",
-  "sun", "wa", "island", "mint", "cosmos", "tea", "naive", "macaron",
+  "sun", "wa", "island", "mint", "cosmos", "tea", "naive", "macaron", "paper",
 ] as const;
 export type DiagramTheme = (typeof DIAGRAM_THEMES)[number];
 export const DIAGRAM_SELECTABLE_STRUCTURES = [
-  "map", "line", "capsule", "box", "circle", "ellipse", "hexagon", "logic", "tree", "brace",
+  "map", "line", "capsule", "box", "circle", "ellipse", "hexagon",
+  "logic", "tree", "brace", "org", "timeline", "fishbone",
 ] as const;
+export const DIAGRAM_STRUCTURE_GROUPS = [
+  { id: "map", items: ["map", "line", "capsule", "box", "circle", "ellipse", "hexagon"] },
+  { id: "logic", items: ["logic"] },
+  { id: "brace", items: ["brace"] },
+  { id: "org", items: ["org"] },
+  { id: "tree", items: ["tree"] },
+  { id: "timeline", items: ["timeline"] },
+  { id: "fishbone", items: ["fishbone"] },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  items: ReadonlyArray<typeof DIAGRAM_SELECTABLE_STRUCTURES[number]>;
+}>;
 export const DIAGRAM_STRUCTURES = [
   ...DIAGRAM_SELECTABLE_STRUCTURES, "rect", "diamond", "cloud",
 ] as const;
@@ -51,6 +65,7 @@ const THEME_ALIASES: Partial<Record<DiagramTheme, typeof DIAGRAM_SELECTABLE_THEM
   slate: "cosmos",
   aurora: "mint",
   mono: "cosmos",
+  paper: "brand",
 };
 
 export const resolveDiagramTheme = (theme?: DiagramTheme): typeof DIAGRAM_SELECTABLE_THEMES[number] => {
@@ -324,8 +339,7 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
           : `${id}["${label}"]`;
     lines.push(`  ${declaration}`);
     if (document.kind === "flowchart") {
-      const className = node.shape === "decision" ? "flowDecision" : node.shape === "terminator" ? "flowTerminator" : "flowProcess";
-      lines.push(`  class ${id} ${className}`);
+      lines.push(`  class ${id} ${flowchartMermaidClassName(node.shape)}`);
     }
   }
 
@@ -339,9 +353,7 @@ export const diagramDocumentToMermaid = (document: DiagramDocument) => {
   }
 
   if (document.kind === "flowchart") {
-    lines.push("  classDef flowProcess fill:#FFFFFF,stroke:#6F9B88,color:#1C3D31,stroke-width:1.5px");
-    lines.push("  classDef flowDecision fill:#FFF6E5,stroke:#D4A24A,color:#7A4A12,stroke-width:1.5px");
-    lines.push("  classDef flowTerminator fill:#E7F6EF,stroke:#16A06E,color:#145C40,stroke-width:1.5px");
+    lines.push(...flowchartMermaidClassDefs(document.theme));
   }
 
   if (document.kind === "mind-map") {

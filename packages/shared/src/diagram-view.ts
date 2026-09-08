@@ -17,10 +17,12 @@ import { buildDiagramPalette } from "./diagram-palette";
 import {
   MIND_MAP_CONNECTOR_NAME,
   mindMapBranchSides,
+  mindMapEdgeLineAttrs,
   mindMapEdgeTerminal,
   mindMapEdgeVisual,
   mindMapNodePresentation,
   mindMapNodeRole,
+  mindMapSiblingSpan,
   mindMapTopicMarkup,
   resolveMindMapNodeStyle,
 } from "./diagram-mindmap-style";
@@ -50,7 +52,7 @@ export const diagramDocumentToX6Cells = (
   appearance: DiagramAppearance,
 ) => {
   const palette = resolvePortableDiagramPalette(document.theme ?? "brand", appearance);
-  const flowchartSurface = document.kind === "flowchart" ? resolveFlowchartSurface(appearance) : null;
+  const flowchartSurface = document.kind === "flowchart" ? resolveFlowchartSurface(appearance, document.theme) : null;
   const architectureSurface = document.kind === "architecture" ? resolveArchitectureSurface(appearance) : null;
   const nodes = document.nodes.map((node) => {
     const mindMapRole = document.kind === "mind-map" ? mindMapNodeRole(document.nodes, node.id) : null;
@@ -64,7 +66,7 @@ export const diagramDocumentToX6Cells = (
       : null;
     const mindVisual = mindStyle?.visual ?? null;
     const flowchartVisual = document.kind === "flowchart"
-      ? flowchartNodeVisual(node.shape, appearance, presentation)
+      ? flowchartNodeVisual(node.shape, appearance, presentation, document.theme)
       : null;
     const architectureVisual = document.kind === "architecture"
       ? architectureNodeVisual(node.shape, appearance, presentation, node.resourceIcon)
@@ -145,13 +147,16 @@ export const diagramDocumentToX6Cells = (
       : undefined;
     const mindEdge = mindMapSourceRole ? mindMapEdgeVisual(mindMapSourceRole, palette, branchTint) : null;
     const sides = sourceNode && targetNode
-      ? mindMapBranchSides(sourceNode, targetNode)
+      ? mindMapBranchSides(sourceNode, targetNode, document.structure)
       : { source: "right" as const, target: "left" as const };
     const sourceTerminal = sourceNode && mindMapSourceRole
       ? mindMapEdgeTerminal(sourceNode, mindMapSourceRole, sides.source, document.structure)
       : null;
     const targetTerminal = targetNode && mindMapTargetRole
       ? mindMapEdgeTerminal(targetNode, mindMapTargetRole, sides.target, document.structure)
+      : null;
+    const braceSpan = document.kind === "mind-map" && document.structure === "brace"
+      ? mindMapSiblingSpan(document.nodes, edge.source)
       : null;
     const architectureEdge = document.kind === "architecture"
       ? architectureEdgeVisual(edgeKind, appearance, edge.bidirectional)
@@ -180,21 +185,25 @@ export const diagramDocumentToX6Cells = (
         ? (flowchartStraight ? { name: "normal" } : FLOWCHART_EDGE_ROUTER)
         : undefined,
       connector: document.kind === "mind-map"
-        ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth } }
+        ? {
+          name: MIND_MAP_CONNECTOR_NAME,
+          args: {
+            sourceWidth: mindEdge?.sourceWidth,
+            targetWidth: mindEdge?.targetWidth,
+            structure: document.structure,
+            ...(braceSpan ? { braceTop: braceSpan.top, braceBottom: braceSpan.bottom } : {}),
+          },
+        }
         : { name: "rounded", args: { radius: 10 } },
       attrs: { line: {
         stroke,
-        strokeWidth: architectureEdge?.strokeWidth ?? (mindEdge ? 0.5 : 1.5),
+        strokeWidth: architectureEdge?.strokeWidth ?? (mindEdge ? mindMapEdgeLineAttrs(document.structure, stroke).strokeWidth : 1.5),
         strokeDasharray: architectureEdge?.strokeDasharray,
         sourceMarker: architectureEdge
           ? architectureEdge.sourceMarker
           : edge.bidirectional ? { name: "block", width: 8, height: 6 } : null,
         targetMarker: document.kind === "mind-map" ? null : architectureEdge?.targetMarker ?? { name: "block", width: 8, height: 6 },
-        ...(mindEdge ? {
-          fill: stroke,
-          strokeLinejoin: "round",
-          strokeLinecap: "round",
-        } : { fill: "none" }),
+        ...(mindEdge ? mindMapEdgeLineAttrs(document.structure, stroke) : { fill: "none" }),
       } },
       labels: edge.label ? [{ attrs: {
         label: {

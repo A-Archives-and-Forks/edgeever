@@ -50,14 +50,39 @@ export type MindMapTopicForm =
   | "cloud"
   | "underline";
 
-export const mindMapIsOneSided = (structure?: DiagramStructure) => (
-  structure === "logic" || structure === "tree" || structure === "brace"
-);
+export type MindMapLayoutFamily = "map" | "logic" | "brace" | "org" | "tree" | "timeline" | "fishbone";
+export type MindMapSide = "left" | "right" | "top" | "bottom";
+
+export const mindMapLayoutFamily = (structure?: DiagramStructure): MindMapLayoutFamily => {
+  if (structure === "logic") return "logic";
+  if (structure === "brace") return "brace";
+  if (structure === "org") return "org";
+  if (structure === "tree") return "tree";
+  if (structure === "timeline") return "timeline";
+  if (structure === "fishbone") return "fishbone";
+  return "map";
+};
+
+export const mindMapIsOneSided = (structure?: DiagramStructure) => {
+  const family = mindMapLayoutFamily(structure);
+  return family === "logic" || family === "tree" || family === "brace";
+};
+
+export const mindMapUsesRibbon = (structure?: DiagramStructure) => {
+  const family = mindMapLayoutFamily(structure);
+  return family === "map" || family === "logic";
+};
 
 export const mindMapUsesUnderline = (role: MindMapRole, structure?: DiagramStructure) => {
   if (role === "root") return false;
   if (structure === "line" || structure === "brace") return true;
-  if (structure === "map" || structure === "tree" || !structure) return role === "nested";
+  if (
+    structure === "map"
+    || structure === "tree"
+    || structure === "timeline"
+    || structure === "fishbone"
+    || !structure
+  ) return role === "nested";
   return false;
 };
 
@@ -67,7 +92,7 @@ export const mindMapTopicForm = (structure?: DiagramStructure, role: MindMapRole
   if (structure === "ellipse") return "ellipse";
   if (structure === "circle") return "circle";
   if (structure === "hexagon") return "hexagon";
-  if (structure === "box" || structure === "logic") return "rounded";
+  if (structure === "box" || structure === "logic" || structure === "org") return "rounded";
   if (role === "root") return "capsule";
   return "rounded";
 };
@@ -343,26 +368,67 @@ export const mindMapEdgeVisual = (
   return { stroke, sourceWidth: 1.25, targetWidth: 0.9 };
 };
 
-export const mindMapBranchSides = (source: MindMapBox, target: MindMapBox) => {
+export const mindMapBranchSides = (
+  source: MindMapBox,
+  target: MindMapBox,
+  structure?: DiagramStructure,
+): { source: MindMapSide; target: MindMapSide } => {
+  const family = mindMapLayoutFamily(structure);
   const sourceCenter = source.x + source.width / 2;
   const targetCenter = target.x + target.width / 2;
+  const sourceMid = source.y + source.height / 2;
+  const targetMid = target.y + target.height / 2;
+  if (family === "org") return { source: "bottom", target: "top" };
+  if (family === "fishbone") {
+    if (targetCenter < sourceCenter - 8) return { source: "left", target: "right" };
+    if (targetMid < sourceMid - 8) return { source: "top", target: "bottom" };
+    if (targetMid > sourceMid + 8) return { source: "bottom", target: "top" };
+    return { source: "left", target: "right" };
+  }
+  if (family === "timeline") {
+    if (targetMid < sourceMid - 8) return { source: targetCenter >= sourceCenter ? "right" : "left", target: "bottom" };
+    if (targetMid > sourceMid + 8) return { source: targetCenter >= sourceCenter ? "right" : "left", target: "top" };
+    return targetCenter >= sourceCenter
+      ? { source: "right", target: "left" }
+      : { source: "left", target: "right" };
+  }
   return targetCenter >= sourceCenter
-    ? { source: "right" as const, target: "left" as const }
-    : { source: "left" as const, target: "right" as const };
+    ? { source: "right", target: "left" }
+    : { source: "left", target: "right" };
 };
 
 export const mindMapEdgeTerminal = (
   box: MindMapBox,
   role: MindMapRole,
-  side: "left" | "right",
+  side: MindMapSide,
   structure?: DiagramStructure,
-) => ({
-  anchor: {
-    name: side,
-    ...(mindMapUsesUnderline(role, structure) ? { args: { dy: box.height / 2 - 2 } } : {}),
-  },
-  connectionPoint: { name: mindMapUsesUnderline(role, structure) ? "anchor" : "boundary" },
-});
+) => {
+  const underline = mindMapUsesUnderline(role, structure);
+  const dy = underline && (side === "left" || side === "right") ? box.height / 2 - 2 : 0;
+  return {
+    anchor: {
+      name: side,
+      ...(dy ? { args: { dy } } : {}),
+    },
+    connectionPoint: { name: underline ? "anchor" : "boundary" },
+  };
+};
+
+export const mindMapSiblingSpan = (
+  nodes: Array<{ id: string; parentId?: string; y: number; height: number }>,
+  parentId: string,
+) => {
+  const children = nodes.filter((node) => node.parentId === parentId);
+  if (children.length === 0) return null;
+  const centers = children.map((node) => node.y + node.height / 2);
+  return { top: Math.min(...centers), bottom: Math.max(...centers) };
+};
+
+export const mindMapEdgeLineAttrs = (structure: DiagramStructure | undefined, stroke: string) => (
+  mindMapUsesRibbon(structure)
+    ? { fill: stroke, strokeWidth: 0.5, strokeLinejoin: "round" as const, strokeLinecap: "round" as const }
+    : { fill: "none", strokeWidth: 1.7, strokeLinejoin: "round" as const, strokeLinecap: "round" as const }
+);
 
 const cubicPoint = (p0: MindMapPoint, p1: MindMapPoint, p2: MindMapPoint, p3: MindMapPoint, t: number) => {
   const u = 1 - t;
@@ -422,14 +488,107 @@ export const mindMapConnectorPath = (
   return commands.join(" ");
 };
 
+const strokePoint = (point: MindMapPoint) => `${formatPoint(point.x)} ${formatPoint(point.y)}`;
+
+const strokePolyline = (points: MindMapPoint[]) => (
+  points.map((point, index) => `${index === 0 ? "M" : "L"} ${strokePoint(point)}`).join(" ")
+);
+
+const orthConnectorPath = (sourcePoint: MindMapPoint, targetPoint: MindMapPoint, axis: "x" | "y") => {
+  if (Math.abs(sourcePoint.x - targetPoint.x) < 0.8 || Math.abs(sourcePoint.y - targetPoint.y) < 0.8) {
+    return strokePolyline([sourcePoint, targetPoint]);
+  }
+  const mid = axis === "y"
+    ? { x: sourcePoint.x, y: (sourcePoint.y + targetPoint.y) / 2 }
+    : { x: (sourcePoint.x + targetPoint.x) / 2, y: sourcePoint.y };
+  const joint = axis === "y"
+    ? { x: targetPoint.x, y: mid.y }
+    : { x: mid.x, y: targetPoint.y };
+  return strokePolyline([sourcePoint, mid, joint, targetPoint]);
+};
+
+const hangingTreeConnectorPath = (sourcePoint: MindMapPoint, targetPoint: MindMapPoint) => {
+  const busX = sourcePoint.x + Math.max(10, Math.min(28, Math.abs(targetPoint.x - sourcePoint.x) * 0.38));
+  if (Math.abs(sourcePoint.y - targetPoint.y) < 0.8) return strokePolyline([sourcePoint, targetPoint]);
+  return strokePolyline([
+    sourcePoint,
+    { x: busX, y: sourcePoint.y },
+    { x: busX, y: targetPoint.y },
+    targetPoint,
+  ]);
+};
+
+const braceConnectorPath = (
+  sourcePoint: MindMapPoint,
+  targetPoint: MindMapPoint,
+  braceTop?: number,
+  braceBottom?: number,
+) => {
+  const top = Math.min(braceTop ?? sourcePoint.y, braceBottom ?? sourcePoint.y, sourcePoint.y, targetPoint.y);
+  const bottom = Math.max(braceTop ?? sourcePoint.y, braceBottom ?? sourcePoint.y, sourcePoint.y, targetPoint.y);
+  const span = Math.max(18, bottom - top);
+  const startY = (top + bottom) / 2 - span / 2;
+  const endY = startY + span;
+  const midY = (startY + endY) / 2;
+  const depth = 9;
+  const column = sourcePoint.x + Math.max(18, Math.min(36, Math.abs(targetPoint.x - sourcePoint.x) * 0.42));
+  return [
+    strokePolyline([sourcePoint, { x: column - depth, y: sourcePoint.y }]),
+    `M ${formatPoint(column - depth)} ${formatPoint(startY)}`,
+    `C ${formatPoint(column)} ${formatPoint(startY)} ${formatPoint(column)} ${formatPoint(startY)} ${formatPoint(column)} ${formatPoint((startY + midY) / 2)}`,
+    `C ${formatPoint(column)} ${formatPoint(midY)} ${formatPoint(column + depth)} ${formatPoint(midY)} ${formatPoint(column + depth)} ${formatPoint(midY)}`,
+    `C ${formatPoint(column)} ${formatPoint(midY)} ${formatPoint(column)} ${formatPoint(midY)} ${formatPoint(column)} ${formatPoint((midY + endY) / 2)}`,
+    `C ${formatPoint(column)} ${formatPoint(endY)} ${formatPoint(column)} ${formatPoint(endY)} ${formatPoint(column - depth)} ${formatPoint(endY)}`,
+    strokePolyline([{ x: column, y: targetPoint.y }, targetPoint]),
+  ].join(" ");
+};
+
+const timelineConnectorPath = (sourcePoint: MindMapPoint, targetPoint: MindMapPoint) => {
+  if (Math.abs(sourcePoint.x - targetPoint.x) < 0.8 || Math.abs(sourcePoint.y - targetPoint.y) < 0.8) {
+    return strokePolyline([sourcePoint, targetPoint]);
+  }
+  return strokePolyline([sourcePoint, { x: targetPoint.x, y: sourcePoint.y }, targetPoint]);
+};
+
+const fishboneConnectorPath = (sourcePoint: MindMapPoint, targetPoint: MindMapPoint) => {
+  if (Math.abs(sourcePoint.y - targetPoint.y) < 0.8 || Math.abs(sourcePoint.x - targetPoint.x) < 0.8) {
+    return strokePolyline([sourcePoint, targetPoint]);
+  }
+  const rise = Math.abs(targetPoint.y - sourcePoint.y);
+  const towardHead = sourcePoint.x >= targetPoint.x ? 1 : -1;
+  const joinX = targetPoint.x + towardHead * Math.max(18, rise / Math.sqrt(3));
+  const spineJoin = {
+    x: towardHead > 0 ? Math.min(sourcePoint.x, joinX) : Math.max(sourcePoint.x, joinX),
+    y: sourcePoint.y,
+  };
+  return strokePolyline([sourcePoint, spineJoin, targetPoint]);
+};
+
+export type MindMapConnectorOptions = {
+  sourceWidth?: number;
+  targetWidth?: number;
+  raw?: boolean;
+  structure?: DiagramStructure;
+  braceTop?: number;
+  braceBottom?: number;
+};
+
 export const mindMapConnector = (
   sourcePoint: MindMapPoint,
   targetPoint: MindMapPoint,
   _routePoints?: MindMapPoint[],
-  options: { sourceWidth?: number; targetWidth?: number; raw?: boolean } = {},
-) => mindMapConnectorPath(
-  sourcePoint,
-  targetPoint,
-  options.sourceWidth,
-  options.targetWidth,
-);
+  options: MindMapConnectorOptions = {},
+) => {
+  const family = mindMapLayoutFamily(options.structure);
+  if (family === "org") return orthConnectorPath(sourcePoint, targetPoint, "y");
+  if (family === "tree") return hangingTreeConnectorPath(sourcePoint, targetPoint);
+  if (family === "brace") return braceConnectorPath(sourcePoint, targetPoint, options.braceTop, options.braceBottom);
+  if (family === "timeline") return timelineConnectorPath(sourcePoint, targetPoint);
+  if (family === "fishbone") return fishboneConnectorPath(sourcePoint, targetPoint);
+  return mindMapConnectorPath(
+    sourcePoint,
+    targetPoint,
+    options.sourceWidth,
+    options.targetWidth,
+  );
+};

@@ -1,4 +1,4 @@
-import type { DiagramNodeShape } from "./diagram";
+import type { DiagramNodeShape, DiagramTheme } from "./diagram";
 
 export const FLOWCHART_LABEL_FONT =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -63,6 +63,8 @@ export const flowchartFitsReadableViewport = (
 };
 
 export type FlowchartAppearance = "light" | "dark";
+export const FLOWCHART_SELECTABLE_THEMES = ["brand", "ink", "paper"] as const;
+export type FlowchartTheme = (typeof FLOWCHART_SELECTABLE_THEMES)[number];
 
 export type FlowchartShapePaint = {
   fill: string;
@@ -78,28 +80,99 @@ export type FlowchartSurface = {
   terminator: FlowchartShapePaint;
 };
 
-export const FLOWCHART_SURFACES: Record<FlowchartAppearance, FlowchartSurface> = {
-  light: {
-    canvas: "#F5F8F6",
-    edge: "#4A8A6C",
-    process: { fill: "#FFFFFF", stroke: "#6F9B88", text: "#1C3D31" },
-    decision: { fill: "#FFF6E5", stroke: "#D4A24A", text: "#7A4A12" },
-    terminator: { fill: "#E7F6EF", stroke: "#16A06E", text: "#145C40" },
+const FLOWCHART_THEME_ALIASES: Partial<Record<DiagramTheme, FlowchartTheme>> = {
+  ocean: "brand",
+  ink: "ink",
+  paper: "paper",
+};
+
+export const resolveFlowchartTheme = (theme?: DiagramTheme): FlowchartTheme => {
+  if (theme && (FLOWCHART_SELECTABLE_THEMES as readonly string[]).includes(theme)) return theme as FlowchartTheme;
+  return FLOWCHART_THEME_ALIASES[theme ?? "brand"] ?? "brand";
+};
+
+export const FLOWCHART_SURFACES: Record<FlowchartTheme, Record<FlowchartAppearance, FlowchartSurface>> = {
+  brand: {
+    light: {
+      canvas: "#F5F8F6",
+      edge: "#4A8A6C",
+      process: { fill: "#FFFFFF", stroke: "#6F9B88", text: "#1C3D31" },
+      decision: { fill: "#FFF6E5", stroke: "#D4A24A", text: "#7A4A12" },
+      terminator: { fill: "#E7F6EF", stroke: "#16A06E", text: "#145C40" },
+    },
+    dark: {
+      canvas: "#101311",
+      edge: "#7BB89A",
+      process: { fill: "#1B2420", stroke: "#5B7569", text: "#E8F2ED" },
+      decision: { fill: "#2A2316", stroke: "#E0B35C", text: "#F8E4B8" },
+      terminator: { fill: "#1A3329", stroke: "#4DB58B", text: "#D8F3E6" },
+    },
   },
-  dark: {
-    canvas: "#101311",
-    edge: "#7BB89A",
-    process: { fill: "#1B2420", stroke: "#5B7569", text: "#E8F2ED" },
-    decision: { fill: "#2A2316", stroke: "#E0B35C", text: "#F8E4B8" },
-    terminator: { fill: "#1A3329", stroke: "#4DB58B", text: "#D8F3E6" },
+  ink: {
+    light: {
+      canvas: "#F3F5F7",
+      edge: "#5C6774",
+      process: { fill: "#FFFFFF", stroke: "#7D8794", text: "#1C232C" },
+      decision: { fill: "#E8EDF3", stroke: "#6E7C8F", text: "#243044" },
+      terminator: { fill: "#E6EAEF", stroke: "#3A4656", text: "#1A222C" },
+    },
+    dark: {
+      canvas: "#101214",
+      edge: "#9AA3AE",
+      process: { fill: "#1B1E23", stroke: "#6B7380", text: "#E8ECF1" },
+      decision: { fill: "#222830", stroke: "#8B9BB0", text: "#D5DDE8" },
+      terminator: { fill: "#1A2028", stroke: "#A8B4C4", text: "#E8EEF4" },
+    },
+  },
+  paper: {
+    light: {
+      canvas: "#F6F1E8",
+      edge: "#8B7355",
+      process: { fill: "#FFFCF6", stroke: "#C4B396", text: "#3A3126" },
+      decision: { fill: "#F4E4CC", stroke: "#C08A48", text: "#6A3F14" },
+      terminator: { fill: "#F0E4D0", stroke: "#7A5230", text: "#3F2A16" },
+    },
+    dark: {
+      canvas: "#161310",
+      edge: "#C4A882",
+      process: { fill: "#221E19", stroke: "#7A6A56", text: "#F3EBE0" },
+      decision: { fill: "#2C2418", stroke: "#D4A06A", text: "#F6E2C4" },
+      terminator: { fill: "#2A2118", stroke: "#C4A07A", text: "#F0E4D4" },
+    },
   },
 };
 
-export const resolveFlowchartSurface = (appearance: FlowchartAppearance = "light") =>
-  FLOWCHART_SURFACES[appearance];
+export const resolveFlowchartSurface = (
+  appearance: FlowchartAppearance = "light",
+  theme?: DiagramTheme,
+) => FLOWCHART_SURFACES[resolveFlowchartTheme(theme)][appearance];
 
-export const flowchartShapePaint = (shape: DiagramNodeShape, appearance: FlowchartAppearance) => {
-  const surface = resolveFlowchartSurface(appearance);
+export const flowchartThemeSwatches = (theme?: DiagramTheme) => {
+  const surface = resolveFlowchartSurface("light", theme);
+  return [surface.process.fill, surface.decision.fill, surface.terminator.stroke] as const;
+};
+
+export const flowchartMermaidClassName = (shape: DiagramNodeShape) =>
+  shape === "decision" ? "flowDecision" : shape === "terminator" ? "flowTerminator" : "flowProcess";
+
+export const flowchartMermaidClassDefs = (
+  theme?: DiagramTheme,
+  appearance: FlowchartAppearance = "light",
+) => {
+  const surface = resolveFlowchartSurface(appearance, theme);
+  return (["process", "decision", "terminator"] as const).map((role) => {
+    const paint = surface[role];
+    const className = role === "process" ? "flowProcess" : role === "decision" ? "flowDecision" : "flowTerminator";
+    return `  classDef ${className} fill:${paint.fill},stroke:${paint.stroke},color:${paint.text},stroke-width:1.5px`;
+  });
+};
+
+export const flowchartShapePaint = (
+  shape: DiagramNodeShape,
+  appearance: FlowchartAppearance,
+  theme?: DiagramTheme,
+) => {
+  const surface = resolveFlowchartSurface(appearance, theme);
   if (shape === "decision") return surface.decision;
   if (shape === "terminator") return surface.terminator;
   return surface.process;
@@ -109,8 +182,9 @@ export const flowchartNodeVisual = (
   shape: DiagramNodeShape,
   appearance: FlowchartAppearance,
   size: { width: number; height: number },
+  theme?: DiagramTheme,
 ) => {
-  const paint = flowchartShapePaint(shape, appearance);
+  const paint = flowchartShapePaint(shape, appearance, theme);
   const terminator = shape === "terminator";
   const decision = shape === "decision";
   return {

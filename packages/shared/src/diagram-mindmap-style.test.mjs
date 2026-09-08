@@ -4,15 +4,19 @@ import {
   mindMapBranchSides,
   mindMapBranchTint,
   mindMapBranchTintIndex,
+  mindMapConnector,
   mindMapConnectorPath,
+  mindMapEdgeLineAttrs,
   mindMapEdgeTerminal,
   mindMapEdgeVisual,
+  mindMapLayoutFamily,
   mindMapNodePresentation,
   mindMapNodeRole,
   mindMapNodeVisual,
   mindMapRootRadius,
   mindMapCloudPath,
   mindMapTopicForm,
+  mindMapUsesRibbon,
   mindMapUsesUnderline,
   resolveMindMapNodeStyle,
   MIND_MAP_CONNECTOR_NAME,
@@ -127,5 +131,49 @@ describe("mind map presentation", () => {
     expect(path.includes("Z")).toBe(true);
     expect(path).toContain("L 0.00 -2.00");
     expect(path).toContain("L 80.00 0.50");
+  });
+
+  test("uses stroke connectors and distinct anchors for org, tree, brace, timeline, and fishbone", () => {
+    expect(mindMapLayoutFamily("org")).toBe("org");
+    expect(mindMapUsesRibbon("map")).toBe(true);
+    expect(mindMapUsesRibbon("org")).toBe(false);
+    expect(mindMapUsesRibbon("fishbone")).toBe(false);
+    expect(mindMapEdgeLineAttrs("org", "#16A06E").fill).toBe("none");
+    expect(mindMapEdgeLineAttrs("map", "#16A06E").fill).toBe("#16A06E");
+    expect(mindMapBranchSides(
+      { x: 0, y: 0, width: 120, height: 46 },
+      { x: 40, y: 80, width: 96, height: 36 },
+      "org",
+    )).toEqual({ source: "bottom", target: "top" });
+    expect(mindMapConnector(
+      { x: 60, y: 46 },
+      { x: 88, y: 102 },
+      [],
+      { structure: "org" },
+    )).toContain("L 60.00 74.00");
+    expect(mindMapConnector(
+      { x: 20, y: 20 },
+      { x: 80, y: 60 },
+      [],
+      { structure: "tree" },
+    )).toContain("L 42.80 20.00");
+    expect(mindMapConnector(
+      { x: 20, y: 40 },
+      { x: 90, y: 10 },
+      [],
+      { structure: "brace", braceTop: 10, braceBottom: 70 },
+    )).not.toContain(" Z");
+    expect(mindMapConnector(
+      { x: 20, y: 40 },
+      { x: 80, y: 10 },
+      [],
+      { structure: "timeline" },
+    )).toBe("M 20.00 40.00 L 80.00 40.00 L 80.00 10.00");
+    expect(mindMapConnector(
+      { x: 200, y: 40 },
+      { x: 80, y: 10 },
+      [],
+      { structure: "fishbone" },
+    )).toContain("L 80.00 10.00");
   });
 });

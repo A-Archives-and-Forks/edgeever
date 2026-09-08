@@ -12,6 +12,7 @@ import {
   MIND_MAP_HORIZONTAL_GAP,
   MIND_MAP_VERTICAL_GAP,
   mindMapIsOneSided,
+  mindMapLayoutFamily,
   mindMapNodePresentation,
   mindMapNodeRole,
 } from "./diagram-mindmap-style";
@@ -95,6 +96,16 @@ export type DiagramIr = {
 };
 
 const MIND_MAP_TWO_SIDED_THRESHOLD = 5;
+const BRACE_HORIZONTAL_GAP = 88;
+const TREE_HORIZONTAL_GAP = 64;
+const ORG_RANK_GAP = 56;
+const ORG_NODE_GAP = 36;
+const TIMELINE_COLUMN_GAP = 56;
+const TIMELINE_SPINE_GAP = 40;
+const TIMELINE_NEST_INDENT = 16;
+const FISHBONE_COLUMN_GAP = 28;
+const FISHBONE_SPINE_GAP = 56;
+const FISHBONE_NEST_INDENT = 20;
 const FLOWCHART_DETACHED_GAP = 56;
 const FLOWCHART_DETACHED_ROW_GAP = 24;
 const FLOWCHART_DETACHED_ROW_WIDTH = 960;
@@ -148,15 +159,19 @@ const computeMindMapLayout = (
     }
   }
 
+  const childIdsOf = (nodeId: string, ancestors: Set<string>) => (
+    (childrenByParent.get(nodeId) ?? []).filter((childId) => !ancestors.has(childId) && childId !== nodeId)
+  );
+
   const subtreeHeights = new Map<string, number>();
-  const measureSubtree = (nodeId: string, ancestors: Set<string>): number => {
+  const measureSubtreeHeight = (nodeId: string, ancestors: Set<string>): number => {
     const cached = subtreeHeights.get(nodeId);
     if (cached !== undefined) return cached;
     const node = nodeById.get(nodeId);
     if (!node || ancestors.has(nodeId)) return 0;
     const nextAncestors = new Set(ancestors).add(nodeId);
-    const childHeights = (childrenByParent.get(nodeId) ?? [])
-      .map((childId) => measureSubtree(childId, nextAncestors))
+    const childHeights = childIdsOf(nodeId, nextAncestors)
+      .map((childId) => measureSubtreeHeight(childId, nextAncestors))
       .filter((height) => height > 0);
     const childrenHeight = childHeights.reduce((total, height) => total + height, 0)
       + Math.max(0, childHeights.length - 1) * MIND_MAP_VERTICAL_GAP;
@@ -168,78 +183,262 @@ const computeMindMapLayout = (
   const positions: DiagramLayoutPositions = Object.fromEntries(
     document.nodes.map((node) => [node.id, { x: node.x, y: node.y }]),
   );
-  const placeChildren = (
+
+  const placeBranchChildren = (
     nodeId: string,
     subtreeTop: number,
     ancestors: Set<string>,
     direction: 1 | -1,
+    horizontalGap: number,
+    align: "center" | "start",
   ) => {
     const node = nodeById.get(nodeId);
     if (!node || ancestors.has(nodeId)) return;
     const nextAncestors = new Set(ancestors).add(nodeId);
-    const childIds = (childrenByParent.get(nodeId) ?? []).filter((childId) => !nextAncestors.has(childId));
-    const childHeights = childIds.map((childId) => measureSubtree(childId, nextAncestors));
+    const childIds = childIdsOf(nodeId, nextAncestors);
+    const childHeights = childIds.map((childId) => measureSubtreeHeight(childId, nextAncestors));
     const childrenHeight = childHeights.reduce((total, height) => total + height, 0)
       + Math.max(0, childHeights.length - 1) * MIND_MAP_VERTICAL_GAP;
-    let cursor = subtreeTop + (measureSubtree(nodeId, ancestors) - childrenHeight) / 2;
+    let cursor = align === "start"
+      ? positions[nodeId].y
+      : subtreeTop + (measureSubtreeHeight(nodeId, ancestors) - childrenHeight) / 2;
     for (let index = 0; index < childIds.length; index += 1) {
       const childId = childIds[index];
       const child = nodeById.get(childId)!;
       const childSubtreeHeight = childHeights[index];
       positions[childId] = {
         x: direction === 1
-          ? positions[nodeId].x + node.width + MIND_MAP_HORIZONTAL_GAP
-          : positions[nodeId].x - MIND_MAP_HORIZONTAL_GAP - child.width,
-        y: Math.round(cursor + (childSubtreeHeight - child.height) / 2),
+          ? positions[nodeId].x + node.width + horizontalGap
+          : positions[nodeId].x - horizontalGap - child.width,
+        y: Math.round(align === "start" ? cursor : cursor + (childSubtreeHeight - child.height) / 2),
       };
-      placeChildren(childId, cursor, nextAncestors, direction);
+      placeBranchChildren(childId, cursor, nextAncestors, direction, horizontalGap, align);
       cursor += childSubtreeHeight + MIND_MAP_VERTICAL_GAP;
     }
   };
 
-  const placeRootSide = (rootId: string, childIds: string[], direction: 1 | -1) => {
+  const placeRootSide = (
+    rootId: string,
+    childIds: string[],
+    direction: 1 | -1,
+    horizontalGap: number,
+    align: "center" | "start",
+  ) => {
     const root = nodeById.get(rootId);
     if (!root || childIds.length === 0) return;
-    const childHeights = childIds.map((childId) => measureSubtree(childId, new Set([rootId])));
+    const childHeights = childIds.map((childId) => measureSubtreeHeight(childId, new Set([rootId])));
     const sideHeight = childHeights.reduce((total, height) => total + height, 0)
       + Math.max(0, childHeights.length - 1) * MIND_MAP_VERTICAL_GAP;
-    let cursor = root.y + root.height / 2 - sideHeight / 2;
+    let cursor = align === "start"
+      ? root.y
+      : root.y + root.height / 2 - sideHeight / 2;
     for (let index = 0; index < childIds.length; index += 1) {
       const child = nodeById.get(childIds[index])!;
       const childSubtreeHeight = childHeights[index];
       positions[child.id] = {
         x: direction === 1
-          ? root.x + root.width + MIND_MAP_HORIZONTAL_GAP
-          : root.x - MIND_MAP_HORIZONTAL_GAP - child.width,
-        y: Math.round(cursor + (childSubtreeHeight - child.height) / 2),
+          ? root.x + root.width + horizontalGap
+          : root.x - horizontalGap - child.width,
+        y: Math.round(align === "start" ? cursor : cursor + (childSubtreeHeight - child.height) / 2),
       };
-      placeChildren(child.id, cursor, new Set([rootId]), direction);
+      placeBranchChildren(child.id, cursor, new Set([rootId]), direction, horizontalGap, align);
       cursor += childSubtreeHeight + MIND_MAP_VERTICAL_GAP;
     }
   };
 
-  const roots = document.nodes
-    .filter((node) => !node.parentId || !nodeById.has(node.parentId))
-    .sort((left, right) => left.y - right.y || left.id.localeCompare(right.id));
-  for (const root of roots) {
-    const childIds = (childrenByParent.get(root.id) ?? []).filter((childId) => childId !== root.id);
-    if (childIds.length < MIND_MAP_TWO_SIDED_THRESHOLD || mindMapIsOneSided(document.structure)) {
-      placeRootSide(root.id, childIds, 1);
-      continue;
+  const layoutBranchMap = (oneSided: boolean, horizontalGap: number, align: "center" | "start") => {
+    const roots = document.nodes
+      .filter((node) => !node.parentId || !nodeById.has(node.parentId))
+      .sort((left, right) => left.y - right.y || left.id.localeCompare(right.id));
+    for (const root of roots) {
+      const childIds = childIdsOf(root.id, new Set([root.id]));
+      if (oneSided || childIds.length < MIND_MAP_TWO_SIDED_THRESHOLD) {
+        placeRootSide(root.id, childIds, 1, horizontalGap, align);
+        continue;
+      }
+      const sides: Record<"left" | "right", { ids: string[]; height: number }> = {
+        left: { ids: [], height: 0 },
+        right: { ids: [], height: 0 },
+      };
+      for (const childId of childIds) {
+        const side = sides.right.height <= sides.left.height ? sides.right : sides.left;
+        side.ids.push(childId);
+        side.height += measureSubtreeHeight(childId, new Set([root.id])) + MIND_MAP_VERTICAL_GAP;
+      }
+      placeRootSide(root.id, sides.left.ids, -1, horizontalGap, align);
+      placeRootSide(root.id, sides.right.ids, 1, horizontalGap, align);
     }
-    const sides: Record<"left" | "right", { ids: string[]; height: number }> = {
-      left: { ids: [], height: 0 },
-      right: { ids: [], height: 0 },
+    return positions;
+  };
+
+  const subtreeWidths = new Map<string, number>();
+  const measureSubtreeWidth = (nodeId: string, ancestors: Set<string>): number => {
+    const cached = subtreeWidths.get(nodeId);
+    if (cached !== undefined) return cached;
+    const node = nodeById.get(nodeId);
+    if (!node || ancestors.has(nodeId)) return 0;
+    const nextAncestors = new Set(ancestors).add(nodeId);
+    const childWidths = childIdsOf(nodeId, nextAncestors).map((childId) => measureSubtreeWidth(childId, nextAncestors));
+    const childrenWidth = childWidths.reduce((total, width) => total + width, 0)
+      + Math.max(0, childWidths.length - 1) * ORG_NODE_GAP;
+    const width = Math.max(node.width, childrenWidth);
+    subtreeWidths.set(nodeId, width);
+    return width;
+  };
+
+  const layoutOrgChart = () => {
+    const placeOrgChildren = (nodeId: string, ancestors: Set<string>) => {
+      const node = nodeById.get(nodeId);
+      if (!node) return;
+      const nextAncestors = new Set(ancestors).add(nodeId);
+      const childIds = childIdsOf(nodeId, nextAncestors);
+      if (childIds.length === 0) return;
+      const childWidths = childIds.map((childId) => measureSubtreeWidth(childId, nextAncestors));
+      const totalWidth = childWidths.reduce((total, width) => total + width, 0)
+        + Math.max(0, childWidths.length - 1) * ORG_NODE_GAP;
+      const parent = positions[nodeId];
+      let cursor = parent.x + node.width / 2 - totalWidth / 2;
+      const childY = parent.y + node.height + ORG_RANK_GAP;
+      for (let index = 0; index < childIds.length; index += 1) {
+        const child = nodeById.get(childIds[index])!;
+        positions[child.id] = {
+          x: Math.round(cursor + (childWidths[index] - child.width) / 2),
+          y: Math.round(childY),
+        };
+        placeOrgChildren(child.id, nextAncestors);
+        cursor += childWidths[index] + ORG_NODE_GAP;
+      }
     };
-    for (const childId of childIds) {
-      const side = sides.right.height <= sides.left.height ? sides.right : sides.left;
-      side.ids.push(childId);
-      side.height += measureSubtree(childId, new Set([root.id])) + MIND_MAP_VERTICAL_GAP;
+    for (const root of document.nodes.filter((node) => !node.parentId || !nodeById.has(node.parentId))) {
+      placeOrgChildren(root.id, new Set([root.id]));
     }
-    placeRootSide(root.id, sides.left.ids, -1);
-    placeRootSide(root.id, sides.right.ids, 1);
-  }
-  return positions;
+    return positions;
+  };
+
+  const layoutTimeline = () => {
+    const placeAway = (
+      parentId: string,
+      startY: number,
+      direction: 1 | -1,
+      x: number,
+      ancestors: Set<string>,
+    ): number => {
+      const nextAncestors = new Set(ancestors).add(parentId);
+      const childIds = childIdsOf(parentId, nextAncestors);
+      let cursor = startY;
+      let far = startY;
+      for (const childId of childIds) {
+        const child = nodeById.get(childId)!;
+        if (direction === 1) {
+          positions[childId] = { x: Math.round(x), y: Math.round(cursor) };
+          const nestedFar = placeAway(
+            childId,
+            positions[childId].y + child.height + MIND_MAP_VERTICAL_GAP,
+            1,
+            x + TIMELINE_NEST_INDENT,
+            nextAncestors,
+          );
+          cursor = Math.max(positions[childId].y + child.height, nestedFar) + MIND_MAP_VERTICAL_GAP;
+          far = cursor;
+        } else {
+          positions[childId] = { x: Math.round(x), y: Math.round(cursor - child.height) };
+          const nestedFar = placeAway(
+            childId,
+            positions[childId].y - MIND_MAP_VERTICAL_GAP,
+            -1,
+            x + TIMELINE_NEST_INDENT,
+            nextAncestors,
+          );
+          cursor = Math.min(positions[childId].y, nestedFar) - MIND_MAP_VERTICAL_GAP;
+          far = cursor;
+        }
+      }
+      return far;
+    };
+    for (const root of document.nodes.filter((node) => !node.parentId || !nodeById.has(node.parentId))) {
+      const spineY = root.y + root.height / 2;
+      const childIds = childIdsOf(root.id, new Set([root.id]));
+      let cursorX = root.x + root.width + TIMELINE_COLUMN_GAP;
+      for (let index = 0; index < childIds.length; index += 1) {
+        const child = nodeById.get(childIds[index])!;
+        const above = index % 2 === 0;
+        positions[child.id] = {
+          x: Math.round(cursorX),
+          y: Math.round(above ? spineY - TIMELINE_SPINE_GAP - child.height : spineY + TIMELINE_SPINE_GAP),
+        };
+        if (above) {
+          placeAway(child.id, positions[child.id].y - MIND_MAP_VERTICAL_GAP, -1, cursorX + TIMELINE_NEST_INDENT, new Set([root.id, child.id]));
+        } else {
+          placeAway(child.id, positions[child.id].y + child.height + MIND_MAP_VERTICAL_GAP, 1, cursorX + TIMELINE_NEST_INDENT, new Set([root.id, child.id]));
+        }
+        const nested = childIdsOf(child.id, new Set([root.id, child.id])).length > 0;
+        cursorX += child.width + (nested ? TIMELINE_NEST_INDENT : 0) + TIMELINE_COLUMN_GAP;
+      }
+    }
+    return positions;
+  };
+
+  const layoutFishbone = () => {
+    const placeBoneChildren = (parentId: string, above: boolean, ancestors: Set<string>): number => {
+      const parent = nodeById.get(parentId);
+      if (!parent) return positions[parentId]?.y ?? 0;
+      const nextAncestors = new Set(ancestors).add(parentId);
+      const childIds = childIdsOf(parentId, nextAncestors);
+      let cursor = above
+        ? positions[parentId].y - MIND_MAP_VERTICAL_GAP
+        : positions[parentId].y + parent.height + MIND_MAP_VERTICAL_GAP;
+      let far = above ? positions[parentId].y : positions[parentId].y + parent.height;
+      for (const childId of childIds) {
+        const child = nodeById.get(childId)!;
+        positions[childId] = {
+          x: Math.round(positions[parentId].x - FISHBONE_NEST_INDENT),
+          y: Math.round(above ? cursor - child.height : cursor),
+        };
+        const childFar = placeBoneChildren(childId, above, nextAncestors);
+        if (above) {
+          cursor = childFar - MIND_MAP_VERTICAL_GAP;
+          far = Math.min(far, childFar);
+        } else {
+          cursor = childFar + MIND_MAP_VERTICAL_GAP;
+          far = Math.max(far, childFar);
+        }
+      }
+      return far;
+    };
+    for (const root of document.nodes.filter((node) => !node.parentId || !nodeById.has(node.parentId))) {
+      const spineY = root.y + root.height / 2;
+      const childIds = childIdsOf(root.id, new Set([root.id]));
+      let cursorX = root.x - FISHBONE_COLUMN_GAP;
+      for (let index = 0; index < childIds.length; index += 2) {
+        const aboveNode = nodeById.get(childIds[index])!;
+        const belowNode = childIds[index + 1] ? nodeById.get(childIds[index + 1]) : undefined;
+        const columnWidth = Math.max(aboveNode.width, belowNode?.width ?? 0) + FISHBONE_NEST_INDENT;
+        cursorX -= columnWidth;
+        positions[aboveNode.id] = {
+          x: Math.round(cursorX + (columnWidth - aboveNode.width) / 2),
+          y: Math.round(spineY - FISHBONE_SPINE_GAP - aboveNode.height),
+        };
+        placeBoneChildren(aboveNode.id, true, new Set([root.id, aboveNode.id]));
+        if (belowNode) {
+          positions[belowNode.id] = {
+            x: Math.round(cursorX + (columnWidth - belowNode.width) / 2),
+            y: Math.round(spineY + FISHBONE_SPINE_GAP),
+          };
+          placeBoneChildren(belowNode.id, false, new Set([root.id, belowNode.id]));
+        }
+        cursorX -= FISHBONE_COLUMN_GAP;
+      }
+    }
+    return positions;
+  };
+
+  const family = mindMapLayoutFamily(document.structure);
+  if (family === "org") return layoutOrgChart();
+  if (family === "timeline") return layoutTimeline();
+  if (family === "fishbone") return layoutFishbone();
+  if (family === "brace") return layoutBranchMap(true, BRACE_HORIZONTAL_GAP, "center");
+  if (family === "tree") return layoutBranchMap(true, TREE_HORIZONTAL_GAP, "start");
+  return layoutBranchMap(mindMapIsOneSided(document.structure), MIND_MAP_HORIZONTAL_GAP, "center");
 };
 
 const wrapArchitectureGroups = (

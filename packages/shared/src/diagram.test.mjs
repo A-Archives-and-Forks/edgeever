@@ -12,12 +12,15 @@ describe("diagram document", () => {
     expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
   });
 
-  test("offers ten mind-map shapes and ten selectable color schemes", () => {
-    expect(DIAGRAM_SELECTABLE_STRUCTURES).toHaveLength(10);
+  test("offers selectable mind-map layouts and ten color schemes", () => {
+    expect(DIAGRAM_SELECTABLE_STRUCTURES).toEqual([
+      "map", "line", "capsule", "box", "circle", "ellipse", "hexagon",
+      "logic", "tree", "brace", "org", "timeline", "fishbone",
+    ]);
     expect(DIAGRAM_SELECTABLE_THEMES).toHaveLength(10);
     const document = createDefaultDiagramDocument("mind-map");
     document.theme = "mint";
-    document.structure = "logic";
+    document.structure = "fishbone";
     expect(parseDiagramDocument(serializeDiagramDocument(document))).toEqual(document);
     const unknown = structuredClone(document);
     unknown.theme = "not-a-theme";
@@ -71,8 +74,28 @@ describe("diagram document", () => {
     expect(markdown).toContain("class n1 flowProcess");
     expect(markdown).toContain("class n0 flowTerminator");
 
+    const paper = createDefaultDiagramDocument("flowchart");
+    paper.theme = "paper";
+    expect(diagramDocumentToMermaid(paper)).toContain("classDef flowTerminator fill:#F0E4D0,stroke:#7A5230");
+    const mint = createDefaultDiagramDocument("flowchart");
+    mint.theme = "mint";
+    expect(diagramDocumentToMermaid(mint)).toContain("classDef flowProcess fill:#FFFFFF,stroke:#6F9B88");
+
     const doc = markdownToDoc(markdown);
     expect(doc.content?.some((node) => node.type === "codeBlock" && node.attrs?.language === "mermaid")).toBe(true);
+  });
+
+  test("persists flowchart paper and ink surfaces in the native projection", () => {
+    const document = createDefaultDiagramDocument("flowchart");
+    document.theme = "paper";
+    expect(parseDiagramDocument(serializeDiagramDocument(document))?.theme).toBe("paper");
+    const paper = diagramDocumentToX6Cells(document, "light");
+    expect(paper.canvas).toBe("#F6F1E8");
+    expect(paper.nodes.find((node) => node.id === "flow-start").attrs.body.stroke).toBe("#7A5230");
+    document.theme = "ink";
+    const ink = diagramDocumentToX6Cells(document, "light");
+    expect(ink.canvas).toBe("#F3F5F7");
+    expect(ink.nodes.find((node) => node.id === "flow-start").attrs.body.stroke).toBe("#3A4656");
   });
 
   test("projects native viewers into the same branded X6 palette", () => {
@@ -93,6 +116,11 @@ describe("diagram document", () => {
     const boxed = diagramDocumentToX6Cells({ ...document, structure: "box" }, "light");
     expect(boxed.nodes.find((node) => node.id === "topic-1-a").attrs.body.fill).not.toBe("transparent");
     expect(boxed.nodes.find((node) => node.id === "topic-1-a").attrs.underline.stroke).toBe("none");
+    const org = diagramDocumentToX6Cells({ ...document, structure: "org" }, "light");
+    expect(org.edges[0].source.anchor.name).toBe("bottom");
+    expect(org.edges[0].target.anchor.name).toBe("top");
+    expect(org.edges[0].attrs.line.fill).toBe("none");
+    expect(org.edges[0].connector.args.structure).toBe("org");
 
     const classic = diagramDocumentToX6Cells({ ...document, theme: "classic" }, "light");
     expect(classic.nodes.find((node) => node.id === "topic-1").attrs.body.stroke)

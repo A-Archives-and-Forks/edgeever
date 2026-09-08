@@ -151,24 +151,32 @@ describe("diagram editor canvas surface", () => {
 
   test("uses restrained rounded edges and fits the complete diagram without clipping", () => {
     expect(toolbarSource).toContain("DIAGRAM_THEME_GROUPS");
-    expect(toolbarSource).toContain("STRUCTURE_GROUPS");
+    expect(toolbarSource).toContain("DIAGRAM_STRUCTURE_GROUPS");
     expect(toolbarSource).toContain("diagramThemeSwatches");
     expect(toolbarSource).toContain("<StructureThumb");
     expect(toolbarSource).toContain('t("diagram.structure")');
     expect(toolbarSource).toContain("diagram.structureGroupMap");
+    expect(toolbarSource).toContain("structureGroupLabelKey");
+    expect(toolbarSource).toContain('structure === "org"');
+    expect(toolbarSource).toContain('structure === "timeline"');
+    expect(toolbarSource).toContain('structure === "fishbone"');
     expect(toolbarSource).toContain("diagram.themeGroupVivid");
     expect(toolbarSource).toContain('<TooltipContent>{t("diagram.theme")}</TooltipContent>');
     expect(toolbarSource).not.toContain('value="ocean"');
     expect(toolbarSource).not.toContain('value="ink"');
     expect(source).toContain("Graph.registerConnector(MIND_MAP_CONNECTOR_NAME, mindMapConnector, true)");
-    expect(source).toContain("name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth }");
+    expect(source).toContain("name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth, structure }");
     expect(source).toContain('{ fill: "none" }');
     expect(source).toContain('if (kind !== "mind-map") edge.attr("line/fill", "none")');
     expect(source).toContain("FLOWCHART_EDGE_ROUTER");
     expect(source).toContain("applyFlowchartEdgePorts(graph)");
     expect(source).toContain("flowchartEdgeIsStraight");
-    expect(source).toContain('showTheme={document.kind === "mind-map"}');
+    expect(source).toContain('showTheme={document.kind !== "architecture"}');
+    expect(source).toContain('themeCatalog={document.kind === "flowchart" ? "flowchart" : "mind-map"}');
     expect(toolbarSource).toContain("showTheme = true");
+    expect(toolbarSource).toContain("themeCatalog = \"mind-map\"");
+    expect(toolbarSource).toContain("FLOWCHART_SELECTABLE_THEMES");
+    expect(toolbarSource).toContain("flowchartThemeSwatches");
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");
     expect(source).toContain("centerDiagramContent(graph)");
