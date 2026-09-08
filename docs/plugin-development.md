@@ -56,6 +56,8 @@ Only public GitHub repositories are supported for now; private-repository tokens
 
 ## Verified plugin marketplace
 
+The official marketplace only lists free and open-source plugins. Complete human-readable source, an accepted open-source license, build information, and a traceable public source revision are required for every listed version. This requirement applies only to official marketplace admission; users remain free to install other plugins from GitHub or a Manifest URL. See the [Plugin Marketplace Submission Policy](plugin-marketplace-policy.md) for the complete requirements.
+
 The marketplace is a verified Registry and does not take ownership of plugin files. For each version, the Registry pins the plugin ID, GitHub repository, version, and SHA-256 hashes for `manifest.json`, `main.js`, and optional `styles.css`. Installation still downloads from the developer's GitHub Release or registered public URL and verifies those hashes again.
 
 Registry format:

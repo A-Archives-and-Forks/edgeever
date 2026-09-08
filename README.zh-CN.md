@@ -167,7 +167,7 @@ EdgeEver 官方容器镜像托管于 GitHub Container Registry（GHCR）。部�
 
 ## 插件与主题
 
-EdgeEver 的 Web 与桌面端支持安装在当前设备的插件和无代码主题，可从插件市场、GitHub 或 Manifest 地址安装。开发者可使用 `@edgeever/plugin-api`，详情参阅[插件开发文档](docs/plugin-development.zh-CN.md)。
+EdgeEver 的 Web 与桌面端支持安装在当前设备的插件和无代码主题，可从插件市场、GitHub 或 Manifest 地址安装。官方插件市场仅收录自由及开源插件，该要求不限制用户直接通过 GitHub 或 Manifest 地址安装其他插件。开发者可使用 `@edgeever/plugin-api`，详情参阅[插件开发文档](docs/plugin-development.zh-CN.md)和[官方插件市场上架政策](docs/plugin-marketplace-policy.zh-CN.md)。
 
 ## 技术栈
 

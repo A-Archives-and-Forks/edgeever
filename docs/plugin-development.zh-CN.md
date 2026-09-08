@@ -56,6 +56,8 @@ https://github.com/owner/edgeever-plugin
 
 ## 已验证插件市场
 
+官方插件市场仅收录自由及开源插件。每个上架版本都必须提供完整且人类可读的源码、认可的开源许可证、构建信息，以及可追溯的公开源码版本。该要求仅适用于官方市场准入；用户仍可自由通过 GitHub 或 Manifest 地址安装其他插件。完整要求参阅[官方插件市场上架政策](plugin-marketplace-policy.zh-CN.md)。
+
 插件市场是一个经过校验的 Registry，不接管插件所有权。Registry 为每个版本固定插件 ID、GitHub 仓库、版本号及 `manifest.json`/`main.js`/`styles.css` 的 SHA-256；安装时仍从开发者的 GitHub Release 或登记的公开地址下载，并再次核对校验和。
 
 Registry 格式：
