@@ -246,6 +246,9 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('<DropdownMenu modal={false}');
     expect(source).toContain("draggable");
     expect(source).toContain("event.dataTransfer.setData(ARCHITECTURE_LIBRARY_DRAG_TYPE");
+    expect(source).toContain('event.dataTransfer.setData("text/plain", icon)');
+    expect(source).toContain("if (!nextOpen && draggingRef.current) return");
+    expect(source).toContain("onPointerDownOutside={(event) => {");
     expect(source).toContain("onDragOver={handleArchitectureDragOver}");
     expect(source).toContain("onDrop={handleArchitectureDrop}");
     expect(source).toContain("graph.clientToLocal({ x: event.clientX, y: event.clientY })");
@@ -253,6 +256,7 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("x: options.position.x - authoredSize.width / 2");
     expect(source).toContain("onPick={setPendingArchitectureItem}");
     expect(source).toContain("onPointerDownCapture={handlePendingArchitecturePlacement}");
+    expect(source).toContain("ref={canvasSurfaceRef}");
     expect(source).toContain('t("diagram.placeShapeHint"');
   });
 

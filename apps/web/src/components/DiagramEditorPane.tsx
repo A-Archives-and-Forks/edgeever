@@ -312,6 +312,16 @@ const inferArchitectureResourceIcon = (
   return item ? architectureResourceIcon(item) : undefined;
 };
 
+const isArchitectureLibraryDrag = (event: ReactDragEvent) => {
+  const types = Array.from(event.dataTransfer.types).map((type) => type.toLowerCase());
+  return types.includes(ARCHITECTURE_LIBRARY_DRAG_TYPE) || types.includes("text/plain");
+};
+
+const architectureLibraryDragIcon = (event: ReactDragEvent) => (
+  event.dataTransfer.getData(ARCHITECTURE_LIBRARY_DRAG_TYPE)
+  || event.dataTransfer.getData("text/plain")
+) as ArchitectureResourceIcon;
+
 const ArchitectureComponentLibrary = ({
   onPick,
   t,
@@ -321,6 +331,7 @@ const ArchitectureComponentLibrary = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const draggingRef = useRef(false);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const categories = ARCHITECTURE_LIBRARY_CATEGORIES.map((category) => ({
     ...category,
@@ -329,11 +340,21 @@ const ArchitectureComponentLibrary = ({
 
   return (
     <DropdownMenu modal={false} open={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen && draggingRef.current) return;
       setOpen(nextOpen);
       if (!nextOpen) setQuery("");
     }}>
       <DiagramToolbarAddTrigger onPointerEnter={() => setOpen(true)} />
-      <DropdownMenuContent align="start" className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(30rem,calc(100vw-2rem))] overflow-y-auto p-0">
+      <DropdownMenuContent
+        align="start"
+        className="max-h-[min(36rem,calc(100vh-8rem))] w-[min(30rem,calc(100vw-2rem))] overflow-y-auto p-0"
+        onPointerDownOutside={(event) => {
+          if (draggingRef.current) event.preventDefault();
+        }}
+        onFocusOutside={(event) => {
+          if (draggingRef.current) event.preventDefault();
+        }}
+      >
         <div className="sticky top-0 z-10 border-b border-slate-200 bg-white p-2.5">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -369,11 +390,19 @@ const ArchitectureComponentLibrary = ({
                             aria-label={label}
                             className={cn("flex h-10 w-10 cursor-grab justify-center rounded-lg p-0 hover:bg-current/10 focus:bg-current/10 active:cursor-grabbing", category.tone)}
                             draggable
+                            onPointerDown={(event) => event.stopPropagation()}
                             onDragStart={(event) => {
+                              draggingRef.current = true;
+                              event.stopPropagation();
+                              const icon = architectureResourceIcon(item);
                               event.dataTransfer.effectAllowed = "copy";
-                              event.dataTransfer.setData(ARCHITECTURE_LIBRARY_DRAG_TYPE, architectureResourceIcon(item));
+                              event.dataTransfer.setData("text/plain", icon);
+                              event.dataTransfer.setData(ARCHITECTURE_LIBRARY_DRAG_TYPE, icon);
                             }}
-                            onDragEnd={() => setOpen(false)}
+                            onDragEnd={() => {
+                              draggingRef.current = false;
+                              setOpen(false);
+                            }}
                             onSelect={() => {
                               onPick(item);
                               setOpen(false);
@@ -1897,26 +1926,26 @@ export const DiagramEditorPane = ({
   }, [addNode, t]);
 
   const handleArchitectureDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (document?.kind !== "architecture" || readOnly || !Array.from(event.dataTransfer.types).includes(ARCHITECTURE_LIBRARY_DRAG_TYPE)) return;
+    if (document?.kind !== "architecture" || readOnly || !isArchitectureLibraryDrag(event)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   };
 
   const handleArchitectureDrop = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (document?.kind !== "architecture" || readOnly) return;
-    const resourceIcon = event.dataTransfer.getData(ARCHITECTURE_LIBRARY_DRAG_TYPE) as ArchitectureResourceIcon;
+    if (document?.kind !== "architecture" || readOnly || !isArchitectureLibraryDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const resourceIcon = architectureLibraryDragIcon(event);
     const item = ARCHITECTURE_LIBRARY_ITEMS.find((candidate) => architectureResourceIcon(candidate) === resourceIcon);
     const graph = graphRef.current;
     if (!item || !graph) return;
-    event.preventDefault();
-    event.stopPropagation();
     placeArchitectureItem(item, graph.clientToLocal({ x: event.clientX, y: event.clientY }));
   };
 
   const handlePendingArchitecturePlacement = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!pendingArchitectureItem || document?.kind !== "architecture" || readOnly || event.button !== 0) return;
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest(".x6-node, .x6-edge")) return;
+    if (target?.closest(".x6-node, .x6-edge, input, textarea, [role='dialog']")) return;
     const graph = graphRef.current;
     if (!graph) return;
     event.preventDefault();
@@ -2544,7 +2573,13 @@ export const DiagramEditorPane = ({
           )}
           theme={theme}
         />
-        <div ref={canvasSurfaceRef} className="relative min-h-0 flex-1">
+        <div
+          ref={canvasSurfaceRef}
+          className={cn("relative min-h-0 flex-1", pendingArchitectureItem && "cursor-crosshair")}
+          onDragOver={handleArchitectureDragOver}
+          onDrop={handleArchitectureDrop}
+          onPointerDownCapture={handlePendingArchitecturePlacement}
+        >
           <div
             ref={containerRef}
             className={cn("edgeever-diagram-canvas absolute inset-0 touch-none outline-none", pendingArchitectureItem && "cursor-crosshair")}
@@ -2556,9 +2591,6 @@ export const DiagramEditorPane = ({
             data-space-pan={spacePanActive ? "active" : undefined}
             tabIndex={0}
             aria-label={t("diagram.canvas", { type: kindLabel })}
-            onDragOver={handleArchitectureDragOver}
-            onDrop={handleArchitectureDrop}
-            onPointerDownCapture={handlePendingArchitecturePlacement}
           />
           {!readOnly && (
             <div
