@@ -264,6 +264,9 @@ var parseMarketplaceRegistry = (value) => {
     const name = item.name;
     const description = item.description;
     const author = item.author;
+    if (item.publisher !== undefined && item.publisher !== "edgeever") {
+      throw new Error(`Marketplace entry ${item.id} has an invalid publisher.`);
+    }
     const category = item.category;
     const repositoryUrl = item.repositoryUrl;
     if (!GITHUB_REPOSITORY_PATTERN.test(repositoryUrl))
@@ -293,6 +296,7 @@ var parseMarketplaceRegistry = (value) => {
       name: name.trim(),
       description: description.trim(),
       author: author.trim(),
+      ...item.publisher === "edgeever" ? { publisher: "edgeever" } : {},
       category: category.trim(),
       repositoryUrl: repositoryUrl.trim(),
       distribution,

@@ -1463,6 +1463,15 @@ export class EdgeEverPluginHost {
     if (manifest.type === "plugin" && manifest.apiVersion !== PLUGIN_API_VERSION) {
       throw new Error(`Marketplace plugins must use plugin API v${PLUGIN_API_VERSION}.`);
     }
+    if (entry.publisher === "edgeever") {
+      if (!entry.verification.checksums?.manifestJson) throw new Error("Official extensions must pin the manifest checksum.");
+      if (manifest.type === "plugin" && !entry.verification.checksums.mainJs) {
+        throw new Error("Official plugins must pin the main.js checksum.");
+      }
+      if (actualChecksums.stylesCss && !entry.verification.checksums.stylesCss) {
+        throw new Error("Official plugins must pin the styles.css checksum when styles are distributed.");
+      }
+    }
     for (const [name, expected] of Object.entries(entry.verification.checksums ?? {})) {
       const actual = actualChecksums[name as keyof CachedPluginPackage["checksums"]];
       if (!actual || actual.toLocaleLowerCase() !== expected) throw new Error(`${name} does not match the marketplace verified checksum.`);

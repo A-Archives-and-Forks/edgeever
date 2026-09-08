@@ -45,7 +45,7 @@ styles.css（可选）
 
 GitHub 插件的 `entry` 固定为 `./main.js`，`main.js` 必须是无需相对模块导入的单文件 Bundle。EdgeEver 会读取默认分支 Manifest、查找相同版本的 Release、并行下载资产、验证 GitHub 提供的 SHA-256 Digest（如果存在），然后把验证后的包缓存到当前设备的 IndexedDB。`main.js` 上限为 5 MB，`styles.css` 上限为 1 MB。
 
-EdgeEver 会在插件市场页面打开、窗口重新获得焦点及每 30 分钟检查一次更新，但不会静默安装。用户必须点击「更新」并确认；如果新版改变能力声明或旧版网络域名元数据，确认框会列出这些变化供用户查看。GitHub 分发的 Release `manifest.json` 必须与默认分支中用于提示更新的 Manifest 完全一致，否则安装会被拒绝。市场安装只跟随 Registry 中已经验证的新版本。
+EdgeEver 会在插件市场页面打开、窗口重新获得焦点及每 30 分钟检查一次更新。Registry 条目声明 `"publisher": "edgeever"` 的市场安装属于 EdgeEver 官方扩展，会自动更新到 Registry 中通过校验和固定的最新版本。社区市场扩展以及从 GitHub 或 Manifest 地址直接安装的扩展绝不会静默更新，用户必须点击「更新」并确认；如果手动确认的新版改变能力声明或旧版网络域名元数据，确认框会列出这些变化供用户查看。GitHub 分发的 Release `manifest.json` 必须与默认分支中用于提示更新的 Manifest 完全一致，否则安装会被拒绝。市场安装只跟随 Registry 中已经验证的新版本。
 
 升级采用可回滚切换：新旧版本的包会分别缓存；如果新版无法激活，EdgeEver 会恢复原 Manifest、原启用状态和上一版本代码，而不是留下一个被破坏或被停用的插件。
 
@@ -61,7 +61,7 @@ https://github.com/owner/edgeever-plugin
 
 官方插件市场仅收录自由及开源插件。每个上架版本都必须提供完整且人类可读的源码、认可的开源许可证、构建信息，以及可追溯的公开源码版本。该要求仅适用于官方市场准入；用户仍可自由通过 GitHub 或 Manifest 地址安装其他插件。完整要求参阅[官方插件市场上架政策](plugin-marketplace-policy.zh-CN.md)。
 
-插件市场是一个经过校验的 Registry，不接管插件所有权。Registry 为每个版本固定插件 ID、GitHub 仓库、版本号及 `manifest.json`/`main.js`/`styles.css` 的 SHA-256；安装时仍从开发者的 GitHub Release 或登记的公开地址下载，并再次核对校验和。
+插件市场是一个经过校验的 Registry，不接管插件所有权。Registry 为每个版本固定插件 ID、GitHub 仓库、版本号及 `manifest.json`/`main.js`/`styles.css` 的 SHA-256；安装时仍从开发者的 GitHub Release 或登记的公开地址下载，并再次核对校验和。可选的 `"publisher": "edgeever"` 标记仅保留给 EdgeEver 项目维护的 Registry 条目；它会启用自动更新，社区投稿不得使用。
 
 Registry 格式：
 
@@ -73,7 +73,8 @@ Registry 格式：
     "id": "com.example.recent-notes",
     "name": "Recent Notes",
     "description": "Shows recently updated notes.",
-    "author": "Example",
+    "author": "EdgeEver",
+    "publisher": "edgeever",
     "category": "Productivity",
     "repositoryUrl": "https://github.com/example/edgeever-recent-notes",
     "distribution": {

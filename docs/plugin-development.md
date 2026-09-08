@@ -45,7 +45,7 @@ styles.css (optional)
 
 GitHub plugins must use `./main.js` as `entry`, and `main.js` must be a single-file bundle without relative module imports. EdgeEver reads the default-branch manifest, locates the matching Release, downloads assets in parallel, verifies GitHub's SHA-256 digest when present, and caches the verified package in device-local IndexedDB. `main.js` is limited to 5 MB and `styles.css` to 1 MB.
 
-EdgeEver checks for updates when the Plugin Marketplace opens, when the window regains focus, and every 30 minutes, but never installs silently. The user must click Update and confirm. If a new version changes declared capabilities or legacy network-host metadata, the confirmation lists those changes for review. For GitHub distribution, the Release `manifest.json` must exactly match the default-branch manifest used for the update prompt or installation is rejected. Marketplace installs only follow newer versions verified in the Registry.
+EdgeEver checks for updates when the Plugin Marketplace opens, when the window regains focus, and every 30 minutes. Marketplace installs whose Registry entry declares `"publisher": "edgeever"` are official EdgeEver extensions and update automatically to the latest checksum-pinned Registry version. Community Marketplace extensions and extensions installed directly from GitHub or a Manifest URL are never updated silently: the user must click Update and confirm. If a manually confirmed version changes declared capabilities or legacy network-host metadata, the confirmation lists those changes for review. For GitHub distribution, the Release `manifest.json` must exactly match the default-branch manifest used for the update prompt or installation is rejected. Marketplace installs only follow newer versions verified in the Registry.
 
 Updates use a rollback-capable switch. Old and new package versions are cached separately. If the new version cannot activate, EdgeEver restores the previous manifest, enabled state, and package instead of leaving the plugin broken or disabled.
 
@@ -61,7 +61,7 @@ Only public GitHub repositories are supported for now; private-repository tokens
 
 The official marketplace only lists free and open-source plugins. Complete human-readable source, an accepted open-source license, build information, and a traceable public source revision are required for every listed version. This requirement applies only to official marketplace admission; users remain free to install other plugins from GitHub or a Manifest URL. See the [Plugin Marketplace Submission Policy](plugin-marketplace-policy.md) for the complete requirements.
 
-The marketplace is a verified Registry and does not take ownership of plugin files. For each version, the Registry pins the plugin ID, GitHub repository, version, and SHA-256 hashes for `manifest.json`, `main.js`, and optional `styles.css`. Installation still downloads from the developer's GitHub Release or registered public URL and verifies those hashes again.
+The marketplace is a verified Registry and does not take ownership of plugin files. For each version, the Registry pins the plugin ID, GitHub repository, version, and SHA-256 hashes for `manifest.json`, `main.js`, and optional `styles.css`. Installation still downloads from the developer's GitHub Release or registered public URL and verifies those hashes again. The optional `"publisher": "edgeever"` marker is reserved for Registry entries maintained by the EdgeEver project; it enables automatic updates and must not be used for community submissions.
 
 Registry format:
 
@@ -73,7 +73,8 @@ Registry format:
     "id": "com.example.recent-notes",
     "name": "Recent Notes",
     "description": "Shows recently updated notes.",
-    "author": "Example",
+    "author": "EdgeEver",
+    "publisher": "edgeever",
     "category": "Productivity",
     "repositoryUrl": "https://github.com/example/edgeever-recent-notes",
     "distribution": {

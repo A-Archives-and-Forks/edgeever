@@ -11,7 +11,7 @@ import type { EdgeEverPluginHost, InstalledExtension, RegisteredPluginCommand, R
 import { PluginPanelDialog } from "@/components/plugins/PluginPanelDialog";
 import { loadPluginMarketplace } from "@/lib/plugins/plugin-marketplace";
 import { GitHubMark } from "@/components/GitHubRepositoryLink";
-import { checkPluginUpdates, type PluginUpdateInfo } from "@/lib/plugins/plugin-updates";
+import { applyPluginUpdate, checkPluginUpdates, type PluginUpdateInfo } from "@/lib/plugins/plugin-updates";
 import { PluginUpdateDialog } from "@/components/plugins/PluginUpdateDialog";
 import { PluginSettingsSection } from "@/components/plugins/PluginSettingsSection";
 import { getPluginDetailPage, getPluginDetailPath, hasPluginSettings, type PluginDetailPage } from "@/lib/plugins/plugin-navigation";
@@ -404,17 +404,7 @@ export const PluginManagerCard = ({
   };
 
   const applyUpdate = async (update: PluginUpdateInfo) => {
-    const extension = snapshot.extensions.find((candidate) => candidate.manifest.id === update.pluginId);
-    if (!extension) throw new Error("Extension is no longer installed.");
-    if (extension.source.kind === "marketplace") {
-      if (!update.marketplaceEntry) throw new Error("The verified marketplace entry is no longer available.");
-      await host.installMarketplaceEntry(update.marketplaceEntry, update.latestManifest);
-    } else if (extension.source.kind === "github") {
-      if (!extension.source.repositoryUrl) throw new Error("Installed GitHub extension is missing its repository URL.");
-      await host.installFromGithubRepository(extension.source.repositoryUrl, undefined, update.latestManifest);
-    } else {
-      await host.installFromManifestUrl(extension.manifestUrl, undefined, update.latestManifest);
-    }
+    await applyPluginUpdate(host, update);
     setPendingUpdate(null);
     setLastManualCheckCount(null);
     await updateQuery.refetch();
@@ -517,6 +507,11 @@ export const PluginManagerCard = ({
                         <div className="flex items-center gap-1.5">
                           <span className="truncate text-sm font-semibold text-slate-900">{entry.name}</span>
                           <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-label={t("plugins.marketplace.verified")} />
+                          {entry.publisher === "edgeever" ? (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                              {t("plugins.marketplace.officialAutoUpdate")}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-0.5 text-[10px] text-slate-400">{entry.author} · {entry.category} · v{entry.verification.version}</div>
                       </div>

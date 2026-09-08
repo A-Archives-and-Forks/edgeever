@@ -173,12 +173,31 @@ describe("marketplace registry", () => {
         name: "Example",
         description: "Example plugin",
         author: "EdgeEver",
+        publisher: "edgeever",
         category: "Productivity",
         repositoryUrl: "https://github.com/edgeever/example",
         distribution: { type: "github", repositoryUrl: "https://github.com/edgeever/example" },
         verification: { version: "1.0.0", checksums: { manifestJson: "a".repeat(64), mainJs: "b".repeat(64) } },
       }],
-    }).entries[0]).toMatchObject({ id: "org.edgeever.example", verification: { version: "1.0.0" } });
+    }).entries[0]).toMatchObject({ id: "org.edgeever.example", publisher: "edgeever", verification: { version: "1.0.0" } });
+  });
+
+  test("rejects unknown automatic-update publishers", () => {
+    expect(() => parseMarketplaceRegistry({
+      registryVersion: "1",
+      updatedAt: "2026-08-16T00:00:00.000Z",
+      entries: [{
+        id: "org.edgeever.example",
+        name: "Example",
+        description: "Example plugin",
+        author: "Example",
+        publisher: "third-party",
+        category: "Productivity",
+        repositoryUrl: "https://github.com/example/plugin",
+        distribution: { type: "github", repositoryUrl: "https://github.com/example/plugin" },
+        verification: { version: "1.0.0", checksums: { manifestJson: "a".repeat(64) } },
+      }],
+    })).toThrow("invalid publisher");
   });
 
   test("rejects duplicate plugin ids", () => {

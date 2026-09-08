@@ -85,6 +85,7 @@ export interface MarketplaceEntry {
     name: string;
     description: string;
     author: string;
+    publisher?: "edgeever";
     category: string;
     repositoryUrl: string;
     distribution: {

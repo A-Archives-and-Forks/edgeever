@@ -123,6 +123,7 @@ export interface MarketplaceEntry {
   name: string;
   description: string;
   author: string;
+  publisher?: "edgeever";
   category: string;
   repositoryUrl: string;
   distribution:
@@ -685,6 +686,9 @@ export const parseMarketplaceRegistry = (value: unknown): MarketplaceRegistry =>
     const name = item.name as string;
     const description = item.description as string;
     const author = item.author as string;
+    if (item.publisher !== undefined && item.publisher !== "edgeever") {
+      throw new Error(`Marketplace entry ${item.id} has an invalid publisher.`);
+    }
     const category = item.category as string;
     const repositoryUrl = item.repositoryUrl as string;
     if (!GITHUB_REPOSITORY_PATTERN.test(repositoryUrl)) throw new Error(`Marketplace entry ${item.id} repositoryUrl must be a GitHub repository.`);
@@ -715,6 +719,7 @@ export const parseMarketplaceRegistry = (value: unknown): MarketplaceRegistry =>
       name: name.trim(),
       description: description.trim(),
       author: author.trim(),
+      ...(item.publisher === "edgeever" ? { publisher: "edgeever" as const } : {}),
       category: category.trim(),
       repositoryUrl: repositoryUrl.trim(),
       distribution,
