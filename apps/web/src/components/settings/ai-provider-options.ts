@@ -22,7 +22,13 @@ export const trimAiText = (value: string | null | undefined) => (value ?? "").tr
 export const isLegacyProviderDisplayName = (displayName: string | null | undefined, provider: AiProvider) =>
   trimAiText(displayName).toLocaleLowerCase() === (providerDefaults[provider]?.displayName ?? "").toLocaleLowerCase();
 
-export const aiErrorMessage = (error: unknown, fallback: string, encryptionMessage: string) => {
+export const aiErrorMessage = (
+  error: unknown,
+  fallback: string,
+  encryptionMessage: string,
+  unavailableMessage = encryptionMessage,
+) => {
   if (error instanceof ApiRequestError && error.code === "ai_encryption_key_missing") return encryptionMessage;
+  if (error instanceof ApiRequestError && error.code === "ai_credentials_unavailable") return unavailableMessage;
   return error instanceof Error ? error.message : fallback;
 };

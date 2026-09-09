@@ -165,6 +165,11 @@ export const AiProviderCard = ({ provider: saved, defaultDisplayName, defaultMod
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="truncate text-sm font-semibold text-slate-900">{effectiveDisplayName}</span>
+            {saved.credentialsUnavailable ? (
+              <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                {t("aiModel.savedCredentialsUnavailableBadge")}
+              </span>
+            ) : null}
             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
               {providerLabel}
             </span>
@@ -276,7 +281,7 @@ export const AiProviderCard = ({ provider: saved, defaultDisplayName, defaultMod
 
       {cardError ? (
         <p className="border-t px-4 py-3 text-xs font-medium text-rose-600" role="alert">
-          {aiErrorMessage(cardError, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"))}
+          {aiErrorMessage(cardError, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"), t("aiModel.savedCredentialsUnavailable"))}
         </p>
       ) : null}
 
@@ -326,7 +331,7 @@ export const AiProviderCard = ({ provider: saved, defaultDisplayName, defaultMod
             ) : null}
             {connectionError ? (
               <p className="text-xs font-medium text-rose-600" role="alert">
-                {aiErrorMessage(connectionError, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"))}
+                {aiErrorMessage(connectionError, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"), t("aiModel.savedCredentialsUnavailable"))}
               </p>
             ) : null}
             <DialogFooter className="gap-2 sm:space-x-0">
@@ -368,7 +373,7 @@ export const AiProviderCard = ({ provider: saved, defaultDisplayName, defaultMod
             </Field>
             {discoverMutation.error || addModelMutation.error ? (
               <p className="text-xs font-medium text-rose-600" role="alert">
-                {aiErrorMessage(discoverMutation.error ?? addModelMutation.error, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"))}
+                {aiErrorMessage(discoverMutation.error ?? addModelMutation.error, t("aiModel.failed"), t("aiModel.encryptionKeyMissing"), t("aiModel.savedCredentialsUnavailable"))}
               </p>
             ) : null}
             <DialogFooter className="gap-2 sm:space-x-0 sm:justify-between">

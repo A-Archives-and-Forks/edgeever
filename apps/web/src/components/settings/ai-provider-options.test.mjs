@@ -39,5 +39,8 @@ describe("AI settings cards tolerate missing text fields", () => {
     expect(providerCard).toContain("trimAiText(displayName)");
     expect(providerCard).toContain("trimAiText(baseUrl)");
     expect(modelCard).toContain("!item.displayName");
+    expect(modelCard).toContain("canAddProvider");
+    expect(modelCard).toContain("addDisabledReason");
+    expect(modelCard).toContain("savedCredentialsUnavailable");
   });
 });
