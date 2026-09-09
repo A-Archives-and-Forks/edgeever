@@ -8,7 +8,7 @@ Theme packages contain only a validated manifest and documented design tokens. T
 
 Client plugins use an Obsidian-style trusted-code model. Enabling a plugin trusts it with the full EdgeEver plugin context; declared capabilities are optional descriptive metadata and do not gate API calls. The plugin module runs in the client JavaScript environment, so users must install plugins only from developers they trust.
 
-The first time a user enables a client plugin on a device, EdgeEver presents a community-plugin trust confirmation. Once acknowledged, it is not shown for every plugin. Theme packages do not trigger the confirmation because they cannot execute JavaScript.
+The first time a user enables a community client plugin on a device, EdgeEver presents a community-plugin trust confirmation. Once acknowledged, it is not shown for every plugin. Official plugins (publisher EdgeEver) do not trigger the confirmation. Theme packages also do not trigger it because they cannot execute JavaScript.
 
 Plugins never receive EdgeEver's repository, IndexedDB database, Cloudflare bindings, or internal React state through the public API.
 

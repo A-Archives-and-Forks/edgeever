@@ -15,7 +15,7 @@ import { GitHubMark } from "@/components/GitHubRepositoryLink";
 import { applyPluginUpdate, checkPluginUpdates, type PluginUpdateInfo } from "@/lib/plugins/plugin-updates";
 import { PluginUpdateDialog } from "@/components/plugins/PluginUpdateDialog";
 import { PluginSettingsSection } from "@/components/plugins/PluginSettingsSection";
-import { buildPluginCatalogItems } from "@/lib/plugins/plugin-catalog";
+import { buildPluginCatalogItems, getPluginCatalogSourceKey } from "@/lib/plugins/plugin-catalog";
 import { getPluginDetailPage, getPluginDetailPath, hasPluginSettings, type PluginDetailPage } from "@/lib/plugins/plugin-navigation";
 import type { ScheduledTask } from "@edgeever/shared";
 import { api, getOrCreateClientDeviceId } from "@/lib/api";
@@ -391,10 +391,13 @@ export const PluginManagerCard = ({
   };
 
   const toggleExtension = (extension: InstalledExtension, enabled: boolean) => {
+    const catalogItem = catalogItems.find((item) => item.id === extension.manifest.id)
+      ?? { id: extension.manifest.id, extension };
     if (shouldRequestPluginTrustAcknowledgement({
       acknowledged: hasAcknowledgedPluginTrustWarning(),
       enabled,
       extensionType: extension.manifest.type,
+      isOfficial: getPluginCatalogSourceKey(catalogItem) === "official",
     })) {
       setPendingTrustPluginId(extension.manifest.id);
       return;

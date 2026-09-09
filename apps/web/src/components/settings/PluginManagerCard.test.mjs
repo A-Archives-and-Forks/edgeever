@@ -40,4 +40,9 @@ describe("unified plugin catalog cards", () => {
     expect(catalogCard).not.toContain("marketplace.installed");
     expect(source).not.toContain("border-emerald-100");
   });
+
+  test("does not treat official marketplace plugins as community plugins in the trust dialog", () => {
+    expect(source).toContain("getPluginCatalogSourceKey(catalogItem) === \"official\"");
+    expect(source).toContain("isOfficial:");
+  });
 });
