@@ -41,6 +41,7 @@ import {
 } from "./windows-update-trust.mjs";
 import electronUpdater from "electron-updater";
 import { createPluginPublicNetworkRuntime } from "./plugin-public-network.mjs";
+import { shouldQuitAfterAllWindowsClosed } from "./window-lifecycle.mjs";
 import {
   DESKTOP_APP_ENTRY_URL,
   DESKTOP_APP_ORIGIN,
@@ -132,6 +133,7 @@ const pluginPublicNetwork = createPluginPublicNetworkRuntime();
 let rendererUnresponsiveDialogOpen = false;
 let recoveredAfterAbnormalExit = false;
 let usePrivateAppProtocol = false;
+let rendererOriginMigrationInProgress = false;
 const pendingScheduledTaskRuns = [];
 const sendScheduledTaskRun = (task, scheduledFor) => {
   const payload = { task, scheduledFor: scheduledFor.toISOString() };
@@ -761,6 +763,7 @@ const preparePackagedRendererOrigin = async () => {
   }
 
   const bridgePath = join(process.resourcesPath, "web/desktop-storage-bridge.html");
+  rendererOriginMigrationInProgress = true;
   try {
     const result = await migrateRendererStorageOrigin({
       createWindow: () => new BrowserWindow({
@@ -782,6 +785,8 @@ const preparePackagedRendererOrigin = async () => {
     void writeDiagnostic("renderer.origin-migration-failed", {
       message: String(error?.message || error).slice(0, 2000),
     });
+  } finally {
+    rendererOriginMigrationInProgress = false;
   }
 };
 
@@ -1621,7 +1626,7 @@ app.on("second-instance", (_event, commandLine) => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (shouldQuitAfterAllWindowsClosed({ rendererOriginMigrationInProgress })) app.quit();
 });
 
 app.on("before-quit", (event) => {
