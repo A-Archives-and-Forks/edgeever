@@ -1135,6 +1135,10 @@ export const enUS = {
     desktopUpdateInstalling: "Restarting to install update…",
     desktopUpdateFailed: "Update failed. Please try again later.",
   },
+  productHunt: {
+    title: "Product Hunt",
+    description: "Upvote EdgeEver so more people can find it",
+  },
   feedback: {
     title: "Feedback",
     description: "Report a problem or suggest a feature",

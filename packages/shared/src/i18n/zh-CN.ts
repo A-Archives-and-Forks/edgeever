@@ -1135,6 +1135,10 @@ export const zhCN = {
     desktopUpdateInstalling: "正在重启并安装更新…",
     desktopUpdateFailed: "更新失败，请稍后重试。",
   },
+  productHunt: {
+    title: "Product Hunt",
+    description: "为我们投票，让更多人发现 EdgeEver",
+  },
   feedback: {
     title: "意见反馈",
     description: "报告问题或提出功能建议",
