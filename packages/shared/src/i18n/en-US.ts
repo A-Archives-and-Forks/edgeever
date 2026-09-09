@@ -736,7 +736,6 @@ export const enUS = {
       addedPermissions: "New capability declarations",
       addedNetworkHosts: "New website declarations (legacy metadata)",
       allowAndUpdate: "Confirm and update",
-      officialAutoUpdated: "Updated {{count}} official plugin(s) to the latest verified version.",
     },
     noticeTitle: "Plugin",
     panel: "Plugin panel",
