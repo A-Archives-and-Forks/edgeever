@@ -103,7 +103,9 @@ export const AiModelCard = () => {
     ordinal: formatProviderOrdinal(index + 1, locale),
   });
   const getProviderName = (item: NonNullable<typeof settings>["providers"][number], index: number) =>
-    isLegacyProviderDisplayName(item.displayName, item.provider) ? getDefaultProviderName(index) : item.displayName;
+    isLegacyProviderDisplayName(item.displayName, item.provider) || !item.displayName
+      ? getDefaultProviderName(index)
+      : item.displayName;
   const allModels = settings?.providers.flatMap((item, index) =>
     item.models.map((model) => ({ ...model, providerName: getProviderName(item, index), providerEnabled: item.isEnabled }))) ?? [];
   const defaultModelAvailable = !settings?.defaultModelId
