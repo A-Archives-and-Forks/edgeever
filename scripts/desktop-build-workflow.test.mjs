@@ -5,6 +5,7 @@ const workflow = readFileSync(new URL("../.github/workflows/desktop-build.yml", 
 const mobileWorkflow = readFileSync(new URL("../.github/workflows/mobile-build.yml", import.meta.url), "utf8");
 const desktopPackageVerifier = readFileSync(new URL("./verify-desktop-package.mjs", import.meta.url), "utf8");
 const packagedStartupVerifier = readFileSync(new URL("./verify-packaged-desktop-startup.mjs", import.meta.url), "utf8");
+const protocolE2eVerifier = readFileSync(new URL("./verify-desktop-protocol-e2e.mjs", import.meta.url), "utf8");
 const cargoConfig = readFileSync(new URL("../.cargo/config.toml", import.meta.url), "utf8");
 const desktopBuilderConfig = readFileSync(new URL("../apps/desktop/electron-builder.yml", import.meta.url), "utf8");
 
@@ -83,6 +84,7 @@ describe("desktop release workflow", () => {
     expect(step("Verify packaged macOS cross-version startup")).toContain("needs.release-plan.outputs.previous_tag");
     expect(step("Verify packaged macOS cross-version startup")).toContain("verify:desktop-cross-version-startup");
     expect(step("Verify packaged macOS first launch")).not.toContain("if: matrix.shared_validation");
+    expect(step("Verify packaged macOS private protocol file flows")).toContain("verify:desktop-protocol-e2e");
   });
 
   test("reports timings after builds without instrumenting native build steps", () => {
@@ -109,6 +111,12 @@ describe("desktop release workflow", () => {
     expect(step("Verify packaged Windows cross-version startup")).toContain("Start-Process");
     expect(workflow).toContain("name: Verify packaged Windows first launch");
     expect(workflow).toContain("verify:packaged-desktop-startup");
+    expect(step("Verify packaged Windows private protocol file flows")).toContain("verify:desktop-protocol-e2e");
+    expect(protocolE2eVerifier).toContain('origin !== "edgeever-app://app"');
+    expect(protocolE2eVerifier).toContain('fetch("edgeever-staged://" + pending.id)');
+    expect(protocolE2eVerifier).toContain('const url = "edgeever-resource://resource/${cachedResourceId}"');
+    expect(protocolE2eVerifier).toContain('DOM.setFileInputFiles');
+    expect(protocolE2eVerifier).toContain('Browser.setDownloadBehavior');
     expect(packagedStartupVerifier).toContain('new Set(["renderer.origin-ready", "sidecar.ready", "renderer.bootstrap-ready"])');
     expect(packagedStartupVerifier).toContain('"renderer.origin-ready"');
     expect(packagedStartupVerifier).toContain('startsWith("edgeever-app://app/")');
@@ -136,6 +144,7 @@ describe("desktop release workflow", () => {
     expect(workflow).toContain("name: Run packaged Linux sidecar integration tests");
     expect(workflow).toContain("name: Verify packaged Linux first launch");
     expect(workflow).toContain("xvfb-run -a bun run verify:packaged-desktop-startup");
+    expect(step("Verify packaged Linux private protocol file flows")).toContain("xvfb-run -a bun run verify:desktop-protocol-e2e");
     expect(workflow).toContain("SHA256SUMS-linux.txt");
     expect(workflow).toContain("name: Audit Linux Preview asset");
     expect(workflow).toContain("needs: [release-plan, desktop, windows, linux]");

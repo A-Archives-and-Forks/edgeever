@@ -353,6 +353,16 @@ jobs:
           fi
           bun run verify:packaged-desktop-startup -- "release/desktop/$unpacked_directory/EdgeEver.app/Contents/MacOS/EdgeEver"
 
+      - name: Verify packaged macOS private protocol file flows
+        env:
+          EDGE_EVER_DESKTOP_ARCH: ${{ matrix.arch }}
+        run: |
+          unpacked_directory="mac-${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "x64" ]]; then
+            unpacked_directory="mac"
+          fi
+          bun run verify:desktop-protocol-e2e -- "release/desktop/$unpacked_directory/EdgeEver.app/Contents/MacOS/EdgeEver"
+
       - name: Verify desktop installer
         env:
           EDGE_EVER_DESKTOP_ARCH: ${{ matrix.arch }}
@@ -495,6 +505,9 @@ jobs:
       - name: Verify packaged Windows first launch
         run: bun run verify:packaged-desktop-startup -- release/desktop/win-unpacked/EdgeEver.exe
 
+      - name: Verify packaged Windows private protocol file flows
+        run: bun run verify:desktop-protocol-e2e -- release/desktop/win-unpacked/EdgeEver.exe
+
       - name: Verify that Preview executables are unsigned
         shell: pwsh
         run: |
@@ -634,6 +647,18 @@ jobs:
           done
           test -n "$executable"
           xvfb-run -a bun run verify:packaged-desktop-startup -- "$executable"
+
+      - name: Verify packaged Linux private protocol file flows
+        run: |
+          executable=""
+          for candidate in release/desktop/linux-unpacked/EdgeEver release/desktop/linux-unpacked/edgeever; do
+            if [[ -x "$candidate" ]]; then
+              executable="$candidate"
+              break
+            fi
+          done
+          test -n "$executable"
+          xvfb-run -a bun run verify:desktop-protocol-e2e -- "$executable"
 
       - name: Create Linux checksum
         run: |
