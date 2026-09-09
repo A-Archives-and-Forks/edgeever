@@ -452,6 +452,45 @@ await context.ui.panels.open("dashboard", { state: { resourceId } });
 
 `presentation` 可以使用 `dialog`（默认）或 `fullscreen`。`panels.open()` 只能打开调用插件自己注册的面板；可选 JSON 状态上限为 64 KiB，并通过挂载上下文传入。`beforeClose()` 可以返回 `true` 关闭、返回 `false` 保持打开，或返回由宿主显示确认框所需的文案。挂载上下文中的 `requestClose()` 同样会经过这项保护。
 
+### 面板系统控件
+
+用 `mount` 上下文里的 `shell.set()` 描述标题、说明、页头按钮、搜索、分段选项、下拉框和空状态。EdgeEver 用与应用其余部分相同的组件来渲染这些控件。`container` 仍是插件内容区——列表、画布和表单继续由插件自己的 DOM 负责。
+
+```js
+mount(container, { shell, requestClose }) {
+  const list = document.createElement("div");
+  container.append(list);
+  const render = (query) => {
+    const tasks = queryTasks(query);
+    shell.set({
+      header: {
+        title: "待办任务",
+        description: `${tasks.length} 项未完成`,
+        actions: [{ id: "refresh", label: "刷新" }],
+      },
+      toolbar: [
+        { type: "tabs", key: "view", value: query.view, options: [
+          { value: "open", label: "未完成" },
+          { value: "done", label: "已完成" },
+        ] },
+        { type: "search", key: "q", placeholder: "搜索任务", value: query.q },
+        { type: "select", key: "priority", label: "优先级", value: query.priority, options: [
+          { value: "all", label: "全部" },
+          { value: "high", label: "高" },
+        ] },
+      ],
+      empty: tasks.length ? null : { title: "没有符合条件的任务" },
+      onAction(id) { if (id === "refresh") render(query); },
+      onChange(key, value) { render({ ...query, [key]: value }); },
+    });
+    list.replaceChildren(...tasks.map(renderRow));
+  };
+  render({ view: "open", q: "", priority: "all" });
+}
+```
+
+将 `header.description` 设为 `null` 会隐藏默认的「由受信任插件提供」说明（辅助技术仍可读取）。从不调用 `shell.set()` 的插件保持原来的内嵌卡片布局。控件回调只存在于内存中，不会写入面板 `state`。
+
 ## 桌面端插件入口
 
 启用插件后，桌面端左侧工作区快捷栏会显示统一的拼图入口。菜单按插件分组展示命令和面板，并在顶部保留最近使用的操作；“管理插件与主题”会直接打开独立插件市场页面。插件不会各自在工具栏占用一个图标。

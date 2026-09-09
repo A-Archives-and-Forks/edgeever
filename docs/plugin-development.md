@@ -452,6 +452,45 @@ Every API v2 panel must declare one business purpose: `workflow`, `dashboard`, `
 
 `presentation` accepts `dialog` (the default) or `fullscreen`. `panels.open()` can only open a panel registered by the calling plugin; its optional JSON state is limited to 64 KiB and is delivered through the mount context. `beforeClose()` may return `true` to close, `false` to stay open, or confirmation copy for a host-rendered dialog. The mount context's `requestClose()` follows the same guard.
 
+### Panel chrome
+
+Use `mount` context `shell.set()` for system chrome: title, description, header actions, search, tabs, selects, and empty states. EdgeEver renders those controls with the same components as the rest of the app. The `container` argument remains the plugin body — lists, canvases, and forms stay in plugin DOM.
+
+```js
+mount(container, { shell, requestClose }) {
+  const list = document.createElement("div");
+  container.append(list);
+  const render = (query) => {
+    const tasks = queryTasks(query);
+    shell.set({
+      header: {
+        title: "Tasks",
+        description: `${tasks.length} open`,
+        actions: [{ id: "refresh", label: "Refresh" }],
+      },
+      toolbar: [
+        { type: "tabs", key: "view", value: query.view, options: [
+          { value: "open", label: "Open" },
+          { value: "done", label: "Done" },
+        ] },
+        { type: "search", key: "q", placeholder: "Search tasks", value: query.q },
+        { type: "select", key: "priority", label: "Priority", value: query.priority, options: [
+          { value: "all", label: "All" },
+          { value: "high", label: "High" },
+        ] },
+      ],
+      empty: tasks.length ? null : { title: "No matching tasks" },
+      onAction(id) { if (id === "refresh") render(query); },
+      onChange(key, value) { render({ ...query, [key]: value }); },
+    });
+    list.replaceChildren(...tasks.map(renderRow));
+  };
+  render({ view: "open", q: "", priority: "all" });
+}
+```
+
+Passing `header.description: null` hides the default “provided by a trusted plugin” line from the visible header (it remains available to assistive technology). Plugins that never call `shell.set()` keep the previous nested card layout. Chrome callbacks are in-memory only and are not stored in panel `state`.
+
 ## Desktop plugin entry
 
 After a plugin is enabled, a unified puzzle button appears in the desktop workspace shortcuts on the left. Its menu groups commands and panels by plugin, keeps recently used actions at the top, and links directly to extension management. Individual plugins do not each consume a toolbar icon.

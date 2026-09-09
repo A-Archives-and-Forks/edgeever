@@ -352,9 +352,58 @@ export interface PluginPanelOpenOptions {
   state?: PluginJsonValue;
 }
 
+export type PluginPanelActionVariant = "default" | "primary" | "ghost";
+
+export interface PluginPanelAction {
+  id: string;
+  label: string;
+  variant?: PluginPanelActionVariant;
+  disabled?: boolean;
+}
+
+export interface PluginPanelSelectOption {
+  value: string;
+  label: string;
+}
+
+export type PluginPanelToolbarItem =
+  | { type: "search"; key: string; placeholder?: string; value?: string }
+  | { type: "tabs"; key: string; value?: string; options: PluginPanelSelectOption[] }
+  | { type: "select"; key: string; label?: string; value?: string; options: PluginPanelSelectOption[] }
+  | { type: "button"; key: string; label: string; variant?: PluginPanelActionVariant; disabled?: boolean };
+
+export interface PluginPanelEmptyState {
+  title: string;
+  description?: string;
+  action?: PluginPanelAction;
+}
+
+/**
+ * Host-rendered panel chrome. Plugins describe intent; EdgeEver owns layout and controls.
+ * Callbacks stay in-memory and are not serialized with panel open state.
+ */
+export interface PluginPanelChrome {
+  header?: {
+    title?: string;
+    /** Pass `null` to hide the host's default panel description. */
+    description?: string | null;
+    actions?: PluginPanelAction[];
+  };
+  toolbar?: PluginPanelToolbarItem[];
+  empty?: PluginPanelEmptyState | null;
+  onAction?: (id: string) => void;
+  onChange?: (key: string, value: string) => void;
+}
+
+export interface PluginPanelShell {
+  set(chrome: PluginPanelChrome): void;
+}
+
 export interface PluginPanelMountContext {
   state: PluginJsonValue | null;
   requestClose(): Promise<void>;
+  /** Host-rendered header, toolbar, and empty state. `set` is a no-op when the host has no chrome adapter. */
+  shell: PluginPanelShell;
 }
 
 export type PluginPanelCloseDecision = boolean | {
@@ -507,6 +556,97 @@ const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const PANEL_CHROME_ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+const PANEL_ACTION_VARIANTS = new Set<PluginPanelActionVariant>(["default", "primary", "ghost"]);
+
+const clipChromeText = (value: unknown, fallback = "", max = 200) => {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+};
+
+const normalizePanelAction = (value: unknown): PluginPanelAction | null => {
+  if (!isRecord(value) || typeof value.id !== "string" || !PANEL_CHROME_ID.test(value.id)) return null;
+  const label = clipChromeText(value.label);
+  if (!label) return null;
+  const variant = PANEL_ACTION_VARIANTS.has(value.variant as PluginPanelActionVariant) ? value.variant as PluginPanelActionVariant : undefined;
+  return { id: value.id, label, ...(variant ? { variant } : {}), ...(value.disabled === true ? { disabled: true } : {}) };
+};
+
+const normalizePanelOptions = (value: unknown): PluginPanelSelectOption[] => {
+  if (!Array.isArray(value)) return [];
+  const options: PluginPanelSelectOption[] = [];
+  for (const item of value.slice(0, 24)) {
+    if (!isRecord(item) || typeof item.value !== "string" || !item.value || item.value.length > 64) continue;
+    const label = clipChromeText(item.label, item.value);
+    options.push({ value: item.value, label });
+  }
+  return options;
+};
+
+const normalizeToolbarItem = (value: unknown): PluginPanelToolbarItem | null => {
+  if (!isRecord(value) || typeof value.key !== "string" || !PANEL_CHROME_ID.test(value.key)) return null;
+  if (value.type === "search") {
+    return {
+      type: "search",
+      key: value.key,
+      ...(typeof value.placeholder === "string" ? { placeholder: clipChromeText(value.placeholder, "", 80) } : {}),
+      ...(typeof value.value === "string" ? { value: value.value.slice(0, 200) } : {}),
+    };
+  }
+  if (value.type === "tabs" || value.type === "select") {
+    const options = normalizePanelOptions(value.options);
+    if (!options.length) return null;
+    const selected = typeof value.value === "string" && options.some((option) => option.value === value.value) ? value.value : options[0].value;
+    return {
+      type: value.type,
+      key: value.key,
+      value: selected,
+      options,
+      ...(value.type === "select" && typeof value.label === "string" ? { label: clipChromeText(value.label, "", 40) } : {}),
+    };
+  }
+  if (value.type === "button") {
+    const action = normalizePanelAction({ ...value, id: value.key });
+    if (!action) return null;
+    return { type: "button", key: value.key, label: action.label, ...(action.variant ? { variant: action.variant } : {}), ...(action.disabled ? { disabled: true } : {}) };
+  }
+  return null;
+};
+
+/** Strips unknown fields and clamps sizes so host chrome rendering stays bounded. */
+export const normalizePluginPanelChrome = (value: PluginPanelChrome | null | undefined): PluginPanelChrome => {
+  if (!isRecord(value)) return {};
+  const chrome: PluginPanelChrome = {};
+  if (isRecord(value.header)) {
+    const actions = Array.isArray(value.header.actions)
+      ? value.header.actions.map(normalizePanelAction).filter((action): action is PluginPanelAction => Boolean(action)).slice(0, 8)
+      : [];
+    chrome.header = {
+      ...(typeof value.header.title === "string" ? { title: clipChromeText(value.header.title, "", 80) } : {}),
+      ...(value.header.description === null ? { description: null } : typeof value.header.description === "string" ? { description: clipChromeText(value.header.description, "", 200) } : {}),
+      ...(actions.length ? { actions } : {}),
+    };
+  }
+  if (Array.isArray(value.toolbar)) {
+    chrome.toolbar = value.toolbar.map(normalizeToolbarItem).filter((item): item is PluginPanelToolbarItem => Boolean(item)).slice(0, 16);
+  }
+  if (value.empty === null) chrome.empty = null;
+  else if (isRecord(value.empty)) {
+    const title = clipChromeText(value.empty.title, "", 80);
+    if (title) {
+      chrome.empty = {
+        title,
+        ...(typeof value.empty.description === "string" ? { description: clipChromeText(value.empty.description) } : {}),
+        ...(normalizePanelAction(value.empty.action) ? { action: normalizePanelAction(value.empty.action)! } : {}),
+      };
+    }
+  }
+  if (typeof value.onAction === "function") chrome.onAction = value.onAction as PluginPanelChrome["onAction"];
+  if (typeof value.onChange === "function") chrome.onChange = value.onChange as PluginPanelChrome["onChange"];
+  return chrome;
+};
 
 const COLOR_THEME_TOKENS = new Set<ThemeTokenName>([
   "color.background", "color.surface", "color.surfaceMuted", "color.text", "color.textMuted",

@@ -52,6 +52,100 @@ var defineTheme = (theme) => theme;
 var ID_PATTERN = /^[a-z0-9]+(?:[._-][a-z0-9]+)+$/;
 var VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 var isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+var PANEL_CHROME_ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+var PANEL_ACTION_VARIANTS = new Set(["default", "primary", "ghost"]);
+var clipChromeText = (value, fallback = "", max = 200) => {
+  if (typeof value !== "string")
+    return fallback;
+  const trimmed = value.trim();
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
+};
+var normalizePanelAction = (value) => {
+  if (!isRecord(value) || typeof value.id !== "string" || !PANEL_CHROME_ID.test(value.id))
+    return null;
+  const label = clipChromeText(value.label);
+  if (!label)
+    return null;
+  const variant = PANEL_ACTION_VARIANTS.has(value.variant) ? value.variant : undefined;
+  return { id: value.id, label, ...variant ? { variant } : {}, ...value.disabled === true ? { disabled: true } : {} };
+};
+var normalizePanelOptions = (value) => {
+  if (!Array.isArray(value))
+    return [];
+  const options = [];
+  for (const item of value.slice(0, 24)) {
+    if (!isRecord(item) || typeof item.value !== "string" || !item.value || item.value.length > 64)
+      continue;
+    const label = clipChromeText(item.label, item.value);
+    options.push({ value: item.value, label });
+  }
+  return options;
+};
+var normalizeToolbarItem = (value) => {
+  if (!isRecord(value) || typeof value.key !== "string" || !PANEL_CHROME_ID.test(value.key))
+    return null;
+  if (value.type === "search") {
+    return {
+      type: "search",
+      key: value.key,
+      ...typeof value.placeholder === "string" ? { placeholder: clipChromeText(value.placeholder, "", 80) } : {},
+      ...typeof value.value === "string" ? { value: value.value.slice(0, 200) } : {}
+    };
+  }
+  if (value.type === "tabs" || value.type === "select") {
+    const options = normalizePanelOptions(value.options);
+    if (!options.length)
+      return null;
+    const selected = typeof value.value === "string" && options.some((option) => option.value === value.value) ? value.value : options[0].value;
+    return {
+      type: value.type,
+      key: value.key,
+      value: selected,
+      options,
+      ...value.type === "select" && typeof value.label === "string" ? { label: clipChromeText(value.label, "", 40) } : {}
+    };
+  }
+  if (value.type === "button") {
+    const action = normalizePanelAction({ ...value, id: value.key });
+    if (!action)
+      return null;
+    return { type: "button", key: value.key, label: action.label, ...action.variant ? { variant: action.variant } : {}, ...action.disabled ? { disabled: true } : {} };
+  }
+  return null;
+};
+var normalizePluginPanelChrome = (value) => {
+  if (!isRecord(value))
+    return {};
+  const chrome = {};
+  if (isRecord(value.header)) {
+    const actions = Array.isArray(value.header.actions) ? value.header.actions.map(normalizePanelAction).filter((action) => Boolean(action)).slice(0, 8) : [];
+    chrome.header = {
+      ...typeof value.header.title === "string" ? { title: clipChromeText(value.header.title, "", 80) } : {},
+      ...value.header.description === null ? { description: null } : typeof value.header.description === "string" ? { description: clipChromeText(value.header.description, "", 200) } : {},
+      ...actions.length ? { actions } : {}
+    };
+  }
+  if (Array.isArray(value.toolbar)) {
+    chrome.toolbar = value.toolbar.map(normalizeToolbarItem).filter((item) => Boolean(item)).slice(0, 16);
+  }
+  if (value.empty === null)
+    chrome.empty = null;
+  else if (isRecord(value.empty)) {
+    const title = clipChromeText(value.empty.title, "", 80);
+    if (title) {
+      chrome.empty = {
+        title,
+        ...typeof value.empty.description === "string" ? { description: clipChromeText(value.empty.description) } : {},
+        ...normalizePanelAction(value.empty.action) ? { action: normalizePanelAction(value.empty.action) } : {}
+      };
+    }
+  }
+  if (typeof value.onAction === "function")
+    chrome.onAction = value.onAction;
+  if (typeof value.onChange === "function")
+    chrome.onChange = value.onChange;
+  return chrome;
+};
 var COLOR_THEME_TOKENS = new Set([
   "color.background",
   "color.surface",
@@ -340,6 +434,7 @@ var parseMarketplaceRegistry = (value) => {
 export {
   parseMarketplaceRegistry,
   parseExtensionManifest,
+  normalizePluginPanelChrome,
   defineTheme,
   definePlugin,
   THEME_TOKEN_NAMES,

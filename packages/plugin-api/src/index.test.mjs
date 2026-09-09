@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseExtensionManifest, parseMarketplaceRegistry } from "./index.ts";
+import { normalizePluginPanelChrome, parseExtensionManifest, parseMarketplaceRegistry } from "./index.ts";
 
 describe("extension manifests", () => {
   test("normalizes a plugin manifest", () => {
@@ -242,5 +242,34 @@ describe("marketplace registry", () => {
       verification: { version: "1.0.0", checksums: { manifestJson: "a".repeat(64) } },
     };
     expect(() => parseMarketplaceRegistry({ registryVersion: "1", updatedAt: "2026-08-16T00:00:00Z", entries: [entry, entry] })).toThrow("Duplicate");
+  });
+});
+
+describe("panel chrome", () => {
+  test("keeps known chrome fields and drops unknown toolbar items", () => {
+    const onAction = () => {};
+    const chrome = normalizePluginPanelChrome({
+      header: { title: "Tasks", description: null, actions: [{ id: "refresh", label: "Refresh", variant: "primary" }] },
+      toolbar: [
+        { type: "search", key: "q", placeholder: "Search", value: "ship" },
+        { type: "tabs", key: "view", value: "open", options: [{ value: "open", label: "Open" }, { value: "done", label: "Done" }] },
+        { type: "weird", key: "nope" },
+      ],
+      empty: { title: "Nothing here", description: "Create a task" },
+      onAction,
+    });
+    expect(chrome.header).toEqual({ title: "Tasks", description: null, actions: [{ id: "refresh", label: "Refresh", variant: "primary" }] });
+    expect(chrome.toolbar).toEqual([
+      { type: "search", key: "q", placeholder: "Search", value: "ship" },
+      { type: "tabs", key: "view", value: "open", options: [{ value: "open", label: "Open" }, { value: "done", label: "Done" }] },
+    ]);
+    expect(chrome.empty).toEqual({ title: "Nothing here", description: "Create a task" });
+    expect(chrome.onAction).toBe(onAction);
+  });
+
+  test("falls back to the first tab option when the value is unknown", () => {
+    expect(normalizePluginPanelChrome({
+      toolbar: [{ type: "tabs", key: "view", value: "missing", options: [{ value: "open", label: "Open" }] }],
+    }).toolbar).toEqual([{ type: "tabs", key: "view", value: "open", options: [{ value: "open", label: "Open" }] }]);
   });
 });
