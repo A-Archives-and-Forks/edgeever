@@ -1,21 +1,11 @@
 {
-  "version": "1.63.0",
+  "version": "1.63.1",
   "changes": {
     "en-US": [
-      "Import Markdown notes by dragging and dropping files, with more reliable note creation and sync handling.",
-      "Render visual notes consistently in shared pages and native viewers.",
-      "Add Linux AppImage automatic updates and make Linux downloads easier to find.",
-      "Improve desktop reliability with diagnostics for issue reports, safer file rendering, and dependable bundled plugin loading.",
-      "Refresh marketplace cards and add a Product Hunt support link in the personal center.",
-      "Reduce Docker runtime overhead with a bundled production runtime."
+      "Fix v1.63.0 desktop clients being unable to sign in to self-hosted instances. Update the instance to this release; the installed desktop app does not need to be redownloaded."
     ],
     "zh-CN": [
-      "支持拖放导入 Markdown 笔记，并提升新建笔记与同步异常处理的可靠性。",
-      "在分享页面和原生客户端中一致呈现可视化笔记。",
-      "新增 Linux AppImage 自动更新，并让 Linux 下载入口更易发现。",
-      "通过问题反馈诊断信息、更安全的文件渲染和稳定的内置插件加载，提升桌面端可靠性。",
-      "优化插件市场卡片，并在个人中心加入 Product Hunt 支持入口。",
-      "通过内置生产运行时降低 Docker 运行开销。"
+      "修复 v1.63.0 桌面端无法登录自托管实例的问题。请将实例更新到本版本；已安装的桌面端无需重新下载。"
     ]
   }
 }
