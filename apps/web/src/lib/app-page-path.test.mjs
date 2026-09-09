@@ -5,6 +5,7 @@ import {
   getAppEntryPath,
   getAppPagePath,
   getMessageTargetOrigin,
+  getPersistentDataScopeOrigin,
   resolveAppAssetUrl,
 } from "./app-page-path.ts";
 
@@ -51,5 +52,11 @@ describe("app page paths", () => {
   test("uses a wildcard target only for opaque file origins", () => {
     expect(getMessageTargetOrigin("https://notes.example.com")).toBe("https://notes.example.com");
     expect(getMessageTargetOrigin("null")).toBe("*");
+  });
+
+  test("keeps the existing packaged desktop data scope after leaving file URLs", () => {
+    expect(getPersistentDataScopeOrigin("null")).toBe("null");
+    expect(getPersistentDataScopeOrigin("edgeever-app://app")).toBe("null");
+    expect(getPersistentDataScopeOrigin("https://notes.example.com")).toBe("https://notes.example.com");
   });
 });

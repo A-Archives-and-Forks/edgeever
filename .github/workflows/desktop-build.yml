@@ -279,6 +279,10 @@ jobs:
         if: matrix.shared_validation
         run: bun run test:desktop
 
+      - name: Verify renderer origin storage migration
+        if: matrix.shared_validation
+        run: bun run verify:renderer-origin-migration
+
       - name: Verify packaged renderer startup
         if: matrix.shared_validation
         run: bun run verify:desktop-renderer
@@ -315,6 +319,39 @@ jobs:
         env:
           EDGE_EVER_DESKTOP_ARCH: ${{ matrix.arch }}
         run: bun scripts/run-desktop-builder.mjs --publish never
+
+      - name: Verify packaged macOS cross-version startup
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_TAG: ${{ needs.release-plan.outputs.previous_tag }}
+        run: |
+          previous_directory="$RUNNER_TEMP/edgeever-previous-${{ matrix.arch }}"
+          mkdir -p "$previous_directory/archive" "$previous_directory/app"
+          gh release download "$PREVIOUS_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'EdgeEver-*-mac-${{ matrix.arch }}.zip' \
+            --dir "$previous_directory/archive"
+          previous_archive="$(find "$previous_directory/archive" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "$previous_archive"
+          ditto -x -k "$previous_archive" "$previous_directory/app"
+          previous_executable="$previous_directory/app/EdgeEver.app/Contents/MacOS/EdgeEver"
+          unpacked_directory="mac-${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "x64" ]]; then
+            unpacked_directory="mac"
+          fi
+          current_executable="release/desktop/$unpacked_directory/EdgeEver.app/Contents/MacOS/EdgeEver"
+          bun run verify:desktop-cross-version-startup -- "$previous_executable" "$current_executable"
+
+      - name: Verify packaged macOS first launch
+        env:
+          EDGE_EVER_DESKTOP_ARCH: ${{ matrix.arch }}
+        run: |
+          unpacked_directory="mac-${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "x64" ]]; then
+            unpacked_directory="mac"
+          fi
+          bun run verify:packaged-desktop-startup -- "release/desktop/$unpacked_directory/EdgeEver.app/Contents/MacOS/EdgeEver"
 
       - name: Verify desktop installer
         env:
@@ -413,6 +450,34 @@ jobs:
           EDGE_EVER_DESKTOP_ARCH: x64
           EDGE_EVER_DESKTOP_TARGET: win
         run: bun scripts/run-desktop-builder.mjs --publish never
+
+      - name: Verify packaged Windows cross-version startup
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_TAG: ${{ needs.release-plan.outputs.previous_tag }}
+        run: |
+          $previousDirectory = Join-Path $env:RUNNER_TEMP "edgeever-previous-windows-x64"
+          New-Item -ItemType Directory -Force -Path $previousDirectory | Out-Null
+          gh release download $env:PREVIOUS_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern 'EdgeEver-*-windows-x64.exe' `
+            --dir $previousDirectory
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $previousInstaller = Get-ChildItem -LiteralPath $previousDirectory -Filter '*.exe' | Select-Object -First 1
+          if (-not $previousInstaller) { throw "Previous Windows installer was not downloaded" }
+          $installerProcess = Start-Process -FilePath $previousInstaller.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($installerProcess.ExitCode -ne 0) {
+            throw "Previous Windows installer exited with code $($installerProcess.ExitCode)"
+          }
+          Get-Process -Name EdgeEver -ErrorAction SilentlyContinue | Stop-Process -Force
+          $previousExecutable = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Programs') `
+            -Filter 'EdgeEver.exe' -File -Recurse | Select-Object -First 1
+          if (-not $previousExecutable) { throw "Previous installed EdgeEver executable was not found" }
+          bun run verify:desktop-cross-version-startup -- `
+            $previousExecutable.FullName `
+            (Resolve-Path 'release/desktop/win-unpacked/EdgeEver.exe').Path
 
       - name: Verify Windows package contents and architecture
         env:

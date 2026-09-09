@@ -16,3 +16,6 @@ export const getAppEntryPath = (baseUrl: string) =>
 
 export const getMessageTargetOrigin = (origin: string) =>
   origin === "null" ? "*" : origin;
+
+export const getPersistentDataScopeOrigin = (origin: string) =>
+  origin === "edgeever-app://app" ? "null" : origin;

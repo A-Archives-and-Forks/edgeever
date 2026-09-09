@@ -4,7 +4,7 @@ import { appendFile, mkdir, open, readdir, readFile, rename, rm, stat, unlink, w
 import { basename, join } from "node:path";
 import { Readable } from "node:stream";
 import { execFile, spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { release as operatingSystemRelease } from "node:os";
 import { SidecarRpcClient } from "./rpc.mjs";
 import { resourceRequestHeaders } from "./resource-request.mjs";
@@ -41,6 +41,16 @@ import {
 } from "./windows-update-trust.mjs";
 import electronUpdater from "electron-updater";
 import { createPluginPublicNetworkRuntime } from "./plugin-public-network.mjs";
+import {
+  DESKTOP_APP_ENTRY_URL,
+  DESKTOP_APP_ORIGIN,
+  DESKTOP_APP_SCHEME,
+  createDesktopAppProtocolHandler,
+} from "./app-protocol.mjs";
+import {
+  RENDERER_STORAGE_MIGRATION_MARKER,
+  migrateRendererStorageOrigin,
+} from "./renderer-storage-migration.mjs";
 
 const { autoUpdater } = electronUpdater;
 
@@ -113,6 +123,7 @@ let rendererUnresponsiveTimer = null;
 const pluginPublicNetwork = createPluginPublicNetworkRuntime();
 let rendererUnresponsiveDialogOpen = false;
 let recoveredAfterAbnormalExit = false;
+let usePrivateAppProtocol = false;
 const pendingScheduledTaskRuns = [];
 const sendScheduledTaskRun = (task, scheduledFor) => {
   const payload = { task, scheduledFor: scheduledFor.toISOString() };
@@ -163,6 +174,9 @@ const migrateLegacyAccountData = async (accountId) => {
 };
 
 protocol.registerSchemesAsPrivileged([{
+  scheme: DESKTOP_APP_SCHEME,
+  privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true, codeCache: true },
+}, {
   scheme: "edgeever-resource",
   privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true },
 }, {
@@ -725,6 +739,44 @@ const registerResourceProtocol = () => {
   });
 };
 
+const registerDesktopAppProtocol = () => {
+  protocol.handle(DESKTOP_APP_SCHEME, createDesktopAppProtocolHandler({
+    webRoot: join(process.resourcesPath, "web"),
+  }));
+};
+
+const preparePackagedRendererOrigin = async () => {
+  if (!app.isPackaged || process.env.EDGE_EVER_DESKTOP_WEB_URL) return;
+  if (process.env.EDGE_EVER_FORCE_FILE_RENDERER === "1") {
+    void writeDiagnostic("renderer.app-protocol-disabled");
+    return;
+  }
+
+  const bridgePath = join(process.resourcesPath, "web/desktop-storage-bridge.html");
+  try {
+    const result = await migrateRendererStorageOrigin({
+      createWindow: () => new BrowserWindow({
+        show: false,
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+        },
+      }),
+      legacyBridgeUrl: pathToFileURL(bridgePath).href,
+      targetBridgeUrl: `${DESKTOP_APP_ORIGIN}/desktop-storage-bridge.html`,
+      markerPath: join(app.getPath("userData"), RENDERER_STORAGE_MIGRATION_MARKER),
+    });
+    usePrivateAppProtocol = true;
+    void writeDiagnostic("renderer.origin-ready", { state: result.state, counts: result.counts });
+  } catch (error) {
+    usePrivateAppProtocol = false;
+    void writeDiagnostic("renderer.origin-migration-failed", {
+      message: String(error?.message || error).slice(0, 2000),
+    });
+  }
+};
+
 const refreshTrayMenu = () => {
   if (!tray) return;
   tray.destroy();
@@ -1095,7 +1147,8 @@ const createWindow = async () => {
 
   try {
     if (app.isPackaged && !process.env.EDGE_EVER_DESKTOP_WEB_URL) {
-      await mainWindow.loadFile(join(process.resourcesPath, "web/index.html"));
+      if (usePrivateAppProtocol) await mainWindow.loadURL(DESKTOP_APP_ENTRY_URL);
+      else await mainWindow.loadFile(join(process.resourcesPath, "web/index.html"));
     } else {
       await mainWindow.loadURL(webUrl);
     }
@@ -1123,7 +1176,7 @@ const createWindow = async () => {
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (url.startsWith(webUrl) || url.startsWith("edgeever-resource://") || url.startsWith("edgeever-staged://")) return;
+    if (url.startsWith(webUrl) || url.startsWith(`${DESKTOP_APP_ORIGIN}/`) || url.startsWith("edgeever-resource://") || url.startsWith("edgeever-staged://")) return;
     event.preventDefault();
     if (url.startsWith("https://") || url.startsWith("http://")) void shell.openExternal(url);
   });
@@ -1199,7 +1252,9 @@ const startApplication = async () => {
   void writeDiagnostic(recoveredAfterAbnormalExit ? "session.recovered-after-abnormal-exit" : "session.started");
   await writeFile(crashMarkerPath(), new Date().toISOString());
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  registerDesktopAppProtocol();
   registerResourceProtocol();
+  await preparePackagedRendererOrigin();
   const initialSidecar = await startSidecar();
   if (!initialSidecar) throw new Error("EdgeEver sidecar is unavailable");
   await initialSidecar.waitUntilReady();

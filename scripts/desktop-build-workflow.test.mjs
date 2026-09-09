@@ -16,6 +16,19 @@ function step(name) {
 }
 
 describe("desktop release workflow", () => {
+  test("keeps the installed application and automatic update identity stable", () => {
+    expect(desktopBuilderConfig).toContain("appId: org.edgeever.desktop");
+    expect(desktopBuilderConfig).toContain([
+      "publish:",
+      "  provider: github",
+      "  owner: tianma-if",
+      "  repo: edgeever",
+      "  releaseType: release",
+    ].join("\n"));
+    expect(desktopBuilderConfig).toContain("schemes:\n      - edgeever");
+    expect(desktopBuilderConfig).not.toContain("edgeever-app");
+  });
+
   test("gates Draft release assets on the full project suite in Ubuntu", () => {
     expect(mobileWorkflow).toContain("github.repository == 'tianma-if/edgeever'");
     expect(mobileWorkflow).toContain("name: Plan Android release asset\n    runs-on: ubuntu-latest");
@@ -54,6 +67,7 @@ describe("desktop release workflow", () => {
       "Run project type checks",
       "Build debug sidecar for integration tests",
       "Run desktop regression tests",
+      "Verify renderer origin storage migration",
       "Verify packaged renderer startup",
       "Validate Rust sidecar",
     ]) {
@@ -66,6 +80,9 @@ describe("desktop release workflow", () => {
     expect(step("Package desktop installer")).not.toContain("if: matrix.shared_validation");
     expect(step("Package desktop installer")).toContain("EDGE_EVER_DESKTOP_ARCH: ${{ matrix.arch }}");
     expect(step("Verify desktop installer")).not.toContain("if: matrix.shared_validation");
+    expect(step("Verify packaged macOS cross-version startup")).toContain("needs.release-plan.outputs.previous_tag");
+    expect(step("Verify packaged macOS cross-version startup")).toContain("verify:desktop-cross-version-startup");
+    expect(step("Verify packaged macOS first launch")).not.toContain("if: matrix.shared_validation");
   });
 
   test("reports timings after builds without instrumenting native build steps", () => {
@@ -87,9 +104,14 @@ describe("desktop release workflow", () => {
     expect(workflow).toContain("name: Audit signed Windows update");
     expect(workflow).toContain("verify-windows-update-release.mjs");
     expect(workflow).toContain("name: Run packaged Windows sidecar integration tests");
+    expect(step("Verify packaged Windows cross-version startup")).toContain("needs.release-plan.outputs.previous_tag");
+    expect(step("Verify packaged Windows cross-version startup")).toContain("verify:desktop-cross-version-startup");
+    expect(step("Verify packaged Windows cross-version startup")).toContain("Start-Process");
     expect(workflow).toContain("name: Verify packaged Windows first launch");
     expect(workflow).toContain("verify:packaged-desktop-startup");
-    expect(packagedStartupVerifier).toContain('new Set(["sidecar.ready", "renderer.bootstrap-ready"])');
+    expect(packagedStartupVerifier).toContain('new Set(["renderer.origin-ready", "sidecar.ready", "renderer.bootstrap-ready"])');
+    expect(packagedStartupVerifier).toContain('"renderer.origin-ready"');
+    expect(packagedStartupVerifier).toContain('startsWith("edgeever-app://app/")');
     expect(desktopPackageVerifier).toContain("isVisualCppRuntimeDll");
     expect(cargoConfig).toContain('target.x86_64-pc-windows-msvc');
     expect(cargoConfig).toContain('target-feature=+crt-static');

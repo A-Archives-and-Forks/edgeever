@@ -85,6 +85,7 @@ import {
   putLocalMemo,
   putLocalNotebook,
 } from "@/lib/local-mirror";
+import { getPersistentDataScopeOrigin } from "@/lib/app-page-path";
 import { createRepository } from "@/lib/repository";
 import { notifyRepositoryMutation } from "@/lib/repository-events";
 import {
@@ -703,7 +704,7 @@ export const WorkspaceApp = ({
     navigateExecutionCenter: navigateWorkspaceExecutionCenter,
   } = useWorkspaceRoute();
   const localDataScope = useMemo(
-    () => createLocalDataScope(window.location.origin, user?.id),
+    () => createLocalDataScope(getPersistentDataScopeOrigin(window.location.origin), user?.id),
     [user?.id]
   );
   const repository = useMemo(() => createRepository(localDataScope), [localDataScope]);
