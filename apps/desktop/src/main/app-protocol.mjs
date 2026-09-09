@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 
 export const DESKTOP_APP_SCHEME = "edgeever-app";
 export const DESKTOP_APP_HOST = "app";
+// Instance API CORS must allow this origin; omitting it makes packaged login look like a network failure.
 export const DESKTOP_APP_ORIGIN = `${DESKTOP_APP_SCHEME}://${DESKTOP_APP_HOST}`;
 export const DESKTOP_APP_ENTRY_URL = `${DESKTOP_APP_ORIGIN}/index.html`;
 
