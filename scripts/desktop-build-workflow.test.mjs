@@ -146,6 +146,12 @@ describe("desktop release workflow", () => {
     expect(workflow).toContain("xvfb-run -a bun run verify:packaged-desktop-startup");
     expect(step("Verify packaged Linux private protocol file flows")).toContain("xvfb-run -a bun run verify:desktop-protocol-e2e");
     expect(workflow).toContain("SHA256SUMS-linux.txt");
+    expect(workflow).toContain("latest-linux.yml");
+    expect(workflow).toContain("verify-linux-update-release.mjs");
+    expect(step("Verify real Linux AppImage automatic update")).toContain("verify-linux-appimage-update.mjs");
+    expect(step("Verify real Linux AppImage automatic update")).toContain("xvfb-run -a");
+    expect(step("Build Linux automatic update predecessor")).toContain('gh release download "$PREVIOUS_TAG"');
+    expect(step("Build Linux automatic update predecessor")).toContain("EdgeEver-linux-update-source.AppImage");
     expect(workflow).toContain("name: Audit Linux Preview asset");
     expect(workflow).toContain("needs: [release-plan, desktop, windows, linux]");
     expect(desktopPackageVerifier).toContain("verifyGlibcBaseline(sidecar)");

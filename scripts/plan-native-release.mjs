@@ -53,6 +53,8 @@ export const planNativeRelease = (platform, changedFiles) => {
           "bun.lock",
           "scripts/create-mac-update-metadata.mjs",
           "scripts/create-windows-update-metadata.mjs",
+          "scripts/verify-linux-update-release.mjs",
+          "scripts/verify-linux-appimage-update.mjs",
           "scripts/desktop-icns.mjs",
           "scripts/prepare-desktop-icons.mjs",
           "scripts/pe-imports.mjs",

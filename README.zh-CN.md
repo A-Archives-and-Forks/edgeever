@@ -46,7 +46,7 @@ EdgeEver 是一款现代化的开源笔记与个人知识库工作区。它为�
 </p>
 
 iOS 客户端需要使用非中国大陆区 Apple ID 下载。
-Linux x86_64 AppImage 当前为手动更新的预览版，详见
+Linux x86_64 AppImage 当前为支持自动更新的预览版，详见
 [Linux 预览版说明](docs/linux-preview.zh-CN.md)。
 
 ## 功能

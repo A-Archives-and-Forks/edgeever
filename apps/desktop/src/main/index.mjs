@@ -54,7 +54,15 @@ import {
 
 const { autoUpdater } = electronUpdater;
 
-const requestedUserDataDirectory = userDataDirectoryFromArguments(process.argv);
+const linuxUpdateTestMode = process.platform === "linux"
+  && process.env.GITHUB_ACTIONS === "true"
+  && process.env.EDGE_EVER_DESKTOP_UPDATE_TEST === "1";
+const linuxUpdateTestFeedUrl = linuxUpdateTestMode
+  ? process.env.EDGE_EVER_DESKTOP_UPDATE_TEST_FEED_URL || ""
+  : "";
+const requestedUserDataDirectory = linuxUpdateTestMode
+  ? process.env.EDGE_EVER_DESKTOP_UPDATE_TEST_USER_DATA || userDataDirectoryFromArguments(process.argv)
+  : userDataDirectoryFromArguments(process.argv);
 if (requestedUserDataDirectory) app.setPath("userData", requestedUserDataDirectory);
 
 const currentDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -199,7 +207,7 @@ const writeDiagnostic = async (event, details = {}) => {
 
 const desktopRuntimeSystemInfo = () => ({
   appVersion: app.getVersion(),
-  autoUpdateSupported: process.platform !== "linux",
+  autoUpdateSupported: true,
   platform: process.platform,
   architecture: process.arch,
   osVersion: process.getSystemVersion?.() || "unknown",
@@ -857,7 +865,7 @@ const promptForDownloadedUpdate = async (version) => {
 };
 
 const checkForDesktopUpdate = (reason, { force = false, throwOnError = false } = {}) => {
-  if (process.platform === "linux" || !app.isPackaged || process.env.EDGE_EVER_DISABLE_AUTO_UPDATE === "1" || updateState === "downloaded") {
+  if (!app.isPackaged || process.env.EDGE_EVER_DISABLE_AUTO_UPDATE === "1" || updateState === "downloaded") {
     return Promise.resolve(null);
   }
   if (updateCheckInFlight) {
@@ -903,9 +911,18 @@ const checkForDesktopUpdate = (reason, { force = false, throwOnError = false } =
 };
 
 const configureAutoUpdater = () => {
-  // Linux Preview updates stay manual until a real AppImage-to-AppImage
-  // transition has passed the same cross-version gate as established clients.
-  if (process.platform === "linux" || !app.isPackaged || process.env.EDGE_EVER_DISABLE_AUTO_UPDATE === "1") return;
+  if (!app.isPackaged || process.env.EDGE_EVER_DISABLE_AUTO_UPDATE === "1") return;
+  if (linuxUpdateTestMode) {
+    if (!/^http:\/\/127\.0\.0\.1:\d+\/$/.test(linuxUpdateTestFeedUrl)) {
+      throw new Error("Linux update verification requires a loopback HTTP feed");
+    }
+    autoUpdater.setFeedURL({ provider: "generic", url: linuxUpdateTestFeedUrl });
+    autoUpdater.disableDifferentialDownload = true;
+    void writeDiagnostic("update.test-started", {
+      version: app.getVersion(),
+      appImage: process.env.APPIMAGE || null,
+    });
+  }
   autoUpdater.autoDownload = process.platform !== "win32";
   autoUpdater.autoInstallOnAppQuit = process.platform !== "win32";
   autoUpdater.autoRunAppAfterInstall = true;
@@ -927,7 +944,10 @@ const configureAutoUpdater = () => {
     windowsDownloadedUpdateVerified = false;
     refreshTrayMenu();
     publishDesktopUpdateStatus();
-    void writeDiagnostic("update.not-available");
+    const diagnosticWritten = writeDiagnostic("update.not-available");
+    if (linuxUpdateTestMode) {
+      void diagnosticWritten.finally(() => setTimeout(() => app.quit(), 100));
+    }
   });
   autoUpdater.on("download-progress", (progress) => { void writeDiagnostic("update.download-progress", { percent: progress.percent }); });
   autoUpdater.on("update-downloaded", (info) => {
@@ -948,6 +968,10 @@ const configureAutoUpdater = () => {
       refreshTrayMenu();
       publishDesktopUpdateStatus();
       await writeDiagnostic("update.downloaded", { version: downloadedUpdateVersion });
+      if (linuxUpdateTestMode) {
+        installDownloadedUpdate();
+        return;
+      }
       await promptForDownloadedUpdate(downloadedUpdateVersion).catch((error) => {
         promptedUpdateVersion = null;
         void writeDiagnostic("update.prompt-failed", { message: error.message });

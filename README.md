@@ -46,7 +46,7 @@ The public demo resets every day at 3:00 AM (China Standard Time) and restores s
 </p>
 
 The iOS app requires an Apple ID from outside mainland China.
-The Linux x86_64 AppImage is a Preview with manual updates; see the
+The Linux x86_64 AppImage is a Preview with automatic updates; see the
 [Linux Preview guide](docs/linux-preview.md).
 
 ## Features
