@@ -106,6 +106,7 @@ import { updateOfficialMarketplacePlugins } from "@/lib/plugins/plugin-updates";
 import { createPublicNetworkAdapter } from "@/lib/plugins/public-network-adapter";
 import { clearRendererRecoveryRequired, isRendererRecoveryRequired } from "@/lib/renderer-recovery";
 import { EditorPaneErrorBoundary, EditorRecoveryPane } from "./EditorPaneErrorBoundary";
+import { isMarkdownFile, readMarkdownFile } from "@/lib/markdown-file-import";
 
 const isDesktopViewport = () => window.matchMedia("(min-width: 1024px)").matches;
 const PULL_TO_REFRESH_TRIGGER_PX = 72;
@@ -2176,6 +2177,46 @@ export const WorkspaceApp = ({
     });
   };
 
+  const handleImportMarkdownFiles = async (files: File[]) => {
+    const targetNotebookId = createMemoNotebookId;
+
+    if (!targetNotebookId || memoView === "trash") return;
+    if (files.length !== 1) {
+      setAppNoticeDialog({
+        title: t("memoList.importMarkdownFailedTitle"),
+        description: t("memoList.importMarkdownSingleFile"),
+      });
+      return;
+    }
+
+    const [file] = files;
+    if (!isMarkdownFile(file)) {
+      setAppNoticeDialog({
+        title: t("memoList.importMarkdownFailedTitle"),
+        description: t("memoList.importMarkdownUnsupported"),
+      });
+      return;
+    }
+
+    try {
+      const payload = await readMarkdownFile(file);
+      setTemplatesOpen(false);
+      setMobileBottomNavActive("home");
+      creatingMemoSelectionRef.current = true;
+      await createMemoMutation.mutateAsync({
+        notebookId: targetNotebookId,
+        title: payload.title,
+        contentMarkdown: payload.contentMarkdown,
+        tags: [],
+      });
+    } catch {
+      setAppNoticeDialog({
+        title: t("memoList.importMarkdownFailedTitle"),
+        description: t("memoList.importMarkdownReadFailed"),
+      });
+    }
+  };
+
   const handleSaveAsTemplate = async (memo: MemoDetail, name: string) => {
     await saveTemplateMutation.mutateAsync({ name, memoId: memo.id });
   };
@@ -3285,6 +3326,7 @@ export const WorkspaceApp = ({
               onSearch={setSearch}
               onCancelMobileSearch={handleCancelMobileSearch}
               onCreateMemo={handleCreateMemo}
+              onImportMarkdownFiles={(files) => void handleImportMarkdownFiles(files)}
               onClearSelection={clearMemoSelection}
               onEnterSelectionMode={enterMemoSelectionMode}
               onReplaceSelection={replaceMemoSelection}
