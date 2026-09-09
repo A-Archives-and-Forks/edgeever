@@ -117,6 +117,14 @@ assert.equal((await request("memo.get", { memoId: first.memo.id })).memo.id, fir
 const second = await request("memo.create", { notebookId: inbox.id, title: "Second memo", contentMarkdown: "another body", tags: [] });
 const search = await request("memo.list", { q: "searchable", limit: 20 });
 assert.deepEqual(search.memos.map((memo) => memo.id), [first.memo.id]);
+await request("memo.create", { notebookId: inbox.id, title: "Local daily", contentMarkdown: "prefix overlap", tags: ["local-daily"] });
+const tagged = await request("memo.list", { tag: "local", limit: 20 });
+assert.deepEqual(tagged.memos.map((memo) => memo.id), [first.memo.id], "tag filter should match an exact tag, not a prefix");
+assert.equal(tagged.totalCount, 1, "tag filter total should count only exact matches");
+const taggedCase = await request("memo.list", { tag: "LOCAL", limit: 20 });
+assert.deepEqual(taggedCase.memos.map((memo) => memo.id), [first.memo.id], "tag filter should match tags case-insensitively");
+const missingTag = await request("memo.list", { tag: "missing-tag", limit: 20 });
+assert.equal(missingTag.totalCount, 0, "unknown tags should not leak untagged notes into the list");
 const childNotebook = (await request("notebook.create", { name: "Inbox child", parentId: inbox.id })).notebook;
 const childMemo = await request("memo.create", { notebookId: childNotebook.id, title: "Nested memo", contentMarkdown: "nested body", tags: [] });
 const subtree = await request("memo.list", {
@@ -404,4 +412,4 @@ assert.equal((await request("sync.status")).conflict, 0);
 
 child.stdin.end();
 await new Promise((resolve) => child.once("close", resolve));
-console.log(JSON.stringify({ ok: true, checked: ["memo.create", "memo.list.search", "memo.list.subtree", "memo.update", "memo.update.coalesce", "memo.revisions", "memo.restoreRevision", "memo.revision.cache", "tag.rename", "memo.moveBatch", "memo.pinBatch", "memo.deleteBatch", "memo.restore", "memo.emptyTrash", "memo.merge", "template.cache", "template.create.payload", "template.delete", "storage.backup", "storage.backups", "storage.restore", "sync.apply.merge-page-order", "sync.apply.deleted-notebook", "sync.outbox", "sync.outbox.retry", "sync.outbox.recoverMemoUpdate", "sync.outbox.discard"] }));
+console.log(JSON.stringify({ ok: true, checked: ["memo.create", "memo.list.search", "memo.list.tag", "memo.list.subtree", "memo.update", "memo.update.coalesce", "memo.revisions", "memo.restoreRevision", "memo.revision.cache", "tag.rename", "memo.moveBatch", "memo.pinBatch", "memo.deleteBatch", "memo.restore", "memo.emptyTrash", "memo.merge", "template.cache", "template.create.payload", "template.delete", "storage.backup", "storage.backups", "storage.restore", "sync.apply.merge-page-order", "sync.apply.deleted-notebook", "sync.outbox", "sync.outbox.retry", "sync.outbox.recoverMemoUpdate", "sync.outbox.discard"] }));
