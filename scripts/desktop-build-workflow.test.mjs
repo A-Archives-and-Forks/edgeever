@@ -137,6 +137,8 @@ describe("desktop release workflow", () => {
   test("builds and audits a Linux x64 AppImage Preview in parallel", () => {
     expect(workflow).toContain("name: Linux x64 AppImage Preview");
     expect(workflow).toContain("runs-on: ubuntu-22.04");
+    expect(workflow).toContain("name: Install AppImage runtime dependencies");
+    expect(workflow).toContain("sudo apt-get install --yes libfuse2");
     expect(workflow).toContain("EDGE_EVER_DESKTOP_TARGET: linux");
     expect(desktopBuilderConfig).toContain(
       "artifactName: EdgeEver-${version}-linux-x64.${ext}",
