@@ -1395,7 +1395,7 @@ export const MemoListPane = ({
                 : t("memoList.noFilteredDescription")}
             </div>
             {memos.length === 0 && canCreateMemo && view !== "trash" && (
-              <Button className="mt-4 justify-center" size="sm" variant="solid" onClick={onCreateMemo} disabled={isCreating}>
+              <Button className="mt-4 justify-center" size="sm" variant="solid" onClick={() => onCreateMemo()} disabled={isCreating}>
                 <FilePlus2 className="h-4 w-4" />
                 {t("memoList.newMemo")}
               </Button>
