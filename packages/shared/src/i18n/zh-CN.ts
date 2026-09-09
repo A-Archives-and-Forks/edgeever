@@ -751,6 +751,8 @@ export const zhCN = {
       title: "插件市场",
       refresh: "刷新插件市场",
       loading: "正在加载插件市场…",
+      loadFailed: "无法加载插件市场：{{message}}",
+      retry: "重试",
       verified: "EdgeEver 已验证",
       officialAutoUpdate: "官方 · 自动更新",
       installed: "已安装验证版本",

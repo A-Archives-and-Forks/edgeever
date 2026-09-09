@@ -751,6 +751,8 @@ export const enUS = {
       title: "Plugin marketplace",
       refresh: "Refresh plugin marketplace",
       loading: "Loading plugin marketplace…",
+      loadFailed: "Could not load the plugin marketplace: {{message}}",
+      retry: "Try again",
       verified: "Verified by EdgeEver",
       officialAutoUpdate: "Official · auto-updates",
       installed: "Verified version installed",

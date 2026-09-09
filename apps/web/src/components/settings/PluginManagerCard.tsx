@@ -463,6 +463,17 @@ export const PluginManagerCard = ({
       <CardContent className="grid gap-4 p-4 pt-0 sm:px-5 sm:pb-5">
         {error ? <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</div> : null}
 
+        {marketplaceQuery.isError ? (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+            <span>{t("plugins.marketplace.loadFailed", {
+              message: marketplaceQuery.error instanceof Error ? marketplaceQuery.error.message : String(marketplaceQuery.error),
+            })}</span>
+            <Button size="sm" variant="outline" className="h-7 bg-white px-2 text-xs" onClick={() => void marketplaceQuery.refetch()}>
+              {t("plugins.marketplace.retry")}
+            </Button>
+          </div>
+        ) : null}
+
         {!selectedPluginId ? <LegacyManualScheduledTasksSection /> : null}
 
         {selectedPluginId ? (

@@ -21,4 +21,10 @@ describe("plugin manager card layout", () => {
     expect(source).toContain("snapshot.extensions.length > 0 || (marketplaceQuery.data?.entries.length ?? 0) > 0");
     expect(source).not.toContain("{snapshot.extensions.length > 0 ? (\n              <Button");
   });
+
+  test("shows a retryable error instead of silently hiding a failed marketplace", () => {
+    expect(source).toContain("marketplaceQuery.isError");
+    expect(source).toContain('t("plugins.marketplace.loadFailed"');
+    expect(source).toContain("marketplaceQuery.refetch()");
+  });
 });
