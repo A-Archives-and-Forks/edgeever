@@ -281,7 +281,7 @@ context.events.on("template.updated", ({ template }) => console.log(template.nam
 
 ## Host-rendered settings
 
-Plugins can declare settings that EdgeEver renders consistently on a dedicated Plugin settings page within plugin details. Installed plugin cards and the plugin toolbar menu link directly to this page. Plugins without settings fields have no settings entry, while disabled plugins remain configurable. Settings are stored on the current device only. Put defaults and credentials in settings, and use plugin commands or functional panels for actual operations; ordinary configuration does not need a separate custom panel. Supported field types are `text`, `secret`, `number`, `boolean`, and `select`:
+Plugins can declare settings that EdgeEver renders consistently on a dedicated Plugin settings page within plugin details. Installed plugin cards and the plugin toolbar menu link directly to this page. Plugins without settings fields have no settings entry, while disabled plugins remain configurable. Settings are stored on the current device only. Put defaults and credentials in settings, and use plugin commands or functional panels for actual operations; ordinary configuration does not need a separate custom panel. Supported field types are `text`, `secret`, `number`, `boolean`, and `select`. A field may also declare a read-only `list` of titles and optional descriptions; EdgeEver shows a small entry next to the field and opens the items in a host-rendered dialog.
 
 Plugin API v2 requires `settingsUi: "host"`. The settings Schema is deliberately declarative: EdgeEver owns field layout, controls, spacing, validation, responsive behavior, accessibility, save states, and secret presentation. Presentation properties such as HTML, components, CSS classes, inline styles, colors, typography, or custom setting-page navigation are ignored. A plugin decides what can be configured, not how the settings page looks. Custom settings pages are rejected by the host. Use commands or a clearly named functional panel for workflows such as authorization, connectivity tests, migrations, and index rebuilding; do not recreate ordinary settings in a custom panel.
 
@@ -294,7 +294,20 @@ Plugin API v2 requires `settingsUi: "host"`. The settings Schema is deliberately
       { "key": "format", "type": "select", "label": "Format", "default": "md", "options": [
         { "value": "md", "label": "Markdown" },
         { "value": "html", "label": "HTML" }
-      ] }
+      ] },
+      {
+        "key": "topics.ai",
+        "type": "boolean",
+        "label": "AI",
+        "default": true,
+        "list": {
+          "title": "AI sources",
+          "actionLabel": "View sources",
+          "items": [
+            { "title": "OpenAI News", "description": "openai.com" }
+          ]
+        }
+      }
     ]
   }
 }

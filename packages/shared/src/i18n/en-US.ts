@@ -708,6 +708,8 @@ export const enUS = {
       required: "{{name}} is required.",
       secretConfigured: "Configured — leave blank to keep unchanged",
       none: "None",
+      viewList: "View list",
+      listCount: "{{count}} items",
     },
     details: {
       title: "Plugin details",

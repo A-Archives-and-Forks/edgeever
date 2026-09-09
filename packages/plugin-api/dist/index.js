@@ -112,6 +112,36 @@ var normalizeThemeTokens = (value) => {
   return tokens;
 };
 var SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/;
+var normalizeSettingList = (field, key) => {
+  if (field.list === undefined)
+    return;
+  if (!isRecord(field.list) || !Array.isArray(field.list.items) || field.list.items.length === 0 || field.list.items.length > 100) {
+    throw new Error(`Plugin setting ${key} list requires between 1 and 100 items.`);
+  }
+  if (field.list.title !== undefined && (typeof field.list.title !== "string" || !field.list.title.trim() || field.list.title.length > 200)) {
+    throw new Error(`Plugin setting ${key} list title must be at most 200 characters.`);
+  }
+  if (field.list.actionLabel !== undefined && (typeof field.list.actionLabel !== "string" || !field.list.actionLabel.trim() || field.list.actionLabel.length > 40)) {
+    throw new Error(`Plugin setting ${key} list action label must be at most 40 characters.`);
+  }
+  const items = field.list.items.map((item, index) => {
+    if (!isRecord(item) || typeof item.title !== "string" || !item.title.trim() || item.title.length > 200) {
+      throw new Error(`Plugin setting ${key} list item ${index + 1} requires a title of at most 200 characters.`);
+    }
+    if (item.description !== undefined && (typeof item.description !== "string" || item.description.length > 200)) {
+      throw new Error(`Plugin setting ${key} list item ${index + 1} description is too long.`);
+    }
+    return {
+      title: item.title.trim(),
+      ...typeof item.description === "string" && item.description.trim() ? { description: item.description.trim() } : {}
+    };
+  });
+  return {
+    items,
+    ...typeof field.list.title === "string" ? { title: field.list.title.trim() } : {},
+    ...typeof field.list.actionLabel === "string" ? { actionLabel: field.list.actionLabel.trim() } : {}
+  };
+};
 var normalizePluginSettings = (value) => {
   if (!isRecord(value) || !Array.isArray(value.fields))
     throw new Error("Plugin settings must contain a fields array.");
@@ -129,11 +159,13 @@ var normalizePluginSettings = (value) => {
       throw new Error(`Plugin setting ${field.key} requires a label of at most 200 characters.`);
     if (typeof field.description === "string" && field.description.length > 1000)
       throw new Error(`Plugin setting ${field.key} description is too long.`);
+    const list = normalizeSettingList(field, field.key);
     const common = {
       key: field.key,
       label: field.label.trim(),
       ...typeof field.description === "string" && field.description.trim() ? { description: field.description.trim() } : {},
-      ...field.required === true ? { required: true } : {}
+      ...field.required === true ? { required: true } : {},
+      ...list ? { list } : {}
     };
     if (field.type === "text" || field.type === "secret") {
       if (field.type === "secret" && field.default !== undefined)

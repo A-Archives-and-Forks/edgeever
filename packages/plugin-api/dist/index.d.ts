@@ -19,6 +19,15 @@ export interface PluginManifest {
     networkHosts?: string[];
     settings?: PluginSettingsSchema;
 }
+export interface PluginSettingListItem {
+    title: string;
+    description?: string;
+}
+export interface PluginSettingList {
+    title?: string;
+    actionLabel?: string;
+    items: PluginSettingListItem[];
+}
 /**
  * Declarative setting metadata. EdgeEver owns the layout, controls, validation,
  * state feedback, and responsive behavior; plugins cannot supply presentation code or styles.
@@ -28,6 +37,8 @@ interface PluginSettingBase {
     label: string;
     description?: string;
     required?: boolean;
+    /** Host-rendered read-only items, opened from a small entry next to the field. */
+    list?: PluginSettingList;
 }
 export type PluginSettingField = (PluginSettingBase & {
     type: "text";

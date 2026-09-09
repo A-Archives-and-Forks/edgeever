@@ -46,6 +46,17 @@ export interface PluginManifest {
   settings?: PluginSettingsSchema;
 }
 
+export interface PluginSettingListItem {
+  title: string;
+  description?: string;
+}
+
+export interface PluginSettingList {
+  title?: string;
+  actionLabel?: string;
+  items: PluginSettingListItem[];
+}
+
 /**
  * Declarative setting metadata. EdgeEver owns the layout, controls, validation,
  * state feedback, and responsive behavior; plugins cannot supply presentation code or styles.
@@ -55,6 +66,8 @@ interface PluginSettingBase {
   label: string;
   description?: string;
   required?: boolean;
+  /** Host-rendered read-only items, opened from a small entry next to the field. */
+  list?: PluginSettingList;
 }
 
 export type PluginSettingField =
@@ -548,6 +561,36 @@ const normalizeThemeTokens = (value: unknown): ThemeTokens => {
 
 const SETTING_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/;
 
+const normalizeSettingList = (field: Record<string, unknown>, key: string): PluginSettingList | undefined => {
+  if (field.list === undefined) return undefined;
+  if (!isRecord(field.list) || !Array.isArray(field.list.items) || field.list.items.length === 0 || field.list.items.length > 100) {
+    throw new Error(`Plugin setting ${key} list requires between 1 and 100 items.`);
+  }
+  if (field.list.title !== undefined && (typeof field.list.title !== "string" || !field.list.title.trim() || field.list.title.length > 200)) {
+    throw new Error(`Plugin setting ${key} list title must be at most 200 characters.`);
+  }
+  if (field.list.actionLabel !== undefined && (typeof field.list.actionLabel !== "string" || !field.list.actionLabel.trim() || field.list.actionLabel.length > 40)) {
+    throw new Error(`Plugin setting ${key} list action label must be at most 40 characters.`);
+  }
+  const items = field.list.items.map((item, index): PluginSettingListItem => {
+    if (!isRecord(item) || typeof item.title !== "string" || !item.title.trim() || item.title.length > 200) {
+      throw new Error(`Plugin setting ${key} list item ${index + 1} requires a title of at most 200 characters.`);
+    }
+    if (item.description !== undefined && (typeof item.description !== "string" || item.description.length > 200)) {
+      throw new Error(`Plugin setting ${key} list item ${index + 1} description is too long.`);
+    }
+    return {
+      title: item.title.trim(),
+      ...(typeof item.description === "string" && item.description.trim() ? { description: item.description.trim() } : {}),
+    };
+  });
+  return {
+    items,
+    ...(typeof field.list.title === "string" ? { title: field.list.title.trim() } : {}),
+    ...(typeof field.list.actionLabel === "string" ? { actionLabel: field.list.actionLabel.trim() } : {}),
+  };
+};
+
 const normalizePluginSettings = (value: unknown): PluginSettingsSchema => {
   if (!isRecord(value) || !Array.isArray(value.fields)) throw new Error("Plugin settings must contain a fields array.");
   if (value.fields.length > 50) throw new Error("Plugin settings cannot contain more than 50 fields.");
@@ -560,11 +603,13 @@ const normalizePluginSettings = (value: unknown): PluginSettingsSchema => {
     keys.add(field.key);
     if (typeof field.label !== "string" || !field.label.trim() || field.label.length > 200) throw new Error(`Plugin setting ${field.key} requires a label of at most 200 characters.`);
     if (typeof field.description === "string" && field.description.length > 1000) throw new Error(`Plugin setting ${field.key} description is too long.`);
+    const list = normalizeSettingList(field, field.key);
     const common = {
       key: field.key,
       label: field.label.trim(),
       ...(typeof field.description === "string" && field.description.trim() ? { description: field.description.trim() } : {}),
       ...(field.required === true ? { required: true } : {}),
+      ...(list ? { list } : {}),
     };
     if (field.type === "text" || field.type === "secret") {
       if (field.type === "secret" && field.default !== undefined) throw new Error(`Secret setting ${field.key} cannot declare a default value.`);

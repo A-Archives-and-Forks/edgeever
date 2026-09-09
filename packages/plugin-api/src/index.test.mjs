@@ -129,16 +129,42 @@ describe("extension manifests", () => {
           { key: "limit", type: "number", label: "Limit", default: 10, min: 1, max: 100 },
           { key: "enabled", type: "boolean", label: "Enabled", default: true },
           { key: "format", type: "select", label: "Format", options: [{ value: "md", label: "Markdown" }] },
+          {
+            key: "topics.ai",
+            type: "boolean",
+            label: "AI",
+            default: true,
+            className: "plugin-owned-layout",
+            list: {
+              title: "AI sources",
+              actionLabel: "View sources",
+              className: "ignored",
+              items: [
+                { title: "OpenAI News", description: "openai.com", html: "<script>" },
+                { title: "Google AI" },
+              ],
+            },
+          },
         ],
       },
     });
 
     expect(manifest.type).toBe("plugin");
-    expect(manifest.settings?.fields).toHaveLength(5);
+    expect(manifest.settings?.fields).toHaveLength(6);
     expect(manifest.settings?.fields[0]).toMatchObject({ key: "endpoint", default: "https://example.com" });
     expect(manifest.settings?.fields[0]).not.toHaveProperty("className");
     expect(manifest.settings?.fields[0]).not.toHaveProperty("style");
     expect(manifest.settings?.fields[0]).not.toHaveProperty("html");
+    expect(manifest.settings?.fields[5]).toMatchObject({
+      key: "topics.ai",
+      list: {
+        title: "AI sources",
+        actionLabel: "View sources",
+        items: [{ title: "OpenAI News", description: "openai.com" }, { title: "Google AI" }],
+      },
+    });
+    expect(manifest.settings?.fields[5].list).not.toHaveProperty("className");
+    expect(manifest.settings?.fields[5].list.items[0]).not.toHaveProperty("html");
   });
 
   test("rejects unsafe or ambiguous plugin settings", () => {
@@ -160,6 +186,10 @@ describe("extension manifests", () => {
       ...base,
       settings: { fields: [{ key: "mode", type: "select", label: "Mode", options: [{ value: "a", label: "A" }, { value: "a", label: "Again" }] }] },
     })).toThrow("duplicate select value");
+    expect(() => parseExtensionManifest({
+      ...base,
+      settings: { fields: [{ key: "topics.ai", type: "boolean", label: "AI", list: { items: [] } }] },
+    })).toThrow("between 1 and 100 items");
   });
 });
 

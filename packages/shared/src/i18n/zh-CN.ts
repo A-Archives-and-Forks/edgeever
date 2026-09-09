@@ -708,6 +708,8 @@ export const zhCN = {
       required: "{{name}} 为必填项。",
       secretConfigured: "已配置，留空表示保持不变",
       none: "无",
+      viewList: "查看列表",
+      listCount: "共 {{count}} 项",
     },
     details: {
       title: "插件详情",
