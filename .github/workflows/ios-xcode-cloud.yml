@@ -26,7 +26,7 @@ on:
         description: App Store marketing version to inspect
         required: false
         type: string
-        default: "1.60.0"
+        default: "1.65.0"
       app_store_build_id:
         description: App Store Connect build resource ID to inspect
         required: false
@@ -332,16 +332,18 @@ jobs:
 
       - name: Submit App Store build for review
         env:
-          APP_STORE_BUILD_NUMBER: "45"
+          APP_STORE_BUILD_NUMBER: "46"
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.EDGEEVER_APPLE_API_ISSUER }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.EDGEEVER_APPLE_API_KEY_ID }}
           APP_STORE_CONNECT_API_KEY_P8_BASE64: ${{ secrets.EDGEEVER_APPLE_API_KEY_BASE64 }}
           APP_STORE_RELEASE_NOTES_ZH: |-
-            增强架构图在移动端的浏览体验，支持使用 X6 清晰渲染图表。
-            改进图表标识与展开体验，并避免图表元数据出现在普通笔记中。
+            可从可见标签筛选笔记，列表按精确标签匹配，相近名称的标签不再混入结果。
+            打开大型思维导图时不再缩成无法阅读的全图，画布铺满剩余视口，支持捏合缩放并点选主题。
+            在原生客户端中更一致地呈现可视化笔记，图表阅读与布局更清晰。
           APP_STORE_RELEASE_NOTES_EN: |-
-            Improve architecture diagram viewing on mobile with clear X6 rendering.
-            Refine diagram labels and expansion while keeping diagram metadata out of regular notes.
+            Filter notes from a visible tag. Lists match the exact tag, so similarly named tags no longer leak into the result.
+            Large mind maps open at a readable size, fill the remaining viewport, pinch-zoom, and focus a topic on tap.
+            Render visual notes more consistently in the native viewer, with clearer diagram reading and layout.
           APP_STORE_VERSION: ${{ inputs.app_store_version }}
         run: fastlane ios submit_review
         working-directory: apps/ios
