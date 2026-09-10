@@ -173,7 +173,7 @@ const ExecutionCenterPane = lazy(() =>
 );
 
 const PaneLoadingFallback = ({ label = "Loading" }: { label?: string }) => (
-  <div className="flex h-full min-h-0 items-center justify-center bg-white text-sm font-medium text-slate-400" role="status">
+  <div className="flex h-full min-h-0 items-center justify-center bg-card text-sm font-medium text-slate-400" role="status">
     {label}
   </div>
 );
@@ -381,7 +381,7 @@ const MobileBottomNav = ({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-5 pb-[max(0.125rem,env(safe-area-inset-bottom))] pt-0 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-card/95 px-5 pb-[max(0.125rem,env(safe-area-inset-bottom))] pt-0 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
       aria-label={t("nav.mobileMain")}
     >
       <div className="relative grid h-mobile-bottom-nav grid-cols-3 items-center">
@@ -516,7 +516,7 @@ const MobileNotebookPicker = ({
             />
             {notebookSearch && (
               <button
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-700"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-card hover:text-slate-700"
                 type="button"
                 title={t("mobileNotebookPicker.clearSearch")}
                 aria-label={t("mobileNotebookPicker.clearSearch")}
@@ -3261,7 +3261,7 @@ export const WorkspaceApp = ({
           style={{ transform: `translateY(${Math.max(0, pullToRefreshDistance - 24)}px)` }}
           aria-hidden="true"
         >
-          <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 text-xs font-semibold text-slate-600 shadow-[0_10px_28px_rgba(15,23,42,0.12)] backdrop-blur">
+          <div className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-card/95 px-3 text-xs font-semibold text-slate-600 shadow-[0_10px_28px_rgba(15,23,42,0.12)] backdrop-blur">
             <RefreshCw className={cn("h-4 w-4 text-slate-500", (isPullRefreshing || pullToRefreshReady) && "animate-spin")} />
             <span>{pullToRefreshLabel}</span>
           </div>
@@ -3570,7 +3570,7 @@ export const WorkspaceApp = ({
                   ) : rendererRecoveryMode ? (
                     <EditorRecoveryPane />
                   ) : memoSelectionModeActive ? (
-                    <div className="flex h-full min-w-0 flex-col bg-white">
+                    <div className="flex h-full min-w-0 flex-col bg-card">
                       {memoSelectionActionBar}
                     </div>
                   ) : (

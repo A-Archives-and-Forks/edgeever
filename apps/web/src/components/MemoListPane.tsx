@@ -157,10 +157,10 @@ export const MemoSelectionActionBar = ({
 
   return (
     <div
-      className="hidden h-full min-h-0 flex-1 items-start justify-start bg-white px-6 py-6 lg:flex lg:px-8 lg:py-8 xl:px-10"
+      className="hidden h-full min-h-0 flex-1 items-start justify-start bg-card px-6 py-6 lg:flex lg:px-8 lg:py-8 xl:px-10"
       data-memo-selection-action-bar
     >
-      <m.div className="w-72 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg" {...paneEnterMotion}>
+      <m.div className="w-72 overflow-hidden rounded-md border border-slate-200 bg-card py-1 shadow-lg" {...paneEnterMotion}>
         <div className="flex h-9 items-center gap-2 px-3 text-xs font-semibold text-slate-400">
           <CheckSquare className="h-4 w-4" />
           {getSelectionCountLabel(selectedCount, t)}
@@ -172,7 +172,7 @@ export const MemoSelectionActionBar = ({
                 <SelectTrigger className="h-8 min-w-0 flex-1 text-xs text-slate-700 border-slate-200">
                   <SelectValue placeholder={t("memoList.chooseNotebook")}>{selectedMoveNotebookName}</SelectValue>
                 </SelectTrigger>
-                <SelectContent className="max-h-60 bg-white border border-slate-200 rounded-md py-1 shadow-md">
+                <SelectContent className="max-h-60 bg-card border border-slate-200 rounded-md py-1 shadow-md">
                   {moveNotebookOptions.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.selectLabel}
@@ -311,7 +311,7 @@ const MobileSelectionActionBar = ({
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-8 pb-[max(0.125rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-card/95 px-8 pb-[max(0.125rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"
       aria-label={t("mobileSheets.bulkActions")}
     >
       <div className="grid h-14 grid-cols-3 items-center">
@@ -1049,7 +1049,7 @@ export const MemoListPane = ({
             </button>
             <div
               className={cn(
-                "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border bg-white px-3 text-sm shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition",
+                "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border bg-card px-3 text-sm shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition",
                 searchActive
                   ? "border-emerald-400 bg-emerald-50/80 text-emerald-700 ring-2 ring-emerald-200/70"
                   : "border-slate-200 text-slate-500"
@@ -1188,7 +1188,7 @@ export const MemoListPane = ({
                   className={cn(
                     "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-xs font-medium transition-all duration-200 outline-none",
                     filterMode === "all"
-                      ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      ? "border-slate-200 bg-card text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       : "border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200"
                   )}
                   title={t("memoList.filterTitle", { label: activeFilterLabel })}
@@ -1196,7 +1196,7 @@ export const MemoListPane = ({
                   {getMobileFilterIcon(filterMode)}
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44 bg-white border border-slate-200 rounded-md py-1 shadow-md">
+              <DropdownMenuContent align="start" className="w-44 bg-card border border-slate-200 rounded-md py-1 shadow-md">
                 {filterOptions.map((option: any) => (
                   <DropdownMenuItem
                     key={option.value}
@@ -1216,13 +1216,13 @@ export const MemoListPane = ({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 outline-none"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-card text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 outline-none"
                   title={t("memoList.sortTitle", { label: activeSortLabel })}
                 >
                   <ArrowDownWideNarrow className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44 bg-white border border-slate-200 rounded-md py-1 shadow-md">
+              <DropdownMenuContent align="start" className="w-44 bg-card border border-slate-200 rounded-md py-1 shadow-md">
                 {memoSortOptions.map((option: any) => (
                   <DropdownMenuItem
                     key={option.value}
@@ -1301,7 +1301,7 @@ export const MemoListPane = ({
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 bg-white border border-slate-200 rounded-md py-1 shadow-md">
+              <DropdownMenuContent align="end" className="w-40 bg-card border border-slate-200 rounded-md py-1 shadow-md">
                 <DropdownMenuItem
                   className="flex h-9 w-full items-center gap-2 px-3 text-left text-sm text-slate-700 hover:bg-slate-50 cursor-pointer outline-none"
                   onClick={onOpenTags}
@@ -1340,8 +1340,8 @@ export const MemoListPane = ({
             className={cn(
               "flex h-mobile-control min-w-0 flex-1 items-center gap-2 rounded-full border px-3 text-sm transition-all duration-200 focus-within:ring-2 lg:rounded-md",
               searchActive
-                ? "border-emerald-400 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_1px_rgba(52,211,153,0.18)] ring-1 ring-emerald-200 focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-emerald-300/50"
-                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 focus-within:border-emerald-400/90 focus-within:bg-white focus-within:ring-emerald-200/60"
+                ? "border-emerald-400 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_1px_rgba(52,211,153,0.18)] ring-1 ring-emerald-200 focus-within:border-emerald-500 focus-within:bg-card focus-within:ring-emerald-300/50"
+                : "border-slate-200 bg-card text-slate-500 hover:border-slate-300 focus-within:border-emerald-400/90 focus-within:bg-card focus-within:ring-emerald-200/60"
             )}
           >
             <Search className={cn("h-4 w-4 shrink-0", searchActive && "text-emerald-600")} />
@@ -1367,7 +1367,7 @@ export const MemoListPane = ({
             />
             {search && (
               <button
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-700"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-card hover:text-slate-700"
                 type="button"
                 title={t("memoList.clearSearch")}
                 aria-label={t("memoList.clearSearch")}
@@ -1386,7 +1386,7 @@ export const MemoListPane = ({
                   "flex h-mobile-control w-mobile-control items-center justify-center rounded-full border transition",
                   filterMode === option.value
                     ? "border-slate-700 bg-slate-700 text-white shadow-[0_8px_18px_rgba(15,23,42,0.16)]"
-                    : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    : "border-slate-200 bg-card text-slate-500 hover:bg-slate-50 hover:text-slate-800"
                 )}
                 type="button"
                 title={filterMode === option.value ? t("memoList.toggleOffFilter", { label: option.label }) : option.label}
@@ -1406,7 +1406,7 @@ export const MemoListPane = ({
               "mt-3 flex min-h-8 items-center gap-2 rounded-md border px-3 py-1.5 text-xs",
               searchActive
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-[inset_3px_0_0_#10b981]"
-                : "border-slate-200 bg-white text-slate-500"
+                : "border-slate-200 bg-card text-slate-500"
             )}
             role="status"
             {...contentEnterMotion}
@@ -1457,7 +1457,7 @@ export const MemoListPane = ({
             </Button>
           </div>
         ) : memos.length === 0 ? (
-          <div className="rounded-md border border-dashed border-slate-300 bg-white px-4 py-9 text-center">
+          <div className="rounded-md border border-dashed border-slate-300 bg-card px-4 py-9 text-center">
             <div className="text-sm font-semibold text-slate-800">
               {memos.length === 0 ? (view === "trash" ? t("memoList.trashEmptyTitle") : t("memoList.emptyTitle")) : t("memoList.noFilteredTitle")}
             </div>
@@ -1476,7 +1476,7 @@ export const MemoListPane = ({
             )}
           </div>
         ) : (
-          <div className="space-y-4 lg:space-y-0 lg:overflow-hidden lg:rounded-sm lg:border-y lg:border-slate-200 lg:bg-white">
+          <div className="space-y-4 lg:space-y-0 lg:overflow-hidden lg:rounded-sm lg:border-y lg:border-slate-200 lg:bg-card">
             <div className="space-y-3 lg:space-y-0">
               {memos.map((memo) => (
                 <MemoCard
@@ -1520,7 +1520,7 @@ export const MemoListPane = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="max-h-[calc(100dvh-1.5rem)] w-56 max-w-[calc(100vw-1.5rem)] overflow-y-auto bg-white border border-slate-200 rounded-md py-1 shadow-md"
+              className="max-h-[calc(100dvh-1.5rem)] w-56 max-w-[calc(100vw-1.5rem)] overflow-y-auto bg-card border border-slate-200 rounded-md py-1 shadow-md"
               data-memo-actions-menu
             >
               <DropdownMenuItem

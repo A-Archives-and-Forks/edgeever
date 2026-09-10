@@ -585,7 +585,7 @@ export const enUS = {
     mermaidThemeTitle: "Diagram theme",
     mermaidThemeDescription: "Follow the app appearance or choose a fixed visual theme for diagrams.",
     markdownThemeTitle: "Markdown source theme",
-    markdownThemeDescription: "Choose a syntax highlighting and color theme for Markdown source editing mode.",
+    markdownThemeDescription: "Follow the app appearance or choose a fixed syntax highlighting theme for Markdown source editing.",
     editorThemeTitle: "Editor theme",
     editorThemeDescription: "Choose a writing style for the note editor. Saved in this browser.",
     editorContentAlignmentTitle: "Note content layout",

@@ -585,7 +585,7 @@ export const zhCN = {
     mermaidThemeTitle: "图表主题",
     mermaidThemeDescription: "跟随应用外观，或为笔记图表选择固定主题。",
     markdownThemeTitle: "Markdown 源码主题",
-    markdownThemeDescription: "为 Markdown 源码编辑模式选择代码高亮与配色方案。",
+    markdownThemeDescription: "跟随应用外观，或为 Markdown 源码编辑模式选择固定的代码高亮配色。",
     editorThemeTitle: "编辑器主题",
     editorThemeDescription: "选择正文编辑区的排版风格，偏好会保存在当前浏览器中。",
     editorContentAlignmentTitle: "笔记正文布局",
