@@ -45,9 +45,7 @@ EdgeEver 是一款现代化的开源笔记与个人知识库工作区。它为�
   <a href="https://apps.apple.com/us/app/edgeever/id6792625631"><img src="assets/readme/platforms/app-store.svg" alt="从 App Store 下载 iOS 客户端" width="40" height="40" /></a>
 </p>
 
-iOS 客户端需要使用非中国大陆区 Apple ID 下载。
-Linux x86_64 AppImage 当前为支持自动更新的预览版，详见
-[Linux 预览版说明](docs/linux-preview.zh-CN.md)。
+> iOS 客户端需要使用非中国大陆区 Apple ID 下载。
 
 ## 功能
 

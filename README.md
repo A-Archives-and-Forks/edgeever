@@ -45,9 +45,7 @@ The public demo resets every day at 3:00 AM (China Standard Time) and restores s
   <a href="https://apps.apple.com/us/app/edgeever/id6792625631"><img src="assets/readme/platforms/app-store.svg" alt="Download EdgeEver for iOS from the App Store" width="40" height="40" /></a>
 </p>
 
-The iOS app requires an Apple ID from outside mainland China.
-The Linux x86_64 AppImage is a Preview with automatic updates; see the
-[Linux Preview guide](docs/linux-preview.md).
+> The iOS app requires an Apple ID from outside mainland China.
 
 ## Features
 
