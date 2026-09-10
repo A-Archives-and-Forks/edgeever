@@ -354,6 +354,8 @@ export const enUS = {
     redo: "Redo",
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
+    zoomPercent: "Zoom percent",
+    zoomPercentHint: "Type 30%–250%, press Enter",
     listCounts: "{{nodes}} nodes · {{edges}} links",
     resetZoom: "Reset to 100% and center",
     readFlow: "Read from start",

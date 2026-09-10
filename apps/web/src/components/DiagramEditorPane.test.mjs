@@ -222,11 +222,22 @@ describe("diagram editor canvas surface", () => {
     expect(toolbarSource).not.toContain('<Button size="icon" variant="ghost" aria-label={t("diagram.autoLayout")}');
   });
 
-  test("exposes view recovery separately from document layout", () => {
-    expect(toolbarSource).toContain("onFit");
-    expect(toolbarSource).toContain('t("diagram.fit")');
-    expect(source).toContain("onFit={() =>");
+  test("does not put a fit-to-canvas control on the toolbar", () => {
+    expect(toolbarSource).not.toContain("onFit");
+    expect(toolbarSource).not.toContain('t("diagram.fit")');
+    expect(source).not.toContain("onFit={() =>");
     expect(source).toContain("fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport, { readable: true });");
+  });
+
+  test("lets the zoom percent be typed instead of only resetting to 100%", () => {
+    expect(toolbarSource).toContain("onZoomTo");
+    expect(toolbarSource).toContain("parseDiagramZoomPercent");
+    expect(toolbarSource).toContain('t("diagram.zoomPercent")');
+    expect(toolbarSource).toContain('t("diagram.zoomPercentHint")');
+    expect(toolbarSource).toContain("onPointerDown={(event) => event.stopPropagation()}");
+    expect(toolbarSource).not.toContain("onResetZoom");
+    expect(source).toContain("onZoomTo={(percent) =>");
+    expect(source).toContain("zoomDiagram(graph, percent / 100, true)");
   });
 
   test("delegates every diagram kind to one shared toolbar shell", () => {

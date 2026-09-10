@@ -139,6 +139,7 @@ import {
   type DiagramLayoutViewport,
 } from "@/lib/diagram-layout";
 import { applyDiagramScrollerFitOptions, diagramCanvasIsReady, isUsableDiagramBounds } from "@/lib/diagram-scroller-fit";
+import { DIAGRAM_ZOOM_SCALE_MAX, DIAGRAM_ZOOM_SCALE_MIN } from "@/lib/diagram-zoom";
 import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-theme";
 import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
@@ -1604,7 +1605,7 @@ export const DiagramEditorPane = ({
       background: { color: diagramCanvasColor(document.kind, documentTheme, appearance) },
       grid: false,
       panning: false,
-      mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: 0.3, maxScale: 2.5 },
+      mousewheel: { enabled: true, modifiers: ["ctrl", "meta"], minScale: DIAGRAM_ZOOM_SCALE_MIN, maxScale: DIAGRAM_ZOOM_SCALE_MAX },
       interacting: () => !readOnly && !spacePanActiveRef.current,
       connecting: {
         allowBlank: document.kind === "flowchart",
@@ -2933,17 +2934,11 @@ export const DiagramEditorPane = ({
           onUndo={() => runHistoryAction("undo")}
           zoomPercent={zoomPercent}
           onRead={document.kind === "flowchart" ? () => { if (graphRef.current) readDiagramContent(graphRef.current, document); } : undefined}
-          onFit={() => { const graph = graphRef.current; if (graph) fitDiagramContent(graph, document, containerRef.current); }}
-          onResetZoom={() => {
+          onZoomTo={(percent) => {
             const graph = graphRef.current;
             if (!graph) return;
+            zoomDiagram(graph, percent / 100, true);
             ensureDiagramPaperContainsNodes(graph);
-            zoomDiagram(graph, 1, true);
-            ensureDiagramPaperContainsNodes(graph);
-            const bounds = diagramNodeBounds(graph);
-            const scroller = getDiagramScroller(graph);
-            if (bounds && scroller) scroller.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-            else if (bounds) graph.centerPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
           }}
           onZoomIn={() => {
             const graph = graphRef.current;

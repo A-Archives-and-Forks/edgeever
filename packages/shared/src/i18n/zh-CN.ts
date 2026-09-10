@@ -354,6 +354,8 @@ export const zhCN = {
     redo: "重做",
     zoomIn: "放大",
     zoomOut: "缩小",
+    zoomPercent: "缩放百分比",
+    zoomPercentHint: "输入 30%–250%，回车确认",
     listCounts: "{{nodes}} 节点 · {{edges}} 连线",
     resetZoom: "恢复 100% 并居中",
     readFlow: "从起点阅读",
