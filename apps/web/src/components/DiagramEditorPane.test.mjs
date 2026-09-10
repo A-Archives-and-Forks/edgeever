@@ -58,7 +58,10 @@ describe("diagram editor keyboard workflow", () => {
     expect(settleHelper).toContain("anchorAfter.left - anchorBefore.left");
     expect(settleHelper).toContain("anchorAfter.top - anchorBefore.top");
     expect(settleHelper).toContain("scroller.setScrollbarPosition(");
-    expect(settleHelper).toContain("requestAnimationFrame(restoreAnchor)");
+    expect(settleHelper).toContain("requestAnimationFrame(keepAnchor)");
+    expect(source).toContain("restoreAnchor: !isMindMap");
+    expect(source).toContain("if (isMindMap) revealDiagramNode(graph, node)");
+    expect(source).toContain("scroller.centerPoint(box.x + box.width / 2, box.y + box.height / 2)");
     expect(source).toContain("SCROLLER_AUTORESIZE_SETTLE_MS");
     expect(source).toContain("graph.localToClient");
     expect(source).toContain("canvasSurfaceRef.current");

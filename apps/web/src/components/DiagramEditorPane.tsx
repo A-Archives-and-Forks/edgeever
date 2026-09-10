@@ -734,12 +734,16 @@ const suspendScrollerAutoResize = (
   graph: Graph,
   timerRef: { current: number | null },
   isCurrent: () => boolean,
+  options: { restoreAnchor?: boolean } = {},
 ) => {
   const scroller = getDiagramScroller(graph);
   if (!scroller) return () => undefined;
-  const anchorView = graph.getNodes()
-    .map((node) => graph.findViewByCell(node))
-    .find((view) => view?.container.isConnected);
+  const restoreAnchor = options.restoreAnchor !== false;
+  const anchorView = restoreAnchor
+    ? graph.getNodes()
+      .map((node) => graph.findViewByCell(node))
+      .find((view) => view?.container.isConnected)
+    : undefined;
   const anchorBefore = anchorView?.container.getBoundingClientRect();
   let settled = false;
   const settle = () => {
@@ -750,7 +754,8 @@ const suspendScrollerAutoResize = (
     if (!isCurrent()) return;
     scroller.enableAutoResize();
     scroller.updateScroller();
-    const restoreAnchor = () => {
+    if (!restoreAnchor || !anchorView || !anchorBefore) return;
+    const keepAnchor = () => {
       if (!isCurrent() || !anchorView || !anchorBefore) return;
       const anchorAfter = anchorView.container.getBoundingClientRect();
       const scroll = scroller.getScrollbarPosition();
@@ -759,13 +764,21 @@ const suspendScrollerAutoResize = (
         scroll.top + anchorAfter.top - anchorBefore.top,
       );
     };
-    restoreAnchor();
-    requestAnimationFrame(restoreAnchor);
+    keepAnchor();
+    requestAnimationFrame(keepAnchor);
   };
   scroller.disableAutoResize();
   if (timerRef.current !== null) window.clearTimeout(timerRef.current);
   timerRef.current = window.setTimeout(settle, SCROLLER_AUTORESIZE_SETTLE_MS);
   return settle;
+};
+
+const revealDiagramNode = (graph: Graph, node: Node) => {
+  ensureDiagramPaperContainsNodes(graph);
+  const box = node.getBBox();
+  const scroller = getDiagramScroller(graph);
+  if (scroller) scroller.centerPoint(box.x + box.width / 2, box.y + box.height / 2);
+  else graph.centerCell(node);
 };
 
 const nodeEditorState = (
@@ -2109,16 +2122,21 @@ export const DiagramEditorPane = ({
   ) => {
     const graph = graphRef.current;
     if (!graph || !document || readOnly) return;
-    const settleScroller = suspendScrollerAutoResize(graph, scrollerResumeTimerRef, () => graphRef.current === graph);
+    const isMindMap = document.kind === "mind-map";
+    const settleScroller = suspendScrollerAutoResize(
+      graph,
+      scrollerResumeTimerRef,
+      () => graphRef.current === graph,
+      { restoreAnchor: !isMindMap },
+    );
     const baseNodeId = options.baseNodeId ?? selectedNodeId;
     const selected = baseNodeId
       ? graph.getCellById(baseNodeId) as Node | undefined
-      : document.kind === "mind-map"
+      : isMindMap
         ? graph.getNodes()[0]
         : undefined;
     const selectedPosition = selected?.isNode() ? selected.getPosition() : { x: 120, y: 120 };
     const selectedSize = selected?.isNode() ? selected.getSize() : { width: 140, height: 52 };
-    const isMindMap = document.kind === "mind-map";
     const isArchitecture = document.kind === "architecture";
     const selectedData = selected?.isNode() ? selected.getData<NodeData>() : undefined;
     const requestedSibling = isMindMap && options.relation === "sibling" && Boolean(selectedData?.parentId);
@@ -2228,6 +2246,7 @@ export const DiagramEditorPane = ({
     }
     graph.stopBatch("add");
     settleScroller();
+    if (isMindMap) revealDiagramNode(graph, node);
     graph.cleanSelection();
     graph.select(node);
     setSelectedNodeId(id);
@@ -2238,7 +2257,10 @@ export const DiagramEditorPane = ({
     setDirty(true);
     setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     if (options.beginEditing) {
-      requestAnimationFrame(() => beginNodeEdit(node));
+      requestAnimationFrame(() => {
+        if (isMindMap) revealDiagramNode(graph, node);
+        beginNodeEdit(node);
+      });
     }
   }, [beginNodeEdit, document, readOnly, selectedNodeId, t]);
 
