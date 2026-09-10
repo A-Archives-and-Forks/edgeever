@@ -32,6 +32,8 @@ import { QuickMemoSwitcher } from "./QuickMemoSwitcher";
 import { AppConfirmDialog, MemoDeleteConfirmDialog, NotebookNameDialog } from "./dialogs/ConfirmDialogs";
 import { PluginPanelDialog } from "./plugins/PluginPanelDialog";
 import { api, getOrCreateClientDeviceId } from "@/lib/api";
+import { MarkdownExportMemoryLimitError, type MarkdownExportProgress } from "@/lib/markdown-export";
+import { exportSelectedMemosAsMarkdownZip } from "@/lib/selected-markdown-export";
 import { createPluginScheduleAdapter } from "@/lib/plugins/plugin-schedule-adapter";
 import {
   clearMobileEditorReturnPreview,
@@ -752,6 +754,11 @@ export const WorkspaceApp = ({
   const [notebookNameDialog, setNotebookNameDialog] = useState<NotebookNameDialogState | null>(null);
   const [notebookDeleteConfirmation, setNotebookDeleteConfirmation] = useState<Notebook | null>(null);
   const [appNoticeDialog, setAppNoticeDialog] = useState<AppNoticeDialogState | null>(null);
+  const [isExportingSelectedMemos, setIsExportingSelectedMemos] = useState(false);
+  const [selectedMarkdownExportProgress, setSelectedMarkdownExportProgress] = useState<MarkdownExportProgress>({
+    completed: 0,
+    total: 0,
+  });
   const [demoResetConfirmationOpen, setDemoResetConfirmationOpen] = useState(false);
   const scheduledTaskDeviceId = useMemo(
     () => window.edgeeverDesktop?.isAvailable ? getOrCreateClientDeviceId() : null,
@@ -2339,6 +2346,60 @@ export const WorkspaceApp = ({
     });
   };
 
+  const handleExportSelectedMemos = () => {
+    if (selectedMemoIds.size === 0 || memoView === "trash" || isExportingSelectedMemos) {
+      return;
+    }
+
+    setIsExportingSelectedMemos(true);
+    setSelectedMarkdownExportProgress({ completed: 0, total: selectedMemoIds.size });
+    void exportSelectedMemosAsMarkdownZip({
+      memoIds: Array.from(selectedMemoIds),
+      listNotebooks: api.listNotebooks,
+      getPage: api.getMarkdownExportPage,
+      getResourceBlob: api.getResourceBlob,
+      onProgress: setSelectedMarkdownExportProgress,
+    }).then((result) => {
+      if (result.status === "too-many") {
+        setAppNoticeDialog({
+          title: t("workspace.selection.export"),
+          description: t("workspace.selection.exportTooMany", { max: result.max }),
+        });
+        return;
+      }
+      if (result.status === "local-only") {
+        setAppNoticeDialog({
+          title: t("workspace.selection.export"),
+          description: t("workspace.selection.exportLocalOnly"),
+        });
+        return;
+      }
+      if (result.status === "empty") {
+        setAppNoticeDialog({
+          title: t("workspace.selection.export"),
+          description: t("workspace.selection.exportEmpty"),
+        });
+        return;
+      }
+      if (result.skippedLocal > 0) {
+        setAppNoticeDialog({
+          title: t("workspace.selection.export"),
+          description: t("workspace.selection.exportCompleteWithSkipped", { count: result.skippedLocal }),
+        });
+      }
+    }).catch((error: unknown) => {
+      console.error("Failed to export selected notes as Markdown ZIP", error);
+      setAppNoticeDialog({
+        title: t("workspace.selection.export"),
+        description: error instanceof MarkdownExportMemoryLimitError
+          ? t("dataExport.largeBackupRequiresStreaming")
+          : t("workspace.selection.exportError"),
+      });
+    }).finally(() => {
+      setIsExportingSelectedMemos(false);
+    });
+  };
+
   const handleDeleteSelectedMemos = () => {
     if (selectedMemoIds.size === 0) {
       return;
@@ -2389,6 +2450,17 @@ export const WorkspaceApp = ({
         : mergeMutation.isPending
           ? t("workspace.selection.merging")
           : t("workspace.selection.merge");
+  const selectionExportTitle =
+    selectedMemoIds.size === 0
+      ? t("workspace.selection.chooseMemo")
+      : memoView === "trash"
+        ? t("workspace.selection.trashCannotExport")
+        : isExportingSelectedMemos
+          ? t("workspace.selection.exportProgress", {
+            completed: selectedMarkdownExportProgress.completed,
+            total: selectedMarkdownExportProgress.total,
+          })
+          : t("workspace.selection.exportHint");
   const selectionDeleteTitle =
     selectedMemoIds.size === 0
       ? t("workspace.selection.chooseMemo")
@@ -2400,7 +2472,9 @@ export const WorkspaceApp = ({
   const memoSelectionActionBar = memoSelectionModeActive ? (
     <MemoSelectionActionBar
       deleteTitle={selectionDeleteTitle}
+      exportTitle={selectionExportTitle}
       isDeleting={deleteMemosMutation.isPending || deleteMemoMutation.isPending}
+      isExporting={isExportingSelectedMemos}
       isMerging={mergeMutation.isPending}
       isMoving={moveMemosMutation.isPending}
       isPinning={pinMemosMutation.isPending}
@@ -2411,6 +2485,7 @@ export const WorkspaceApp = ({
       moveTitle={selectionMoveTitle}
       onClearSelection={clearMemoSelection}
       onDelete={handleDeleteSelectedMemos}
+      onExport={handleExportSelectedMemos}
       onMerge={handleMerge}
       onMove={() => handleMoveSelectedMemos(selectionMoveTargetNotebookId)}
       onMoveTargetChange={setSelectionMoveTargetNotebookId}
@@ -3311,6 +3386,7 @@ export const WorkspaceApp = ({
               isError={memosQuery.isError}
               isCreating={createMemoMutation.isPending}
               isMerging={mergeMutation.isPending}
+              isExporting={isExportingSelectedMemos}
               isMoving={moveMemosMutation.isPending}
               isPinning={pinMemosMutation.isPending}
               isDeleting={deleteMemosMutation.isPending || deleteMemoMutation.isPending}
@@ -3391,6 +3467,7 @@ export const WorkspaceApp = ({
               }}
               onTogglePinMemo={handleToggleMemoPinned}
               onPinSelectedMemos={handlePinSelectedMemos}
+              onExportSelectedMemos={handleExportSelectedMemos}
               onDeleteSelectedMemos={handleDeleteSelectedMemos}
               onMoveSelectedMemos={handleMoveSelectedMemos}
               mobileListActionsOpen={mobileListActionsOpen}
@@ -3492,6 +3569,10 @@ export const WorkspaceApp = ({
                     <EvernoteImportGuidePane onClose={() => setRightView("settings")} onOpenExecutionCenter={handleOpenExecutionCenter} />
                   ) : rendererRecoveryMode ? (
                     <EditorRecoveryPane />
+                  ) : memoSelectionModeActive ? (
+                    <div className="flex h-full min-w-0 flex-col bg-white">
+                      {memoSelectionActionBar}
+                    </div>
                   ) : (
                     <EditorPaneErrorBoundary
                       resetKey={selectedMemo?.id ?? selectedMemoId}

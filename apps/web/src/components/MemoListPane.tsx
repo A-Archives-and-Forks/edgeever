@@ -105,7 +105,9 @@ const getSelectionCountLabel = (count: number, t: ReturnType<typeof useTranslati
 
 export const MemoSelectionActionBar = ({
   deleteTitle,
+  exportTitle,
   isDeleting,
+  isExporting,
   isMerging,
   isMoving,
   isPinning,
@@ -116,6 +118,7 @@ export const MemoSelectionActionBar = ({
   moveTitle,
   onClearSelection,
   onDelete,
+  onExport,
   onMerge,
   onMove,
   onPin,
@@ -126,7 +129,9 @@ export const MemoSelectionActionBar = ({
   onMoveTargetChange,
 }: {
   deleteTitle: string;
+  exportTitle: string;
   isDeleting: boolean;
+  isExporting: boolean;
   isMerging: boolean;
   isMoving: boolean;
   isPinning: boolean;
@@ -137,6 +142,7 @@ export const MemoSelectionActionBar = ({
   moveTitle: string;
   onClearSelection: () => void;
   onDelete: () => void;
+  onExport: () => void;
   onMerge: () => void;
   onMove: () => void;
   onPin: () => void;
@@ -206,6 +212,16 @@ export const MemoSelectionActionBar = ({
         >
           <Merge className="h-4 w-4" />
           {t("memoList.mergeMemos")}
+        </Button>
+        <Button
+          className="h-11 w-full justify-start rounded-none px-3 text-slate-700 hover:bg-slate-50"
+          variant="ghost"
+          title={exportTitle}
+          onClick={onExport}
+          disabled={selectedCount === 0 || isExporting || isTrashView}
+        >
+          <FileDown className="h-4 w-4" />
+          {t("workspace.selection.export")}
         </Button>
         <div className="h-px bg-slate-100" />
         <Button
@@ -349,6 +365,7 @@ export const MemoListPane = ({
   isPinning,
   isMoving,
   isMerging,
+  isExporting,
   isDeleting,
   view,
   search,
@@ -367,6 +384,7 @@ export const MemoListPane = ({
   onRequestDocumentAction,
   onMoveSelectedMemos,
   onPinSelectedMemos,
+  onExportSelectedMemos,
   onDeleteSelectedMemos,
   onEmptyTrash,
   onMerge,
@@ -425,6 +443,7 @@ export const MemoListPane = ({
   isPinning: boolean;
   isMoving: boolean;
   isMerging: boolean;
+  isExporting: boolean;
   isDeleting: boolean;
   view: string;
   search: string;
@@ -443,6 +462,7 @@ export const MemoListPane = ({
   onRequestDocumentAction: (memoId: string, action: MemoDocumentAction, printWindow?: Window | null) => void;
   onMoveSelectedMemos: (notebookId: string) => void;
   onPinSelectedMemos: (pinned: boolean) => void;
+  onExportSelectedMemos: () => void;
   onDeleteSelectedMemos: () => void;
   onEmptyTrash: () => void;
   onMerge: () => void;
@@ -529,6 +549,14 @@ export const MemoListPane = ({
     selectedMemoIds.size === 0 ? t("workspace.selection.chooseMemo") : isDeleting ? t("workspace.selection.deleting") : view === "trash" ? t("workspace.selection.permanentDelete") : t("workspace.selection.delete");
   const selectionMergeTitle =
     selectedMemoIds.size < 2 ? t("workspace.selection.needTwoMemos") : view === "trash" ? t("workspace.selection.trashCannotMerge") : isMerging ? t("workspace.selection.merging") : t("workspace.selection.merge");
+  const selectionExportTitle =
+    selectedMemoIds.size === 0
+      ? t("workspace.selection.chooseMemo")
+      : view === "trash"
+        ? t("workspace.selection.trashCannotExport")
+        : isExporting
+          ? t("workspace.selection.exporting")
+          : t("workspace.selection.exportHint");
   const allSelectedMemosPinned = selectedMemosInList.length > 0 && selectedMemosInList.every((memo) => memo.isPinned);
   const selectedPinTarget = !allSelectedMemosPinned;
   const selectionPinLabel = allSelectedMemosPinned ? t("workspace.selection.unpin") : t("workspace.selection.pin");
@@ -1745,9 +1773,11 @@ export const MemoListPane = ({
       {mobileMoreOpen && (
         <Suspense fallback={null}>
           <MobileSelectionMoreSheet
+            canExport={selectedMemoIds.size > 0 && view !== "trash" && !isExporting}
             canMerge={selectedMemoIds.size >= 2 && view !== "trash" && !isMerging}
             canPin={selectedMemoIds.size > 0 && view !== "trash" && !isPinning}
             canToggleVisibleSelection={canToggleVisibleMemoSelection}
+            exportTitle={selectionExportTitle}
             mergeTitle={selectionMergeTitle}
             pinLabel={selectionPinLabel}
             pinTitle={selectionPinTitle}
@@ -1770,6 +1800,10 @@ export const MemoListPane = ({
             onMerge={() => {
               setMobileMoreOpen(false);
               onMerge();
+            }}
+            onExport={() => {
+              setMobileMoreOpen(false);
+              onExportSelectedMemos();
             }}
             onPin={() => {
               setMobileMoreOpen(false);
