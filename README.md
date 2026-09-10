@@ -21,10 +21,10 @@ EdgeEver is a modern, open-source notes and knowledge base workspace. It revives
 Many long-time **Evernote** users simply want a **reliable, open, and fast** personal knowledge base. However, existing mainstream solutions all present tradeoffs:
 
 * **Evernote**: It has grown increasingly bloated with commercial ads and unnecessary features, degrading performance. Data export is cumbersome, free tiers are heavily restricted, and AI/MCP features require costly subscriptions.
-* **Obsidian**: Exceptionally powerful and open, yet feels a bit heavy for quick, friction-free captures on the go. Official sync is subscription-based, while third-party sync setups demand significant effort.
+* **Obsidian**: Open files, closed-source core. Official Sync is paid, third-party sync is tedious, and it's a bit heavy for lightweight, capture-anywhere use.
 * **Memos & Stream Notes**: Clean and simple, but their social-timeline layouts differ fundamentally from the structured productivity of a classic three-pane workflow.
 
-**EdgeEver fills this gap**: It preserves the refined three-pane layout you know and love, while unlocking complete data ownership, native AI capabilities, and zero-cost self-hosted deployment.
+**EdgeEver fills this gap**: The entire stack is open source, including sync and self-hosting. It keeps the three-pane layout you know, with native AI agents and zero-cost deployment.
 
 > 💡 **Recommended Workflow:**
 > Use **EdgeEver** as your central inbox to quickly capture ideas and notes on any device. When it's time to curate and publish, leverage **MCP** to let your AI assistant distill, tag, and sync them into **Obsidian**, **Notion**, or **Feishu Bitable**, or copy beautifully styled posts directly into **Substack**, **Medium**, or newsletters with a single click.
