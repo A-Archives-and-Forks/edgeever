@@ -136,7 +136,7 @@ import {
   getDiagramLayoutViewport,
   type DiagramLayoutViewport,
 } from "@/lib/diagram-layout";
-import { applyDiagramScrollerFitOptions, isUsableDiagramBounds } from "@/lib/diagram-scroller-fit";
+import { applyDiagramScrollerFitOptions, diagramCanvasIsReady, isUsableDiagramBounds } from "@/lib/diagram-scroller-fit";
 import { resolveDiagramPalette, type DiagramAppearance } from "@/lib/diagram-theme";
 import { isLocalMemoId } from "@/lib/local-mirror";
 import { isBrowserOffline } from "@/lib/network-status";
@@ -1611,6 +1611,7 @@ export const DiagramEditorPane = ({
       className: "edgeever-diagram-scroller",
     }));
     bindDiagramScrollerFit(graph);
+    graphRef.current = graph;
     graph.use(new History({ enabled: !readOnly }));
     graph.use(new Export());
     graph.use(new Keyboard({
@@ -1652,14 +1653,35 @@ export const DiagramEditorPane = ({
     applyGraphPalette(graph, documentTheme, document.kind, appearance, documentStructure);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
+    const scroller = getDiagramScroller(graph);
+    scroller?.disableAutoResize();
     const settleLoadedViewport = () => {
-      if (graphRef.current !== graph) return;
+      if (graphRef.current !== graph) return false;
+      if (!diagramCanvasIsReady(canvasSurfaceRef.current)) return false;
       ensureDiagramPaperContainsNodes(graph);
       fitDiagramContent(graph, document, containerRef.current);
+      return true;
     };
     settleLoadedViewport();
     graph.once("render:done", settleLoadedViewport);
-    requestAnimationFrame(settleLoadedViewport);
+    const loadFitFrame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => settleLoadedViewport());
+    });
+    const canvasSurface = canvasSurfaceRef.current;
+    let loadFitObserver: ResizeObserver | null = null;
+    if (canvasSurface) {
+      loadFitObserver = new ResizeObserver(() => {
+        if (settleLoadedViewport()) loadFitObserver?.disconnect();
+      });
+      loadFitObserver.observe(canvasSurface);
+    }
+    const loadFitTimer = window.setTimeout(() => {
+      if (graphRef.current !== graph) return;
+      loadFitObserver?.disconnect();
+      scroller?.enableAutoResize();
+      scroller?.updateScroller();
+      settleLoadedViewport();
+    }, SCROLLER_AUTORESIZE_SETTLE_MS);
 
     const updateHistory = () => setHistoryState({ undo: graph.canUndo(), redo: graph.canRedo() });
     const markDirty = () => {
@@ -2015,13 +2037,15 @@ export const DiagramEditorPane = ({
         graphToDocument(graph, document.kind, themeRef.current, structureRef.current),
       ));
     });
-    graphRef.current = graph;
     return () => {
       containerRef.current?.removeEventListener("pointerdown", handleFlowPointerDown, true);
       window.removeEventListener("pointerup", handleFlowPointerUp, true);
       flowPointerDragRef.current = null;
       openFlowQuickCreateRef.current = () => undefined;
       nodeEditorRef.current = null;
+      loadFitObserver?.disconnect();
+      window.clearTimeout(loadFitTimer);
+      window.cancelAnimationFrame(loadFitFrame);
       if (scrollerResumeTimerRef.current !== null) {
         window.clearTimeout(scrollerResumeTimerRef.current);
         scrollerResumeTimerRef.current = null;

@@ -33,6 +33,19 @@ describe("diagram editor keyboard workflow", () => {
     expect(source).not.toContain("visibleNodes.length !== graph.getNodes().length");
   });
 
+  test("fits a newly opened diagram after the canvas has size and scroller auto-resize settles", () => {
+    const init = source.slice(source.indexOf("graph = new Graph"), source.indexOf("const updateHistory"));
+    expect(init.indexOf("graphRef.current = graph")).toBeGreaterThan(-1);
+    expect(init.indexOf("graphRef.current = graph")).toBeLessThan(init.indexOf("const settleLoadedViewport"));
+    expect(init).toContain("diagramCanvasIsReady(canvasSurfaceRef.current)");
+    expect(init).toContain("scroller?.disableAutoResize()");
+    expect(init).toContain("new ResizeObserver");
+    expect(init).toContain("scroller?.enableAutoResize()");
+    expect(init).toContain("scroller?.updateScroller()");
+    expect(init).toContain("SCROLLER_AUTORESIZE_SETTLE_MS");
+    expect(init).toContain("loadFitObserver?.disconnect()");
+  });
+
   test("does not let scroller auto-fit flash a detached node while inserting", () => {
     expect(source).toContain("disableAutoResize()");
     expect(source).toContain("enableAutoResize()");
