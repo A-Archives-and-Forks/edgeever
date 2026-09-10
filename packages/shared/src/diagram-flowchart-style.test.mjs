@@ -122,6 +122,6 @@ describe("flowchart readable viewport", () => {
   test("refuses to shrink a tall flow below reading size", () => {
     expect(flowchartFitsReadableViewport({ width: 220, height: 1680 }, viewport)).toBe(false);
     expect(FLOWCHART_READABLE_MIN_SCALE).toBe(DIAGRAM_READABLE_MIN_SCALE);
-    expect(DIAGRAM_READABLE_MIN_SCALE).toBe(0.75);
+    expect(DIAGRAM_READABLE_MIN_SCALE).toBe(0.85);
   });
 });
