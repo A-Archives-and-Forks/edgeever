@@ -1427,7 +1427,6 @@ export const zhCN = {
     unselect: "取消选择 {{title}}",
     dragMany: "移动 {{count}} 条笔记",
     dragOne: "移动「{{title}}」",
-    interactionHint: "Ctrl/Cmd 点击切换选择，Shift 点击连续选择，可拖到左侧笔记本移动，移动端长按进入选择",
     moreActions: "更多操作",
     restoreMemo: "恢复笔记",
     deleteMemo: "删除笔记",

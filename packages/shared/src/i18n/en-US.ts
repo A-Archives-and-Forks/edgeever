@@ -1427,7 +1427,6 @@ export const enUS = {
     unselect: "Deselect {{title}}",
     dragMany: "Move {{count}} notes",
     dragOne: "Move “{{title}}”",
-    interactionHint: "Ctrl/Cmd click to toggle selection, Shift click for range selection, drag to a notebook on the left to move, long press on mobile to select",
     moreActions: "More actions",
     restoreMemo: "Restore note",
     deleteMemo: "Delete note",
