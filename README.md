@@ -27,7 +27,7 @@ Many long-time **Evernote** users simply want a **reliable, open, and fast** per
 **EdgeEver fills this gap**: The entire stack is open source, including sync and self-hosting. It keeps the three-pane layout you know, with native AI agents and zero-cost deployment.
 
 > 💡 **Recommended Workflow:**
-> Use **EdgeEver** as your central inbox to quickly capture ideas and notes on any device. When it's time to curate and publish, leverage **MCP** to let your AI assistant distill, tag, and sync them into **Obsidian**, **Notion**, or **Feishu Bitable**, or copy beautifully styled posts directly into **Substack**, **Medium**, or newsletters with a single click.
+> Capture inspiration seamlessly across all devices and organize deeply in the classic three-pane view. Powered by native MCP, it not only lets AI agents retrieve and synthesize your knowledge, but also connects with your favorite productivity tools like Notion and Feishu. Publish anywhere with one-click formatting—100% self-hosted at zero cost, building an open and truly owned second brain.
 
 ## Online Demo
 
