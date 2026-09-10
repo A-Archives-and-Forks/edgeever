@@ -1,11 +1,13 @@
 import type { Notebook } from "@edgeever/shared";
-import { isLocalMemoId } from "./local-mirror";
 import {
   createMarkdownExport,
   downloadMarkdownExport,
   type MarkdownExportPage,
   type MarkdownExportProgress,
 } from "./markdown-export";
+
+// Keep this prefix check local so ZIP export does not import Dexie through local-mirror.
+const isUnsyncedLocalMemoId = (memoId: string) => memoId.startsWith("local_");
 
 export const MAX_SELECTED_MARKDOWN_EXPORT_MEMO_IDS = 100;
 
@@ -16,8 +18,8 @@ export type SelectedMarkdownExportResult =
   | { status: "empty" };
 
 export const partitionExportableMemoIds = (memoIds: string[]) => {
-  const skippedLocal = memoIds.filter((memoId) => isLocalMemoId(memoId));
-  const exportable = [...new Set(memoIds.filter((memoId) => !isLocalMemoId(memoId)))];
+  const skippedLocal = memoIds.filter((memoId) => isUnsyncedLocalMemoId(memoId));
+  const exportable = [...new Set(memoIds.filter((memoId) => !isUnsyncedLocalMemoId(memoId)))];
   return { exportable, skippedLocal };
 };
 
