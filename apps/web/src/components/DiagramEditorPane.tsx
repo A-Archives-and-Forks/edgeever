@@ -484,6 +484,7 @@ const FLOW_QUICK_CREATE_WIDTH = 330;
 const FLOW_QUICK_CREATE_HEIGHT = 132;
 const createId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const isConnectableDiagram = (kind: DiagramDocument["kind"]) => kind !== "mind-map";
+const usesOrthogonalDiagramEdges = (kind: DiagramDocument["kind"]) => kind === "flowchart" || kind === "architecture";
 const architectureNodeLabel = (shape: DiagramNodeShape, t: (key: string) => string) => {
   const labels: Partial<Record<DiagramNodeShape, string>> = {
     client: t("diagram.newClient"),
@@ -1029,7 +1030,7 @@ const edgeMetadata = (
     id: edge.id,
     source: { cell: edge.source },
     target: { cell: edge.target },
-    router: kind === "flowchart" ? FLOWCHART_EDGE_ROUTER : undefined,
+    router: usesOrthogonalDiagramEdges(kind) ? FLOWCHART_EDGE_ROUTER : undefined,
     connector: kind === "mind-map"
       ? { name: MIND_MAP_CONNECTOR_NAME, args: { sourceWidth: mindEdge?.sourceWidth, targetWidth: mindEdge?.targetWidth, structure } }
       : { name: "rounded", args: { radius: 10 } },
@@ -1579,7 +1580,7 @@ export const DiagramEditorPane = ({
         allowMulti: false,
         highlight: isConnectableDiagram(document.kind),
         snap: { radius: 24 },
-        router: document.kind === "flowchart" ? FLOWCHART_EDGE_ROUTER : "normal",
+        router: usesOrthogonalDiagramEdges(document.kind) ? FLOWCHART_EDGE_ROUTER : "normal",
         connector: document.kind === "mind-map" ? MIND_MAP_CONNECTOR_NAME : "rounded",
         validateConnection: ({ sourceCell, targetCell, sourcePort, targetPort }) => {
           if (!isConnectableDiagram(document.kind) || !sourceCell || !sourcePort) return false;
@@ -1647,7 +1648,7 @@ export const DiagramEditorPane = ({
       }
     }
     graph.addEdges(document.edges.map((edge) => edgeMetadata(edge, document.kind, documentTheme, appearance, documentStructure)));
-    if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
+    if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
     applyGraphPalette(graph, documentTheme, document.kind, appearance, documentStructure);
     graph.on("scale", () => setZoomPercent(Math.round(graph.scale().sx * 100)));
     graph.cleanHistory();
@@ -1818,7 +1819,7 @@ export const DiagramEditorPane = ({
           target: { cell: currentCell.id, ...(currentPort ? { port: currentPort } : {}) },
         });
         graph.stopBatch("connect");
-        if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
+        if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
         return;
       }
       if (!currentPoint || !containerRef.current) {
@@ -2393,7 +2394,7 @@ export const DiagramEditorPane = ({
         node.resize(geometry.width, geometry.height);
       }
     }
-    if (document.kind === "flowchart") applyFlowchartEdgePorts(graph);
+    if (usesOrthogonalDiagramEdges(document.kind)) applyFlowchartEdgePorts(graph);
     if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
     ensureDiagramPaperContainsNodes(graph);
