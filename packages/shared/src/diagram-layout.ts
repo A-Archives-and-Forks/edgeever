@@ -1,9 +1,11 @@
 import { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
 export { compactFlowchartNodeSize, flowchartNodePresentation } from "./diagram-node-presentation";
-import { FLOWCHART_LAYOUT_SPACING, FLOWCHART_READABLE_MIN_SCALE } from "./diagram-flowchart-style";
+import { DIAGRAM_READABLE_MIN_SCALE, FLOWCHART_LAYOUT_SPACING } from "./diagram-flowchart-style";
 export {
+  DIAGRAM_READABLE_MIN_SCALE,
   FLOWCHART_EDGE_ROUTER,
   FLOWCHART_LAYOUT_SPACING,
+  FLOWCHART_READABLE_MIN_SCALE,
   flowchartEdgeIsStraight,
   flowchartEdgePorts,
   flowchartFitsReadableViewport,
@@ -903,18 +905,18 @@ const DIAGRAM_LAYOUT_STRATEGIES: Record<DiagramKind, DiagramLayoutStrategy> = {
   "mind-map": {
     kind: "mind-map",
     layout: computeMindMapLayout,
-    viewport: { anchor: "root", maxScale: 1, minScale: FLOWCHART_READABLE_MIN_SCALE },
+    viewport: { anchor: "root", maxScale: 1, minScale: DIAGRAM_READABLE_MIN_SCALE },
   },
   flowchart: {
     kind: "flowchart",
     layout: computeFlowchartLayout,
-    viewport: { anchor: "center", maxScale: 1, minScale: FLOWCHART_READABLE_MIN_SCALE },
+    viewport: { anchor: "center", maxScale: 1, minScale: DIAGRAM_READABLE_MIN_SCALE },
   },
   architecture: {
     kind: "architecture",
     layout: computeArchitectureLayout,
     finalize: finalizeArchitectureLayout,
-    viewport: { anchor: "leftmost", maxScale: 0.84, minScale: 0.64 },
+    viewport: { anchor: "leftmost", maxScale: 1, minScale: DIAGRAM_READABLE_MIN_SCALE },
   },
 };
 

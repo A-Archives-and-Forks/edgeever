@@ -199,13 +199,17 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("bindDiagramScrollerFit(graph)");
     expect(source).toContain("applyDiagramScrollerFitOptions(");
     expect(source).toContain("diagramNodeBounds(graph)");
-    expect(source).toContain("graph.scale().sx < policy.minScale");
-    expect(source).toContain("readFlowchart(graph, document, container)");
+    expect(source).toContain("flowchartFitsReadableViewport(bounds, size, padding, minScale, policy.maxScale)");
+    expect(source).toContain("readDiagramContent(graph, document)");
+    expect(source).toContain("diagramReaderFocusNode(document)");
     expect(source).toContain("scroller.positionPoint({ x: box.x + box.width / 2, y: box.y }, \"50%\", 48)");
+    expect(source).toContain('policy.anchor === "leftmost"');
+    expect(source).toContain("scroller.positionPoint({ x: origin.x, y: origin.y }, 40, 48)");
     expect(source).toContain("fitDiagramRect(graph, bounds, { padding, maxScale: policy.maxScale })");
     expect(source).toContain("scroller.zoomToRect(bounds, options)");
     expect(source).toContain("getDiagramLayoutViewport(document.kind)");
     expect(source).toContain("fitDiagramContent(graph, document, containerRef.current);");
+    expect(source).toContain("fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport, { readable: true })");
   });
 
   test("labels auto layout directly instead of relying on an ambiguous icon", () => {
@@ -219,7 +223,7 @@ describe("diagram editor canvas surface", () => {
     expect(toolbarSource).toContain("onFit");
     expect(toolbarSource).toContain('t("diagram.fit")');
     expect(source).toContain("onFit={() =>");
-    expect(source).toContain("fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport);");
+    expect(source).toContain("fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport, { readable: true });");
   });
 
   test("delegates every diagram kind to one shared toolbar shell", () => {

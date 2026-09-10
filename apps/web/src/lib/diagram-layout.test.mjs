@@ -7,6 +7,7 @@ import {
   compactMindMapNodeSize,
   computeDiagramLayout,
   computeDiagramLayoutResult,
+  DIAGRAM_READABLE_MIN_SCALE,
   getDiagramLayoutViewport,
 } from "./diagram-layout.ts";
 
@@ -235,7 +236,8 @@ describe("diagram auto layout", () => {
       expect(child.x + child.width).toBeLessThan(boundary.x + boundary.width);
       expect(child.y + child.height).toBeLessThan(boundary.y + boundary.height);
     }
-    expect(result.viewport.minScale).toBe(0.64);
+    expect(result.viewport.minScale).toBe(DIAGRAM_READABLE_MIN_SCALE);
+    expect(result.viewport.maxScale).toBe(1);
   });
 
   test("keeps ungrouped architecture terminals next to the groups they connect to", () => {
@@ -316,7 +318,7 @@ describe("diagram auto layout", () => {
     expect(getDiagramLayoutViewport("flowchart")).toEqual({
       anchor: "center",
       maxScale: 1,
-      minScale: 0.85,
+      minScale: DIAGRAM_READABLE_MIN_SCALE,
     });
   });
 
@@ -324,7 +326,15 @@ describe("diagram auto layout", () => {
     expect(getDiagramLayoutViewport("mind-map")).toEqual({
       anchor: "root",
       maxScale: 1,
-      minScale: 0.85,
+      minScale: DIAGRAM_READABLE_MIN_SCALE,
+    });
+  });
+
+  test("keeps architecture viewports at reading size instead of shrinking the whole graph", () => {
+    expect(getDiagramLayoutViewport("architecture")).toEqual({
+      anchor: "leftmost",
+      maxScale: 1,
+      minScale: DIAGRAM_READABLE_MIN_SCALE,
     });
   });
 });

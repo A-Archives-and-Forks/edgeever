@@ -90,9 +90,11 @@ import {
   architectureNodeVisual,
   isArchitectureNodeShape,
   resolveArchitectureSurface,
+  diagramReaderFocusNode,
   FLOWCHART_EDGE_ROUTER,
   flowchartEdgeIsStraight,
   flowchartEdgePorts,
+  flowchartFitsReadableViewport,
   flowchartNodeVisual,
   resolveFlowchartSurface,
   type ArchitectureResourceIcon,
@@ -1129,21 +1131,39 @@ const removeGraphSelection = (graph: Graph) => {
 };
 
 
-const readFlowchart = (graph: Graph, document: DiagramDocument, container: HTMLElement | null) => {
-  if (!document.nodes.length) return;
-  const incoming = new Set(document.edges.map((edge) => edge.target));
-  const start = document.nodes.find((node) => !incoming.has(node.id)) ?? document.nodes[0];
-  const cell = graph.getCellById(start.id);
-  if (!cell?.isNode()) return;
+const diagramViewportSize = (graph: Graph, container: HTMLElement | null) => {
+  const host = getDiagramScroller(graph)?.container ?? container;
+  if (!host) return null;
+  return { width: host.clientWidth, height: host.clientHeight };
+};
+
+const readDiagramContent = (graph: Graph, document: DiagramDocument) => {
+  const policy = getDiagramLayoutViewport(document.kind);
+  const minScale = policy.minScale ?? 1;
+  const focus = diagramReaderFocusNode(document);
+  const cell = focus ? graph.getCellById(focus.id) : null;
   ensureDiagramPaperContainsNodes(graph);
-  zoomDiagram(graph, 1, true);
+  zoomDiagram(graph, document.kind === "flowchart" ? 1 : minScale, true);
   ensureDiagramPaperContainsNodes(graph);
+  if (!cell?.isNode()) {
+    centerDiagramContent(graph);
+    ensureDiagramPaperContainsNodes(graph);
+    return;
+  }
   const box = cell.getBBox();
   const scroller = getDiagramScroller(graph);
-  if (scroller) {
-    scroller.positionPoint({ x: box.x + box.width / 2, y: box.y }, "50%", 48);
+  if (document.kind === "flowchart") {
+    if (scroller) scroller.positionPoint({ x: box.x + box.width / 2, y: box.y }, "50%", 48);
+    else graph.centerPoint(box.x + box.width / 2, box.y);
+  } else if (policy.anchor === "leftmost") {
+    const bounds = diagramNodeBounds(graph);
+    const origin = bounds ?? { x: box.x, y: box.y, width: box.width, height: box.height };
+    if (scroller) scroller.positionPoint({ x: origin.x, y: origin.y }, 40, 48);
+    else graph.centerPoint(origin.x + origin.width / 2, origin.y);
+  } else if (scroller) {
+    scroller.centerPoint(box.x + box.width / 2, box.y + box.height / 2);
   } else {
-    graph.centerPoint(box.x + box.width / 2, box.y);
+    graph.centerPoint(box.x + box.width / 2, box.y + box.height / 2);
   }
   ensureDiagramPaperContainsNodes(graph);
 };
@@ -1154,22 +1174,24 @@ const fitDiagramContent = (
   container: HTMLElement | null,
   padding = 32,
   viewport?: DiagramLayoutViewport,
+  options: { readable?: boolean } = {},
 ) => {
   const policy = viewport ?? getDiagramLayoutViewport(document.kind);
   const bounds = diagramNodeBounds(graph);
   if (!bounds) return;
   ensureDiagramPaperContainsNodes(graph);
+  if (options.readable) {
+    const size = diagramViewportSize(graph, container);
+    const minScale = policy.minScale ?? 1;
+    if (size && !flowchartFitsReadableViewport(bounds, size, padding, minScale, policy.maxScale)) {
+      readDiagramContent(graph, document);
+      return;
+    }
+  }
   // Fit every node, including mind-map branches left of the root. Zooming to a
   // visible subset or to edge paths lets Scroller shrink the paper and clip.
   fitDiagramRect(graph, bounds, { padding, maxScale: policy.maxScale });
   ensureDiagramPaperContainsNodes(graph);
-  if (
-    document.kind === "flowchart"
-    && policy.minScale != null
-    && graph.scale().sx < policy.minScale
-  ) {
-    readFlowchart(graph, document, container);
-  }
 };
 
 const applyMindMapHierarchy = (graph: Graph, theme: DiagramTheme, appearance: DiagramAppearance, structure?: DiagramStructure) => {
@@ -1659,7 +1681,7 @@ export const DiagramEditorPane = ({
       if (graphRef.current !== graph) return false;
       if (!diagramCanvasIsReady(canvasSurfaceRef.current)) return false;
       ensureDiagramPaperContainsNodes(graph);
-      fitDiagramContent(graph, document, containerRef.current);
+      fitDiagramContent(graph, document, containerRef.current, 32, undefined, { readable: true });
       return true;
     };
     settleLoadedViewport();
@@ -2422,7 +2444,7 @@ export const DiagramEditorPane = ({
     if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
     ensureDiagramPaperContainsNodes(graph);
-    fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport);
+    fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport, { readable: true });
     if (changed) {
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,
@@ -2888,7 +2910,7 @@ export const DiagramEditorPane = ({
           structure={structure}
           onUndo={() => runHistoryAction("undo")}
           zoomPercent={zoomPercent}
-          onRead={document.kind === "flowchart" ? () => { if (graphRef.current) readFlowchart(graphRef.current, document, containerRef.current); } : undefined}
+          onRead={document.kind === "flowchart" ? () => { if (graphRef.current) readDiagramContent(graphRef.current, document); } : undefined}
           onFit={() => { const graph = graphRef.current; if (graph) fitDiagramContent(graph, document, containerRef.current); }}
           onResetZoom={() => {
             const graph = graphRef.current;
