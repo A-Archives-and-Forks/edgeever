@@ -163,16 +163,32 @@ export type GithubAssetDownloader = (
 ) => Promise<ArrayBuffer>;
 
 const downloadGithubAssetThroughApi: GithubAssetDownloader = async (coordinates, releaseTag, asset) => {
-  try {
+  const assetName = asset.name as "manifest.json" | "main.js" | "styles.css";
+  const download = async () => {
+    if (asset.id > 0) {
+      try {
+        return await api.downloadGithubPluginAssetById(
+          coordinates.owner,
+          coordinates.repository,
+          String(asset.id),
+          assetName,
+        );
+      } catch (error) {
+        if (!isGithubUnreachableError(error) && !(error instanceof ApiRequestError)) throw error;
+      }
+    }
     return await api.downloadGithubPluginAsset(
       coordinates.owner,
       coordinates.repository,
       releaseTag,
-      asset.name as "manifest.json" | "main.js" | "styles.css",
+      assetName,
     );
+  };
+  try {
+    return await download();
   } catch (error) {
     if (isGithubUnreachableError(error)) {
-      throw new Error("Could not download the plugin package from your EdgeEver instance.");
+      throw new Error(`Could not download ${assetName} from your EdgeEver instance.`);
     }
     throw error;
   }

@@ -1238,6 +1238,15 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
       `/api/v1/plugins/github/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/releases/${encodeURIComponent(releaseTag)}/assets/${encodeURIComponent(assetName)}`,
     ),
 
+    downloadGithubPluginAssetById: (
+      owner: string,
+      repository: string,
+      assetId: string,
+      assetName: "manifest.json" | "main.js" | "styles.css",
+    ) => requestArrayBuffer(
+      `/api/v1/plugins/github/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/assets/${encodeURIComponent(assetId)}/${encodeURIComponent(assetName)}`,
+    ),
+
     getGithubPluginRepositoryManifest: async (owner: string, repository: string) => {
       const path = `/api/v1/plugins/github/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/manifest`;
       const { context, response } = await send(path, undefined, { setJsonContentType: false });

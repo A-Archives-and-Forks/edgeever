@@ -53,6 +53,42 @@ describe("GitHub plugin release asset proxy", () => {
     ]);
   });
 
+  test("falls back to the GitHub API asset endpoint when the public download URL fails", async () => {
+    const calls = [];
+    const buffer = await downloadGithubReleaseAssetByTag({
+      owner: "example",
+      repository: "edgeever-plugin",
+      releaseTag: "v1.2.3",
+      assetName: "main.js",
+      request: async (input) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.includes("/releases/download/")) throw new TypeError("Failed to fetch");
+        if (url.includes("/releases/tags/")) {
+          return Response.json({
+            tag_name: "v1.2.3",
+            draft: false,
+            assets: [{
+              id: 42,
+              name: "main.js",
+              size: 18,
+              url: "https://api.github.com/repos/example/edgeever-plugin/releases/assets/42",
+              browser_download_url: "https://github.com/example/edgeever-plugin/releases/download/v1.2.3/main.js",
+            }],
+          });
+        }
+        if (url.endsWith("/releases/assets/42")) {
+          return new Response("export default {};", { headers: { "content-length": "18" } });
+        }
+        throw new Error(url);
+      },
+    });
+
+    expect(new TextDecoder().decode(buffer)).toBe("export default {};");
+    expect(calls[0]).toBe("https://github.com/example/edgeever-plugin/releases/download/v1.2.3/main.js");
+    expect(calls).toContain("https://api.github.com/repos/example/edgeever-plugin/releases/assets/42");
+  });
+
   test("rejects release coordinates that could escape the GitHub download path", async () => {
     await expect(downloadGithubReleaseAssetByTag({
       owner: "example",

@@ -171,6 +171,28 @@ describe("EdgeEver client HTTP contract", () => {
     expect(Array.from(new Uint8Array(buffer))).toEqual([1, 2, 3]);
   });
 
+  test("downloads GitHub plugin assets through the release-asset id route", async () => {
+    let requestUrl;
+    const client = createEdgeEverClient({
+      fetch: async (input) => {
+        requestUrl = String(input);
+        return new Response(new Uint8Array([4, 5]));
+      },
+    });
+
+    const buffer = await client.downloadGithubPluginAssetById(
+      "example-owner",
+      "example-plugin",
+      "42",
+      "styles.css",
+    );
+
+    expect(requestUrl).toBe(
+      "/api/v1/plugins/github/example-owner/example-plugin/assets/42/styles.css",
+    );
+    expect(Array.from(new Uint8Array(buffer))).toEqual([4, 5]);
+  });
+
   test("reads GitHub plugin metadata through the instance proxy", async () => {
     const calls = [];
     const client = createEdgeEverClient({

@@ -170,12 +170,29 @@ export const downloadGithubReleaseAssetByTag = async ({
   if (!hasValidRepositoryCoordinates(owner, repository) || !RELEASE_TAG_PATTERN.test(releaseTag)) {
     throw new Error("Invalid GitHub release coordinates.");
   }
-  const url = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/releases/download/${encodeURIComponent(releaseTag)}/${encodeURIComponent(assetName)}`;
-  const response = await request(url, {
-    redirect: "follow",
-    headers: { "User-Agent": "EdgeEver" },
-  });
-  return readBoundedAsset(response, assetName);
+  const url = `https://github.com/${owner}/${repository}/releases/download/${releaseTag}/${assetName}`;
+  try {
+    const response = await request(url, {
+      redirect: "follow",
+      headers: { "User-Agent": "EdgeEver" },
+    });
+    return await readBoundedAsset(response, assetName);
+  } catch (error) {
+    const release = await readGithubReleaseByTag({ owner, repository, releaseTag, request });
+    const asset = release.assets.find((candidate) => candidate.name === assetName);
+    if (!asset) {
+      const missing = new GithubUpstreamError(`GitHub Release ${releaseTag} is missing ${assetName}.`, 404);
+      missing.cause = error;
+      throw missing;
+    }
+    return downloadGithubReleaseAsset({
+      owner,
+      repository,
+      assetId: String(asset.id),
+      assetName,
+      request,
+    });
+  }
 };
 
 export const registerPluginDistributionRoutes = (app: Hono<AppEnv>) => {
