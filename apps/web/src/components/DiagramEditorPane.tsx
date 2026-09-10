@@ -1153,11 +1153,10 @@ const diagramViewportSize = (graph: Graph, container: HTMLElement | null) => {
 
 const readDiagramContent = (graph: Graph, document: DiagramDocument) => {
   const policy = getDiagramLayoutViewport(document.kind);
-  const minScale = policy.minScale ?? 1;
   const focus = diagramReaderFocusNode(document);
   const cell = focus ? graph.getCellById(focus.id) : null;
   ensureDiagramPaperContainsNodes(graph);
-  zoomDiagram(graph, document.kind === "flowchart" ? 1 : minScale, true);
+  zoomDiagram(graph, 1, true);
   ensureDiagramPaperContainsNodes(graph);
   if (!cell?.isNode()) {
     centerDiagramContent(graph);
@@ -1188,19 +1187,16 @@ const fitDiagramContent = (
   container: HTMLElement | null,
   padding = 32,
   viewport?: DiagramLayoutViewport,
-  options: { readable?: boolean } = {},
 ) => {
   const policy = viewport ?? getDiagramLayoutViewport(document.kind);
   const bounds = diagramNodeBounds(graph);
   if (!bounds) return;
   ensureDiagramPaperContainsNodes(graph);
-  if (options.readable) {
-    const size = diagramViewportSize(graph, container);
-    const minScale = policy.minScale ?? 1;
-    if (size && !flowchartFitsReadableViewport(bounds, size, padding, minScale, policy.maxScale)) {
-      readDiagramContent(graph, document);
-      return;
-    }
+  const size = diagramViewportSize(graph, container);
+  const minScale = policy.minScale ?? 1;
+  if (size && !flowchartFitsReadableViewport(bounds, size, padding, minScale, policy.maxScale)) {
+    readDiagramContent(graph, document);
+    return;
   }
   // Fit every node, including mind-map branches left of the root. Zooming to a
   // visible subset or to edge paths lets Scroller shrink the paper and clip.
@@ -1695,7 +1691,7 @@ export const DiagramEditorPane = ({
       if (graphRef.current !== graph) return false;
       if (!diagramCanvasIsReady(canvasSurfaceRef.current)) return false;
       ensureDiagramPaperContainsNodes(graph);
-      fitDiagramContent(graph, document, containerRef.current, 32, undefined, { readable: true });
+      fitDiagramContent(graph, document, containerRef.current, 32);
       return true;
     };
     settleLoadedViewport();
@@ -2467,7 +2463,7 @@ export const DiagramEditorPane = ({
     if (document.kind === "mind-map") applyMindMapHierarchy(graph, themeRef.current, appearanceRef.current, structureRef.current);
     graph.stopBatch("layout");
     ensureDiagramPaperContainsNodes(graph);
-    fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport, { readable: true });
+    fitDiagramContent(graph, document, containerRef.current, 40, layout.viewport);
     if (changed) {
       setDirty(savedSnapshotRef.current !== diagramEditorSnapshot(
         titleRef.current,

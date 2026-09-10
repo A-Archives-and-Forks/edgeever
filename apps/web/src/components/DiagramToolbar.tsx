@@ -220,38 +220,33 @@ const DiagramZoomPercentField = ({
   };
 
   return (
-    <Tooltip open={focused || undefined}>
-      <TooltipTrigger asChild>
-        <label
-          className="inline-flex h-8 w-16 cursor-text items-center justify-center gap-0 rounded-md text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-within:bg-slate-50 focus-within:text-slate-900"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <input
-            aria-label={t("diagram.zoomPercent")}
-            autoComplete="off"
-            className="h-8 w-7 bg-transparent pr-0 text-right text-xs tabular-nums outline-none"
-            inputMode="numeric"
-            spellCheck={false}
-            value={draft}
-            onBlur={() => {
-              if (commitOnBlurRef.current) commit();
-              else commitOnBlurRef.current = true;
-              setFocused(false);
-            }}
-            onChange={(event) => setDraft(event.target.value)}
-            onFocus={(event) => {
-              setFocused(true);
-              event.currentTarget.select();
-            }}
-            onKeyDown={keepCanvasShortcutsOut}
-            onKeyUp={(event) => event.stopPropagation()}
-            onPointerDown={(event) => event.stopPropagation()}
-          />
-          <span aria-hidden="true" className="text-xs">%</span>
-        </label>
-      </TooltipTrigger>
-      <TooltipContent>{t("diagram.zoomPercentHint")}</TooltipContent>
-    </Tooltip>
+    <label
+      className="inline-flex h-8 w-16 cursor-text items-center justify-center gap-0 rounded-md text-slate-600 hover:bg-slate-50 hover:text-slate-900 focus-within:bg-slate-50 focus-within:text-slate-900"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <input
+        aria-label={t("diagram.zoomPercent")}
+        autoComplete="off"
+        className="h-8 w-7 bg-transparent pr-0 text-right text-xs tabular-nums outline-none"
+        inputMode="numeric"
+        spellCheck={false}
+        value={draft}
+        onBlur={() => {
+          if (commitOnBlurRef.current) commit();
+          else commitOnBlurRef.current = true;
+          setFocused(false);
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onFocus={(event) => {
+          setFocused(true);
+          event.currentTarget.select();
+        }}
+        onKeyDown={keepCanvasShortcutsOut}
+        onKeyUp={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      />
+      <span aria-hidden="true" className="text-xs">%</span>
+    </label>
   );
 };
 
