@@ -1,7 +1,7 @@
 import { parseMarketplaceRegistry, type MarketplaceEntry, type MarketplaceRegistry } from "@edgeever/plugin-api";
 import {
   downloadGithubExtension,
-  loadGithubRepositoryManifest,
+  loadGithubInstallableManifest,
   type GithubAssetDownloader,
 } from "@/lib/plugins/github-plugin-distribution";
 import { isVersionOutdated } from "@/lib/version-check";
@@ -31,7 +31,7 @@ const resolveOfficialGithubEntry = async (
   downloadAssetBytes?: GithubAssetDownloader,
 ): Promise<MarketplaceEntry> => {
   if (entry.publisher !== "edgeever" || entry.distribution.type !== "github") return entry;
-  const live = await loadGithubRepositoryManifest(entry.distribution.repositoryUrl, request);
+  const live = await loadGithubInstallableManifest(entry.distribution.repositoryUrl, request);
   if (live.manifest.id !== entry.id) {
     throw new Error("Official repository manifest id does not match the marketplace entry.");
   }

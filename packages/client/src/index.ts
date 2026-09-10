@@ -1254,6 +1254,13 @@ export const createEdgeEverClient = (options: EdgeEverClientOptions = {}) => {
       return response.text();
     },
 
+    getGithubPluginLatestManifest: async (owner: string, repository: string) => {
+      const path = `/api/v1/plugins/github/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/latest-manifest`;
+      const { context, response } = await send(path, undefined, { setJsonContentType: false });
+      if (!response.ok) await throwRequestError(context, response, "GitHub plugin latest-release manifest request failed");
+      return response.text();
+    },
+
     getGithubPluginRelease: async (owner: string, repository: string, releaseTag: string) => {
       const path = `/api/v1/plugins/github/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/releases/tags/${encodeURIComponent(releaseTag)}`;
       const { context, response } = await send(path, undefined, { setJsonContentType: false });

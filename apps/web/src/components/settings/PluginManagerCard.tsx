@@ -377,12 +377,11 @@ export const PluginManagerCard = ({
         ["plugin-updates", extensionVersionKey, refreshedMarketplace.data?.updatedAt ?? "unavailable"],
         result,
       );
-      const firstCheckError = Object.values({
-        ...(refreshedMarketplace.data?.resolutionErrors ?? {}),
-        ...result.errors,
-      })[0];
-      setLastManualCheckCount(firstCheckError ? null : result.updates.length);
-      if (firstCheckError) setError(t("plugins.updates.checkFailed", { message: firstCheckError }));
+      setLastManualCheckCount(result.updates.length);
+      const checkErrors = Object.values(result.errors);
+      if (checkErrors.length > 0 && checkErrors.length === snapshot.extensions.length) {
+        setError(t("plugins.updates.checkFailed", { message: checkErrors[0] }));
+      }
     } catch (checkError) {
       setError(checkError instanceof Error ? checkError.message : String(checkError));
     } finally {

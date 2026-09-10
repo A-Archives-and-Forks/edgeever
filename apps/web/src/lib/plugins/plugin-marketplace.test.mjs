@@ -90,7 +90,9 @@ describe("bundled plugin marketplace", () => {
     };
     const request = async (input) => {
       const url = String(input);
-      if (url.includes("/contents/manifest.json")) return new Response(manifestText);
+      if (url.includes("/releases/latest/download/manifest.json") || url.includes("/contents/manifest.json")) {
+        return new Response(manifestText);
+      }
       if (url.includes("/releases/tags/")) return Response.json({
         tag_name: "v0.5.3",
         draft: false,
@@ -138,7 +140,7 @@ describe("bundled plugin marketplace", () => {
     const calls = [];
     const request = async (input) => {
       calls.push(String(input));
-      if (String(input).includes("/contents/manifest.json")) {
+      if (String(input).includes("/releases/latest/download/manifest.json")) {
         return new Response(JSON.stringify({
           type: "plugin",
           id: "org.edgeever.plugins.ai-rss",

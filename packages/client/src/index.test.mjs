@@ -199,12 +199,14 @@ describe("EdgeEver client HTTP contract", () => {
       fetch: async (input) => {
         const url = String(input);
         calls.push(url);
+        if (url.endsWith("/latest-manifest")) return new Response("{\"id\":\"plugin\",\"version\":\"1.2.3\"}");
         if (url.endsWith("/manifest")) return new Response("{\"id\":\"plugin\"}");
         if (url.includes("/releases/tags/missing")) return new Response(null, { status: 404 });
         return Response.json({ tag_name: "v1.2.3", draft: false, assets: [] });
       },
     });
 
+    expect(await client.getGithubPluginLatestManifest("example-owner", "example-plugin")).toBe("{\"id\":\"plugin\",\"version\":\"1.2.3\"}");
     expect(await client.getGithubPluginRepositoryManifest("example-owner", "example-plugin")).toBe("{\"id\":\"plugin\"}");
     expect(await client.getGithubPluginRelease("example-owner", "example-plugin", "missing")).toBeNull();
     expect(await client.getGithubPluginRelease("example-owner", "example-plugin", "v1.2.3")).toEqual({
@@ -213,6 +215,7 @@ describe("EdgeEver client HTTP contract", () => {
       assets: [],
     });
     expect(calls).toEqual([
+      "/api/v1/plugins/github/example-owner/example-plugin/latest-manifest",
       "/api/v1/plugins/github/example-owner/example-plugin/manifest",
       "/api/v1/plugins/github/example-owner/example-plugin/releases/tags/missing",
       "/api/v1/plugins/github/example-owner/example-plugin/releases/tags/v1.2.3",

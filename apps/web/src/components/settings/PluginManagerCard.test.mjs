@@ -24,6 +24,11 @@ describe("plugin manager card layout", () => {
     expect(source).not.toContain("{snapshot.extensions.length > 0 ? (\n              <Button");
   });
 
+  test("does not treat a single plugin update error as a total check failure", () => {
+    expect(source).toContain("checkErrors.length === snapshot.extensions.length");
+    expect(source).not.toContain("refreshedMarketplace.data?.resolutionErrors ?? {}");
+  });
+
   test("shows a retryable error instead of silently hiding a failed marketplace", () => {
     expect(source).toContain("marketplaceQuery.isError");
     expect(source).toContain('t("plugins.marketplace.loadFailed"');
