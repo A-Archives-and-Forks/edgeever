@@ -394,7 +394,10 @@ describe("desktop instance setup", () => {
 
   test("sends the disabled-by-default AI streaming preference and honors opt-in", async () => {
     const requestBodies = [];
-    globalThis.fetch = async (_url, init) => {
+    globalThis.fetch = async (url, init) => {
+      if (String(url).includes("/api/v1/ai/direct-target")) {
+        return new Response("{}", { status: 404 });
+      }
       requestBodies.push(JSON.parse(String(init?.body)));
       return new Response('data: {"type":"finish"}\n\n', {
         headers: { "Content-Type": "text/event-stream" },
