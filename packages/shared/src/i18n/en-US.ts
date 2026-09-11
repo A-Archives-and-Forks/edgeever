@@ -433,6 +433,7 @@ export const enUS = {
       noMovableNotebook: "No notebook available",
       moving: "Moving",
       move: "Move",
+      alreadyInNotebook: "Selected notes are already in this notebook",
       needTwoMemos: "Select at least 2 notes",
       trashCannotMerge: "Notes in trash cannot be merged",
       merging: "Merging",

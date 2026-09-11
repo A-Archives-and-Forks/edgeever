@@ -433,6 +433,7 @@ export const zhCN = {
       noMovableNotebook: "没有可移动的笔记本",
       moving: "正在移动",
       move: "移动",
+      alreadyInNotebook: "所选笔记已在该笔记本中",
       needTwoMemos: "至少选择 2 条笔记",
       trashCannotMerge: "回收站内不可合并",
       merging: "正在合并",
