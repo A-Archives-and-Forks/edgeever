@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from "
 import * as Clipboard from "expo-clipboard";
 import Constants from "expo-constants";
 import type { InstanceHealth } from "@edgeever/client";
-import { buildGitHubFeedbackUrl, type AuthUser } from "@edgeever/shared";
+import { buildGitHubFeedbackUrl, isClientAheadOfInstance, type AuthUser } from "@edgeever/shared";
 import { useQuery } from "@tanstack/react-query";
 import { BackHandler, Linking, Modal, Platform, ScrollView, Switch, View } from "react-native";
-import { Activity, ActivityIndicator, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, Copy, ExternalLink, Image as ImageIcon, Info, LogOut, MessageSquare, MonitorSmartphone, Moon, RefreshCw, ShieldCheck, SlidersHorizontal, Sun, UserRound } from "../components/icons";
+import { Activity, ActivityIndicator, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, Copy, ExternalLink, Image as ImageIcon, Info, LogOut, MessageSquare, MonitorSmartphone, Moon, RefreshCw, ShieldCheck, SlidersHorizontal, Sun, UserRound } from "../components/icons";
 import { Pressable, Text } from "../components/LocalizedText";
 import { useMobileLocale } from "../lib/mobile-locale";
 import { useMobileTheme } from "../lib/mobile-theme";
@@ -53,6 +53,7 @@ type MobileSystemInfoGroup = {
   description: string;
   id: "cloud" | "client" | "connection";
   items: Array<{ label: string; value: string }>;
+  notice?: string;
   title: string;
 };
 
@@ -448,6 +449,12 @@ const MobileSystemInfoSection = ({ group }: { group: MobileSystemInfoGroup }) =>
         <Text style={styles.systemInfoSectionDescription}>{group.description}</Text>
       </View>
     </View>
+    {group.notice ? (
+      <View accessibilityLiveRegion="polite" style={styles.systemInfoNotice}>
+        <AlertTriangle color="#d97706" size={14} />
+        <Text style={styles.systemInfoNoticeText}>{group.notice}</Text>
+      </View>
+    ) : null}
     <View style={styles.systemInfoRows}>
       {Array.from({ length: Math.ceil(group.items.length / 3) }, (_, rowIndex) => {
         const rowItems = group.items.slice(rowIndex * 3, rowIndex * 3 + 3);
@@ -479,6 +486,7 @@ const getMobileSystemInfoText = (localePreference: MobileLocaleMode) =>
     ? {
         build: "Build",
         client: "Client",
+        clientAheadOfInstance: "This client is newer than the connected cloud instance, so some features may not work yet. You can wait for the daily automatic instance update, or update the instance manually.",
         clientDescription: "The EdgeEver app and runtime environment on this device.",
         clientSection: "Current client",
         cloudDescription: "Version and deployment environment for the connected instance.",
@@ -519,6 +527,7 @@ const getMobileSystemInfoText = (localePreference: MobileLocaleMode) =>
     : {
         build: "构建",
         client: "客户端",
+        clientAheadOfInstance: "当前客户端版本高于云端实例，部分功能可能暂不可用。可等待每天自动更新，也可手动更新实例。",
         clientDescription: "这台设备上的 EdgeEver 应用与运行环境。",
         clientSection: "当前客户端",
         cloudDescription: "当前连接实例的版本与部署环境。",
@@ -628,6 +637,7 @@ const getMobileSystemInfoGroups = (
     {
       description: copy.cloudDescription,
       id: "cloud",
+      notice: isClientAheadOfInstance(MOBILE_APP_VERSION, instance?.version) ? copy.clientAheadOfInstance : undefined,
       items: [
         { label: copy.instanceVersion, value: instance?.version ? `v${instance.version.replace(/^v/, "")}` : copy.unknown },
         { label: copy.instanceBuild, value: instance?.health.build || copy.unknown },

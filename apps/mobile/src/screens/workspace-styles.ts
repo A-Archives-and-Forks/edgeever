@@ -1077,6 +1077,23 @@ const baseWorkspaceStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
+  systemInfoNotice: {
+    alignItems: "flex-start",
+    backgroundColor: "#fff7ed",
+    borderColor: "#fed7aa",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  systemInfoNoticeText: {
+    color: "#9a3412",
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
+  },
   systemInfoRow: {
     borderBottomColor: "#e2e8f0",
     borderBottomWidth: 1,
