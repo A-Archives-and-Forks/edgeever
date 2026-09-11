@@ -1416,7 +1416,7 @@ export const MemoListPane = ({
             {...contentEnterMotion}
           >
             {searchActive && (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-600 px-2 py-1 font-semibold text-white">
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-500 px-2 py-1 font-semibold text-white">
                 <Search className="h-3 w-3" />
                 {t("memoList.searchActive")}
               </span>
