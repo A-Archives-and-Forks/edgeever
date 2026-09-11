@@ -1137,7 +1137,7 @@ export const enUS = {
     browserMode: "Browser",
     unknown: "Unknown",
     copy: "Copy info",
-    clientAheadOfInstance: "This client is newer than the connected cloud instance, so some features may not work yet. You can wait for the daily automatic instance update, or update the instance manually.",
+    clientAheadOfInstance: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run the Update deployed EdgeEver workflow.",
     deployedUpdateTitle: "Your cloud instance was automatically updated to v{{version}}",
     viewReleaseNotes: "Release notes",
     desktopCheckForUpdates: "Check for updates",

@@ -5,7 +5,7 @@ import type { InstanceHealth } from "@edgeever/client";
 import { buildGitHubFeedbackUrl, isClientAheadOfInstance, type AuthUser } from "@edgeever/shared";
 import { useQuery } from "@tanstack/react-query";
 import { BackHandler, Linking, Modal, Platform, ScrollView, Switch, View } from "react-native";
-import { Activity, ActivityIndicator, AlertTriangle, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, Copy, ExternalLink, Image as ImageIcon, Info, LogOut, MessageSquare, MonitorSmartphone, Moon, RefreshCw, ShieldCheck, SlidersHorizontal, Sun, UserRound } from "../components/icons";
+import { Activity, ActivityIndicator, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, Copy, ExternalLink, Image as ImageIcon, Info, LogOut, MessageSquare, MonitorSmartphone, Moon, RefreshCw, ShieldCheck, SlidersHorizontal, Sun, UserRound } from "../components/icons";
 import { Pressable, Text } from "../components/LocalizedText";
 import { useMobileLocale } from "../lib/mobile-locale";
 import { useMobileTheme } from "../lib/mobile-theme";
@@ -451,7 +451,7 @@ const MobileSystemInfoSection = ({ group }: { group: MobileSystemInfoGroup }) =>
     </View>
     {group.notice ? (
       <View accessibilityLiveRegion="polite" style={styles.systemInfoNotice}>
-        <AlertTriangle color="#d97706" size={14} />
+        <Info color="#94a3b8" size={14} />
         <Text style={styles.systemInfoNoticeText}>{group.notice}</Text>
       </View>
     ) : null}
@@ -486,7 +486,7 @@ const getMobileSystemInfoText = (localePreference: MobileLocaleMode) =>
     ? {
         build: "Build",
         client: "Client",
-        clientAheadOfInstance: "This client is newer than the connected cloud instance, so some features may not work yet. You can wait for the daily automatic instance update, or update the instance manually.",
+        clientAheadOfInstance: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run the Update deployed EdgeEver workflow.",
         clientDescription: "The EdgeEver app and runtime environment on this device.",
         clientSection: "Current client",
         cloudDescription: "Version and deployment environment for the connected instance.",
@@ -527,7 +527,7 @@ const getMobileSystemInfoText = (localePreference: MobileLocaleMode) =>
     : {
         build: "构建",
         client: "客户端",
-        clientAheadOfInstance: "当前客户端版本高于云端实例，部分功能可能暂不可用。可等待每天自动更新，也可手动更新实例。",
+        clientAheadOfInstance: "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
         clientDescription: "这台设备上的 EdgeEver 应用与运行环境。",
         clientSection: "当前客户端",
         cloudDescription: "当前连接实例的版本与部署环境。",

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DeploymentMetadata } from "@edgeever/shared/deployment-metadata";
-import { Activity, CircleCheck, Cloud, Copy, ExternalLink, LoaderCircle, MonitorSmartphone, RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
+import { Activity, CircleCheck, Cloud, Copy, ExternalLink, Info, LoaderCircle, MonitorSmartphone, RefreshCw, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useDeployedUpdateNotice } from "@/hooks/useDeployedUpdateNotice";
@@ -435,8 +435,8 @@ export const SystemInfoPanel = ({ active = true }: { active?: boolean }) => {
               ) : null}
             </div>
             {isCloud && active && clientAheadOfInstance ? (
-              <p className="flex items-start gap-2 rounded-lg border border-amber-200/80 bg-amber-50/70 px-3 py-1.5 text-xs leading-5 text-amber-900" role="status">
-                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <p className="flex items-start gap-1.5 px-0.5 text-[11px] leading-4 text-slate-500" role="status">
+                <Info className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
                 <span>{t("systemInfo.clientAheadOfInstance")}</span>
               </p>
             ) : isCloud && active && release ? (

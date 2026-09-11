@@ -523,8 +523,8 @@ struct SettingsView: View {
             return nil
         }
         return env.preferences.t(
-            "当前客户端版本高于云端实例，部分功能可能暂不可用。可等待每天自动更新，也可手动更新实例。",
-            en: "This client is newer than the connected cloud instance, so some features may not work yet. You can wait for the daily automatic instance update, or update the instance manually."
+            "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
+            en: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run the Update deployed EdgeEver workflow."
         )
     }
 
@@ -765,17 +765,14 @@ struct SettingsView: View {
 
             if let notice {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 11, weight: .semibold))
                     Text(notice)
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .foregroundStyle(AppTheme.warningText)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .foregroundStyle(AppTheme.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AppTheme.warningSurface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
             }
