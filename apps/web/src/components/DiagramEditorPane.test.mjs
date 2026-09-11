@@ -189,6 +189,10 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain("flowchartEdgeIsStraight");
     expect(source).toContain('showTheme={document.kind !== "architecture"}');
     expect(source).toContain('themeCatalog={document.kind === "flowchart" ? "flowchart" : "mind-map"}');
+    expect(source).toContain('document?.kind === "flowchart"');
+    expect(source).toContain("resolveFlowchartTheme(document.theme)");
+    expect(source).toContain("resolveDiagramTheme(document?.theme)");
+    expect(source).not.toContain("const documentTheme = resolveDiagramTheme(document?.theme)");
     expect(toolbarSource).toContain("showTheme = true");
     expect(toolbarSource).toContain("themeCatalog = \"mind-map\"");
     expect(toolbarSource).toContain("FLOWCHART_SELECTABLE_THEMES");
