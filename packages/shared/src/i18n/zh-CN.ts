@@ -574,7 +574,7 @@ export const zhCN = {
     imageCompressionDescription: "上传大图时在本地压缩，节省资源占用。",
     imageCompressionAria: "是否压缩笔记内图片",
     aiStreamingTitle: "流式返回 AI 结果",
-    aiStreamingDescription: "开启后实时展示 AI 内容生成过程；关闭可降低 Cloudflare 免费档的 CPU 占用。桌面端与手机端始终直连模型接口。网页端在模型站允许跨源时直连，否则仍由实例代发。",
+    aiStreamingDescription: "开启后实时展示 AI 内容生成过程；关闭可获得更高稳定性。",
     aiStreamingAria: "是否流式返回 AI 结果",
     aiTagPromptTitle: "AI 标签建议指令",
     aiTagPromptDescription: "自定义 AI 如何根据笔记内容生成标签。此设置保存在工作区，各端共用。",

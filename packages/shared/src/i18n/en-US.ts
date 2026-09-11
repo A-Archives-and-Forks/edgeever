@@ -574,7 +574,7 @@ export const enUS = {
     imageCompressionDescription: "Compress large images locally before upload to reduce storage use.",
     imageCompressionAria: "Compress note images",
     aiStreamingTitle: "Stream AI responses",
-    aiStreamingDescription: "Turn on to watch AI content generation in real time; turn off to reduce Cloudflare Free CPU usage. Desktop and mobile always call your model API directly. The web app direct-connects when the model host allows CORS, and otherwise uses the instance proxy.",
+    aiStreamingDescription: "Turn on to watch AI content generation in real time; turn off for greater stability.",
     aiStreamingAria: "Stream AI responses",
     aiTagPromptTitle: "AI tag suggestion instruction",
     aiTagPromptDescription: "Customize how AI derives tags from note content. This workspace setting is shared by every client.",
