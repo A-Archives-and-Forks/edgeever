@@ -5,7 +5,6 @@ import {
 } from "@edgeever/client";
 import type { AuthSession } from "@edgeever/shared";
 import { resolveInstanceUrlInput } from "@edgeever/shared";
-import { readAiStreamingPreference } from "./ai-generation-preference";
 import { createClientUuid } from "./client-id";
 
 export { ApiRequestError };
@@ -335,12 +334,4 @@ export const api = {
     desktopSessionRejected = false;
     return session;
   },
-
-  streamAiGeneration: (
-    payload: Parameters<typeof client.streamAiGeneration>[0],
-    options: Parameters<typeof client.streamAiGeneration>[1],
-  ) => client.streamAiGeneration(
-    { ...payload, stream: payload.stream ?? readAiStreamingPreference() },
-    options,
-  ),
 };

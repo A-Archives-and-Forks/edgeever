@@ -42,12 +42,7 @@ describe("AI settings cards tolerate missing text fields", () => {
     expect(modelCard).toContain("canAddProvider");
     expect(modelCard).toContain("addDisabledReason");
     expect(modelCard).toContain("savedCredentialsUnavailable");
-  });
-
-  test("hides the AI streaming preference on the desktop client", () => {
-    const modelCard = readFileSync(new URL("./AiModelCard.tsx", import.meta.url), "utf8");
-    expect(modelCard).toContain("window.edgeeverDesktop?.isAvailable !== true");
-    expect(modelCard).toContain("showStreamingPreference");
-    expect(modelCard).toContain("settings.aiStreamingTitle");
+    expect(modelCard).not.toContain("aiStreamingTitle");
+    expect(modelCard).not.toContain("readAiStreamingPreference");
   });
 });
