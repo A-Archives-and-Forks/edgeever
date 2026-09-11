@@ -746,4 +746,20 @@ test.describe("AI custom prompts", () => {
     await expect(dialog).toBeHidden();
     await expect(page.locator(".ProseMirror[contenteditable='true']")).toContainText("进展顺利");
   });
+
+  test("remembers the last processing action when the assistant is reopened", async ({ page }) => {
+    const memo = await createMemo(page, `e2e-ai-last-action-${Date.now()}`, "记住上次处理方式。");
+    await ensureAuthenticatedPage(page);
+    await page.evaluate(() => window.localStorage.removeItem("edgeever.aiAssistant.lastAction"));
+    const dialog = await openMemoAssistant(page, memo.id, notebookName);
+    await expect(dialog.getByRole("combobox", { name: "处理方式" })).toHaveText("总结");
+    await selectAction(dialog, "翻译");
+    await expect(dialog.getByRole("combobox", { name: "处理方式" })).toHaveText("翻译");
+    await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole("button", { name: "打开 AI 写作助手", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("combobox", { name: "处理方式" })).toHaveText("翻译");
+  });
 });

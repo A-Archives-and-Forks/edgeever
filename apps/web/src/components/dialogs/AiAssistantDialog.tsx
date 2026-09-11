@@ -41,6 +41,7 @@ import {
 } from "@/lib/ai-attachments";
 import {
   aiTones,
+  buildAiAssistantLastActionPreference,
   buildAiAssistantRequest,
   buildAiRefinementInstruction,
   getDefaultAiAction,
@@ -49,8 +50,11 @@ import {
   promptAllowsReplace,
   promptNeedsTargetLanguage,
   promptNeedsTone,
+  readStoredAiAssistantLastActionPreference,
   resolveAiAssistantComposerInput,
+  resolveAiAssistantLastAction,
   targetLanguages,
+  writeStoredAiAssistantLastActionPreference,
   type AiAssistantAction,
   type AiTone,
   type TargetLanguage,
@@ -187,10 +191,6 @@ export const AiAssistantDialog = ({
       dragStateRef.current = null;
       return;
     }
-    setAction(defaultAction);
-    setSelectedPromptId(null);
-    setTargetLanguage(defaultTargetLanguage);
-    setTone("professional");
     setCustomInstruction("");
     setRefinement("");
     setOutput("");
@@ -242,18 +242,17 @@ export const AiAssistantDialog = ({
       setInitializedForOpen(true);
       return;
     }
-    const preferred = prompts.find((prompt) => prompt.seedKey === defaultAction)
-      ?? prompts[0]
-      ?? null;
-    if (preferred) {
-      setSelectedPromptId(preferred.id);
-      setAction(preferred.action);
-    } else {
-      setSelectedPromptId(null);
-      setAction("custom");
-    }
+    const resolved = resolveAiAssistantLastAction({
+      fallbackAction: defaultAction,
+      preference: readStoredAiAssistantLastActionPreference(),
+      prompts,
+    });
+    setSelectedPromptId(resolved.selectedPromptId);
+    setAction(resolved.action);
+    setTargetLanguage(resolved.targetLanguage ?? defaultTargetLanguage);
+    setTone(resolved.tone ?? "professional");
     setInitializedForOpen(true);
-  }, [customInstruction, defaultAction, initializedForOpen, open, prompts, promptsQuery.isLoading]);
+  }, [customInstruction, defaultAction, defaultTargetLanguage, initializedForOpen, open, prompts, promptsQuery.isLoading]);
 
   useEffect(() => {
     if (!open) return;
@@ -283,11 +282,34 @@ export const AiAssistantDialog = ({
     setPromptFeedback(null);
   };
 
+  const persistLastAction = ({
+    nextAction,
+    nextPrompt,
+    nextPromptId,
+    nextTargetLanguage,
+    nextTone,
+  }: {
+    nextAction: AiAssistantAction;
+    nextPrompt?: { seedKey: typeof prompts[number]["seedKey"] } | null;
+    nextPromptId: string | null;
+    nextTargetLanguage?: TargetLanguage;
+    nextTone?: AiTone;
+  }) => {
+    writeStoredAiAssistantLastActionPreference(buildAiAssistantLastActionPreference({
+      action: nextAction,
+      promptId: nextPromptId,
+      seedKey: nextPrompt?.seedKey ?? null,
+      targetLanguage: nextTargetLanguage ?? targetLanguage,
+      tone: nextTone ?? tone,
+    }));
+  };
+
   const handleActionChange = (value: string) => {
     customInstructionEditedRef.current = false;
     if (value === FREEFORM_VALUE) {
       setAction("custom");
       setSelectedPromptId(null);
+      persistLastAction({ nextAction: "custom", nextPrompt: null, nextPromptId: null });
       clearResult();
       return;
     }
@@ -297,6 +319,11 @@ export const AiAssistantDialog = ({
     const prompt = prompts.find((item) => item.id === promptId);
     setSelectedPromptId(promptId);
     setAction(prompt?.action ?? "custom");
+    persistLastAction({
+      nextAction: prompt?.action ?? "custom",
+      nextPrompt: prompt ?? null,
+      nextPromptId: promptId,
+    });
     clearResult();
   };
 
@@ -370,6 +397,11 @@ export const AiAssistantDialog = ({
       return;
     }
 
+    persistLastAction({
+      nextAction: effectiveActionKey,
+      nextPrompt: selectedPrompt,
+      nextPromptId: selectedPromptId,
+    });
     const composerInput = resolveAiAssistantComposerInput({
       composerText: currentInstruction,
       isFreeformCustom,
@@ -479,6 +511,11 @@ export const AiAssistantDialog = ({
       );
       setSelectedPromptId(prompt.id);
       setAction(prompt.action);
+      persistLastAction({
+        nextAction: prompt.action,
+        nextPrompt: prompt,
+        nextPromptId: prompt.id,
+      });
       customInstructionEditedRef.current = false;
       setSaveDialogOpen(false);
       setSaveName("");
@@ -694,7 +731,14 @@ export const AiAssistantDialog = ({
               <div className="order-2 grid gap-1.5">
                 <span className="text-sm font-medium text-slate-700">{t("aiAssistant.targetLanguage")}</span>
                 <Select value={targetLanguage} onValueChange={(value) => {
-                  setTargetLanguage(value as TargetLanguage);
+                  const nextTargetLanguage = value as TargetLanguage;
+                  setTargetLanguage(nextTargetLanguage);
+                  persistLastAction({
+                    nextAction: action,
+                    nextPrompt: selectedPrompt,
+                    nextPromptId: selectedPromptId,
+                    nextTargetLanguage,
+                  });
                   clearResult();
                 }}>
                   <SelectTrigger aria-label={t("aiAssistant.targetLanguage")} className="h-10">
@@ -718,7 +762,14 @@ export const AiAssistantDialog = ({
               <div className="order-2 grid gap-1.5">
                 <span className="text-sm font-medium text-slate-700">{t("aiAssistant.tone")}</span>
                 <Select value={tone} onValueChange={(value) => {
-                  setTone(value as AiTone);
+                  const nextTone = value as AiTone;
+                  setTone(nextTone);
+                  persistLastAction({
+                    nextAction: action,
+                    nextPrompt: selectedPrompt,
+                    nextPromptId: selectedPromptId,
+                    nextTone,
+                  });
                   clearResult();
                 }}>
                   <SelectTrigger aria-label={t("aiAssistant.tone")} className="h-10"><SelectValue /></SelectTrigger>

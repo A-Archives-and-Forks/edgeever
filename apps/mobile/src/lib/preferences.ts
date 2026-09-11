@@ -1,4 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  AI_ASSISTANT_LAST_ACTION_STORAGE_KEY,
+  parseAiAssistantLastActionPreference,
+  serializeAiAssistantLastActionPreference,
+  type AiAssistantLastActionPreference,
+} from "@edgeever/shared";
 
 const MEMO_LIST_DENSITY_KEY = "edgeever.mobile.memoListDensity";
 const IMAGE_COMPRESSION_KEY = "edgeever.mobile.imageCompressionEnabled";
@@ -38,3 +44,17 @@ export const readMobileThemePreference = async (): Promise<MobileThemePreference
 export const writeMobileThemePreference = (theme: MobileThemePreference) => AsyncStorage.setItem(THEME_PREFERENCE_KEY, theme);
 
 const isMobileLocalePreference = (value: unknown): value is MobileLocalePreference => value === "system" || value === "zh-CN" || value === "en-US";
+
+export const readMobileAiAssistantLastAction = async (): Promise<AiAssistantLastActionPreference | null> => {
+  try {
+    return parseAiAssistantLastActionPreference(await AsyncStorage.getItem(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+};
+
+export const writeMobileAiAssistantLastAction = (preference: AiAssistantLastActionPreference) =>
+  AsyncStorage.setItem(
+    AI_ASSISTANT_LAST_ACTION_STORAGE_KEY,
+    serializeAiAssistantLastActionPreference(preference),
+  ).catch(() => undefined);

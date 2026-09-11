@@ -9,6 +9,10 @@ import {
   getDefaultAiAction,
   getDefaultAiTargetLanguage,
   parseDefaultAiPromptKey,
+  buildAiAssistantLastActionPreference,
+  readStoredAiAssistantLastActionPreference,
+  resolveAiAssistantLastAction,
+  writeStoredAiAssistantLastActionPreference,
   promptAllowsAppend,
   promptAllowsReplace,
   promptNeedsTargetLanguage,
@@ -34,6 +38,7 @@ export const getDefaultTargetLanguage = getDefaultAiTargetLanguage;
 export {
   actionNeedsTargetLanguage,
   actionNeedsTone,
+  buildAiAssistantLastActionPreference,
   canReplaceAiSource,
   getDefaultAiAction,
   parseDefaultAiPromptKey,
@@ -41,6 +46,9 @@ export {
   promptAllowsReplace,
   promptNeedsTargetLanguage,
   promptNeedsTone,
+  readStoredAiAssistantLastActionPreference,
+  resolveAiAssistantLastAction,
+  writeStoredAiAssistantLastActionPreference,
 };
 
 export const resolveAiAssistantComposerInput = ({

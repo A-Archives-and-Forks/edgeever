@@ -25,6 +25,10 @@ final class PreferencesStore {
         didSet { defaults.set(listDensity.rawValue, forKey: Keys.density) }
     }
 
+    var aiAssistantLastAction: AiAssistantLastActionPreference? {
+        didSet { persistAiAssistantLastAction() }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.localeCode = defaults.string(forKey: Keys.locale) ?? "system"
@@ -37,6 +41,7 @@ final class PreferencesStore {
         } else {
             self.listDensity = ListDensity(rawValue: densityRaw) ?? .preview
         }
+        self.aiAssistantLastAction = Self.decodeAiAssistantLastAction(defaults.string(forKey: Keys.aiAssistantLastAction))
     }
 
     var resolvedLocale: Locale {
@@ -65,10 +70,26 @@ final class PreferencesStore {
         isEnglish ? en : zh
     }
 
+    private func persistAiAssistantLastAction() {
+        if let value = aiAssistantLastAction,
+           let data = try? JSONEncoder().encode(value),
+           let raw = String(data: data, encoding: .utf8) {
+            defaults.set(raw, forKey: Keys.aiAssistantLastAction)
+        } else {
+            defaults.removeObject(forKey: Keys.aiAssistantLastAction)
+        }
+    }
+
+    private static func decodeAiAssistantLastAction(_ raw: String?) -> AiAssistantLastActionPreference? {
+        guard let raw, let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(AiAssistantLastActionPreference.self, from: data)
+    }
+
     private enum Keys {
         static let locale = "edgeever.ios.locale"
         static let compression = "edgeever.ios.imageCompression"
         static let theme = "edgeever.ios.theme"
         static let density = "edgeever.ios.listDensity"
+        static let aiAssistantLastAction = "edgeever.aiAssistant.lastAction"
     }
 }
