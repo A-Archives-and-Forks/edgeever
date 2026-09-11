@@ -166,7 +166,7 @@ describe("diagram editor canvas surface", () => {
   });
 
   test("uses restrained rounded edges and fits the complete diagram without clipping", () => {
-    expect(toolbarSource).toContain("DIAGRAM_THEME_GROUPS");
+    expect(toolbarSource).toContain("DIAGRAM_SELECTABLE_THEMES");
     expect(toolbarSource).toContain("DIAGRAM_STRUCTURE_GROUPS");
     expect(toolbarSource).toContain("diagramThemeSwatches");
     expect(toolbarSource).toContain("<StructureThumb");
@@ -176,7 +176,7 @@ describe("diagram editor canvas surface", () => {
     expect(toolbarSource).toContain('structure === "org"');
     expect(toolbarSource).toContain('structure === "timeline"');
     expect(toolbarSource).toContain('structure === "fishbone"');
-    expect(toolbarSource).toContain("diagram.themeGroupVivid");
+    expect(toolbarSource).not.toContain("diagram.themeGroupVivid");
     expect(toolbarSource).toContain('<TooltipContent>{t("diagram.theme")}</TooltipContent>');
     expect(toolbarSource).not.toContain('value="ocean"');
     expect(toolbarSource).not.toContain('value="ink"');
@@ -191,7 +191,7 @@ describe("diagram editor canvas surface", () => {
     expect(source).toContain('themeCatalog={document.kind === "flowchart" ? "flowchart" : "mind-map"}');
     expect(toolbarSource).toContain("showTheme = true");
     expect(toolbarSource).toContain("themeCatalog = \"mind-map\"");
-    expect(toolbarSource).toContain("FLOWCHART_THEME_GROUPS");
+    expect(toolbarSource).toContain("FLOWCHART_SELECTABLE_THEMES");
     expect(toolbarSource).toContain("flowchartThemeSwatches");
     expect(source).toContain("maxScale: policy.maxScale");
     expect(source).not.toContain("minScale: policy.minScale");
