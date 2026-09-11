@@ -341,6 +341,9 @@ export const SystemInfoPanel = ({ active = true }: { active?: boolean }) => {
     clientRuntimeQuery.data?.appVersion ?? __EDGEEVER_APP_VERSION__,
     release?.version,
   );
+  const clientAheadHint = t(
+    `systemInfo.clientAheadOfInstanceByPlatform.${resolveDeploymentPlatform(healthQuery.data?.health?.runtime)}`,
+  );
   const desktopUpdateState = desktopUpdateStatusQuery.data?.state ?? "idle";
   const desktopAutoUpdateSupported = clientRuntimeQuery.data?.autoUpdateSupported !== false;
   const desktopUpdateBusy = desktopUpdateCheckMutation.isPending || desktopUpdateInstallMutation.isPending;
@@ -437,7 +440,7 @@ export const SystemInfoPanel = ({ active = true }: { active?: boolean }) => {
             {isCloud && active && clientAheadOfInstance ? (
               <p className="flex items-start gap-1.5 px-0.5 text-[11px] leading-4 text-slate-500" role="status">
                 <Info className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
-                <span>{t("systemInfo.clientAheadOfInstance")}</span>
+                <span>{clientAheadHint}</span>
               </p>
             ) : isCloud && active && release ? (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-1.5 text-slate-800" role="status">

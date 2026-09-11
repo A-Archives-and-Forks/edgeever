@@ -1137,7 +1137,11 @@ export const zhCN = {
     browserMode: "浏览器",
     unknown: "未知",
     copy: "复制信息",
-    clientAheadOfInstance: "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
+    clientAheadOfInstanceByPlatform: {
+      cloudflare: "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
+      docker: "当前客户端版本高于云端实例。可等待每天自动更新，或手动执行 update.sh。",
+      unknown: "当前客户端版本高于云端实例。可等待每天自动更新，也可手动更新实例。",
+    },
     deployedUpdateTitle: "您的云端实例已自动更新至 v{{version}}",
     viewReleaseNotes: "版本说明",
     desktopCheckForUpdates: "检查更新",

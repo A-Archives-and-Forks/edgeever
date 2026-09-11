@@ -84,7 +84,7 @@ describe("desktop update flow", () => {
     expect(mainSource).not.toContain("heldUpdateVersion");
     expect(mainSource).not.toContain("update.held-for-instance");
     expect(mainSource).toContain("promptForDownloadedUpdate(downloadedUpdateVersion)");
-    expect(systemInfoSource).toContain('t("systemInfo.clientAheadOfInstance")');
+    expect(systemInfoSource).toContain("clientAheadOfInstanceByPlatform");
     expect(systemInfoSource).toContain("isClientAheadOfInstance");
   });
 });

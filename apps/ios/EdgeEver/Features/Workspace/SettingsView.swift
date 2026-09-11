@@ -522,10 +522,23 @@ struct SettingsView: View {
         guard let clientVersion, let instanceVersion, Self.isClient(clientVersion, aheadOfInstance: instanceVersion) else {
             return nil
         }
-        return env.preferences.t(
-            "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
-            en: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run the Update deployed EdgeEver workflow."
-        )
+        switch instanceHealth?.runtime {
+        case "cloudflare-workers":
+            return env.preferences.t(
+                "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
+                en: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run the Update deployed EdgeEver workflow."
+            )
+        case "self-hosted-bun":
+            return env.preferences.t(
+                "当前客户端版本高于云端实例。可等待每天自动更新，或手动执行 update.sh。",
+                en: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or run update.sh on the instance."
+            )
+        default:
+            return env.preferences.t(
+                "当前客户端版本高于云端实例。可等待每天自动更新，也可手动更新实例。",
+                en: "This client is newer than the connected cloud instance. You can wait for the daily automatic instance update, or update the instance manually."
+            )
+        }
     }
 
     private static func isClient(_ clientVersion: String, aheadOfInstance instanceVersion: String) -> Bool {

@@ -8,7 +8,8 @@ describe("system information client/instance version hint", () => {
     expect(source).toContain("isClientAheadOfInstance");
     expect(source).toContain("clientRuntimeQuery.data?.appVersion ?? __EDGEEVER_APP_VERSION__");
     expect(source).toContain("release?.version");
-    expect(source).toContain('t("systemInfo.clientAheadOfInstance")');
+    expect(source).toContain("clientAheadOfInstanceByPlatform");
+    expect(source).toContain("resolveDeploymentPlatform(healthQuery.data?.health?.runtime)");
     expect(source).toContain("clientAheadOfInstance");
   });
 });
