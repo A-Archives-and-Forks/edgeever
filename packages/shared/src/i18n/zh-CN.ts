@@ -1145,7 +1145,7 @@ export const zhCN = {
     copy: "复制信息",
     clientAheadOfInstanceByPlatform: {
       cloudflare: "当前客户端版本高于云端实例。可等待每天自动更新，或手动运行 Update deployed EdgeEver 工作流。",
-      docker: "当前客户端版本高于云端实例。可等待每天自动更新，或手动执行 update.sh。",
+      docker: "当前客户端版本高于云端实例。可等待每天自动更新，或在安装目录执行 ./update.sh（默认 ~/edgeever）。",
       unknown: "当前客户端版本高于云端实例。可等待每天自动更新，也可手动更新实例。",
     },
     deployedUpdateTitle: "您的云端实例已自动更新至 v{{version}}",
