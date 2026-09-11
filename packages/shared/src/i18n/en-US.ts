@@ -1879,6 +1879,7 @@ export const enUS = {
     markdown: "Switch to Markdown source",
     richText: "Switch to rich text",
     markdownSource: "Markdown source",
+    markdownTheme: "Markdown source theme",
     switchToMarkdown: "Switch to Markdown mode",
     switchToRichText: "Switch to rich text mode",
     attachment: "Upload attachment",

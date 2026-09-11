@@ -1877,6 +1877,7 @@ export const zhCN = {
     markdown: "切换到 Markdown 源码",
     richText: "切换到富文本编辑",
     markdownSource: "Markdown 源码",
+    markdownTheme: "Markdown 源码主题",
     switchToMarkdown: "切换到 Markdown 模式",
     switchToRichText: "切换到富文本模式",
     attachment: "上传附件",
