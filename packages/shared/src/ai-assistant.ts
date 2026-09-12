@@ -84,7 +84,7 @@ const NON_REPLACEABLE_AI_ACTIONS: readonly AiAction[] = [
 ];
 
 export const getDefaultAiAction = (hasSelection: boolean): AiAction =>
-  hasSelection ? "improve-writing" : "summarize";
+  hasSelection ? "improve-writing" : "custom";
 
 export const getDefaultAiTargetLanguage = (locale: string | undefined): AiTargetLanguage =>
   locale?.toLowerCase().startsWith("zh") ? "en" : "zh-CN";
@@ -93,6 +93,8 @@ export const AI_ASSISTANT_LAST_ACTION_STORAGE_KEY = "edgeever.aiAssistant.lastAc
 
 export type AiPromptSeedAction = Exclude<AiAction, "custom">;
 
+export type AiAssistantLastActionScope = "selected" | "wholeNote";
+
 export type AiAssistantLastActionPreference = {
   action: AiAction;
   promptId: string | null;
@@ -100,6 +102,14 @@ export type AiAssistantLastActionPreference = {
   targetLanguage?: AiTargetLanguage;
   tone?: AiTone;
 };
+
+export type AiAssistantLastActionStore = {
+  selected?: AiAssistantLastActionPreference;
+  wholeNote?: AiAssistantLastActionPreference;
+};
+
+export const getAiAssistantLastActionScope = (hasSelection: boolean): AiAssistantLastActionScope =>
+  hasSelection ? "selected" : "wholeNote";
 
 export type AiAssistantPromptOption = {
   id: string;
@@ -127,22 +137,50 @@ const getLocalStorage = (): Storage | null => {
   }
 };
 
+const parseAiAssistantLastActionPreferenceObject = (
+  value: unknown,
+): AiAssistantLastActionPreference | null => {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as Record<string, unknown>;
+  if (!isAiAction(parsed.action)) return null;
+  return {
+    action: parsed.action,
+    promptId: typeof parsed.promptId === "string" ? parsed.promptId : null,
+    seedKey: isAiPromptSeedAction(parsed.seedKey) ? parsed.seedKey : null,
+    ...(isAiTargetLanguage(parsed.targetLanguage) ? { targetLanguage: parsed.targetLanguage } : {}),
+    ...(isAiTone(parsed.tone) ? { tone: parsed.tone } : {}),
+  };
+};
+
 export const parseAiAssistantLastActionPreference = (
   raw: string | null | undefined,
 ): AiAssistantLastActionPreference | null => {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (!isAiAction(parsed.action)) return null;
-    return {
-      action: parsed.action,
-      promptId: typeof parsed.promptId === "string" ? parsed.promptId : null,
-      seedKey: isAiPromptSeedAction(parsed.seedKey) ? parsed.seedKey : null,
-      ...(isAiTargetLanguage(parsed.targetLanguage) ? { targetLanguage: parsed.targetLanguage } : {}),
-      ...(isAiTone(parsed.tone) ? { tone: parsed.tone } : {}),
-    };
+    return parseAiAssistantLastActionPreferenceObject(JSON.parse(raw));
   } catch {
     return null;
+  }
+};
+
+export const parseAiAssistantLastActionStore = (
+  raw: string | null | undefined,
+): AiAssistantLastActionStore => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const legacy = parseAiAssistantLastActionPreferenceObject(parsed);
+    if (legacy) return { wholeNote: legacy };
+    return {
+      ...(parseAiAssistantLastActionPreferenceObject(parsed.selected)
+        ? { selected: parseAiAssistantLastActionPreferenceObject(parsed.selected)! }
+        : {}),
+      ...(parseAiAssistantLastActionPreferenceObject(parsed.wholeNote)
+        ? { wholeNote: parseAiAssistantLastActionPreferenceObject(parsed.wholeNote)! }
+        : {}),
+    };
+  } catch {
+    return {};
   }
 };
 
@@ -155,6 +193,12 @@ export const serializeAiAssistantLastActionPreference = (
   ...(preference.targetLanguage ? { targetLanguage: preference.targetLanguage } : {}),
   ...(preference.tone ? { tone: preference.tone } : {}),
 });
+
+export const serializeAiAssistantLastActionStore = (store: AiAssistantLastActionStore) =>
+  JSON.stringify({
+    ...(store.selected ? { selected: JSON.parse(serializeAiAssistantLastActionPreference(store.selected)) } : {}),
+    ...(store.wholeNote ? { wholeNote: JSON.parse(serializeAiAssistantLastActionPreference(store.wholeNote)) } : {}),
+  });
 
 export const buildAiAssistantLastActionPreference = ({
   action,
@@ -209,6 +253,9 @@ export const resolveAiAssistantLastAction = ({
     }
   }
 
+  if (fallbackAction === "custom") {
+    return { action: "custom", selectedPromptId: null };
+  }
   const fallbackPrompt = prompts.find((prompt) => prompt.seedKey === fallbackAction) ?? prompts[0] ?? null;
   if (fallbackPrompt) {
     return { action: fallbackPrompt.action, selectedPromptId: fallbackPrompt.id };
@@ -216,16 +263,21 @@ export const resolveAiAssistantLastAction = ({
   return { action: fallbackAction, selectedPromptId: null };
 };
 
-export const readStoredAiAssistantLastActionPreference = (): AiAssistantLastActionPreference | null =>
-  parseAiAssistantLastActionPreference(getLocalStorage()?.getItem(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY));
+export const readStoredAiAssistantLastActionPreference = (
+  scope: AiAssistantLastActionScope,
+): AiAssistantLastActionPreference | null =>
+  parseAiAssistantLastActionStore(getLocalStorage()?.getItem(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY))[scope] ?? null;
 
 export const writeStoredAiAssistantLastActionPreference = (
+  scope: AiAssistantLastActionScope,
   preference: AiAssistantLastActionPreference,
 ) => {
   try {
-    getLocalStorage()?.setItem(
+    const storage = getLocalStorage();
+    const current = parseAiAssistantLastActionStore(storage?.getItem(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY));
+    storage?.setItem(
       AI_ASSISTANT_LAST_ACTION_STORAGE_KEY,
-      serializeAiAssistantLastActionPreference(preference),
+      serializeAiAssistantLastActionStore({ ...current, [scope]: preference }),
     );
   } catch {
     // Private mode / blocked storage — keep the in-session selection only.

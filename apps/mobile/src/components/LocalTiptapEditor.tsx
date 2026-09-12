@@ -1092,7 +1092,7 @@ function LocalTiptapEditorImpl(props: LocalTiptapEditorProps) {
     if (!markdown) return false;
     const resolved = resolveAiAssistantLastAction({
       fallbackAction: getDefaultAiAction(!wholeNote),
-      preference: readStoredAiAssistantLastActionPreference(),
+      preference: readStoredAiAssistantLastActionPreference(wholeNote ? "wholeNote" : "selected"),
       prompts: aiPrompts,
     });
     const preferredPrompt = resolved.selectedPromptId
@@ -1797,13 +1797,16 @@ const MobileSelectionAiPanel = ({
     nextTone = panel.tone,
   ) => {
     const prompt = nextPromptId ? prompts.find((item) => item.id === nextPromptId) : null;
-    writeStoredAiAssistantLastActionPreference(buildAiAssistantLastActionPreference({
-      action: nextAction,
-      promptId: nextPromptId,
-      seedKey: prompt?.seedKey ?? null,
-      targetLanguage: nextTargetLanguage,
-      tone: nextTone,
-    }));
+    writeStoredAiAssistantLastActionPreference(
+      panel.selection.wholeNote ? "wholeNote" : "selected",
+      buildAiAssistantLastActionPreference({
+        action: nextAction,
+        promptId: nextPromptId,
+        seedKey: prompt?.seedKey ?? null,
+        targetLanguage: nextTargetLanguage,
+        tone: nextTone,
+      }),
+    );
   };
 
   const selectPromptOrAction = (value: string) => {

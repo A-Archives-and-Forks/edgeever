@@ -29,8 +29,8 @@ afterEach(() => {
 });
 
 describe("AI assistant last processing action", () => {
-  test("keeps summarize and polish only as first-time fallbacks", () => {
-    expect(getDefaultAiAction(false)).toBe("summarize");
+  test("defaults to a custom instruction without a selection, and polish with one", () => {
+    expect(getDefaultAiAction(false)).toBe("custom");
     expect(getDefaultAiAction(true)).toBe("improve-writing");
   });
 
@@ -79,12 +79,12 @@ describe("AI assistant last processing action", () => {
 
   test("falls back to the scope default when nothing has been remembered", () => {
     expect(resolveAiAssistantLastAction({
-      fallbackAction: "summarize",
+      fallbackAction: "custom",
       preference: null,
       prompts,
     })).toEqual({
-      action: "summarize",
-      selectedPromptId: "ws_aiprompt_summarize",
+      action: "custom",
+      selectedPromptId: null,
     });
     expect(resolveAiAssistantLastAction({
       fallbackAction: "improve-writing",
@@ -127,10 +127,36 @@ describe("AI assistant last processing action", () => {
       targetLanguage: "en",
       tone: "friendly",
     });
-    writeStoredAiAssistantLastActionPreference(preference);
-    expect(values.get(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY)).toBe(
-      serializeAiAssistantLastActionPreference(preference),
-    );
-    expect(readStoredAiAssistantLastActionPreference()).toEqual(preference);
+    writeStoredAiAssistantLastActionPreference("wholeNote", preference);
+    expect(readStoredAiAssistantLastActionPreference("wholeNote")).toEqual(preference);
+    expect(readStoredAiAssistantLastActionPreference("selected")).toBe(null);
+
+    const selected = buildAiAssistantLastActionPreference({
+      action: "improve-writing",
+      promptId: "ws_aiprompt_improve",
+      seedKey: "improve-writing",
+    });
+    writeStoredAiAssistantLastActionPreference("selected", selected);
+    expect(readStoredAiAssistantLastActionPreference("selected")).toEqual(selected);
+    expect(readStoredAiAssistantLastActionPreference("wholeNote")).toEqual(preference);
+  });
+
+  test("keeps a legacy single preference as the whole-note memory only", () => {
+    const values = new Map();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key) => values.get(key) ?? null,
+        setItem: (key, value) => values.set(key, String(value)),
+      },
+    });
+    const preference = buildAiAssistantLastActionPreference({
+      action: "translate",
+      promptId: "ws_aiprompt_translate",
+      seedKey: "translate",
+    });
+    values.set(AI_ASSISTANT_LAST_ACTION_STORAGE_KEY, serializeAiAssistantLastActionPreference(preference));
+    expect(readStoredAiAssistantLastActionPreference("wholeNote")).toEqual(preference);
+    expect(readStoredAiAssistantLastActionPreference("selected")).toBe(null);
   });
 });

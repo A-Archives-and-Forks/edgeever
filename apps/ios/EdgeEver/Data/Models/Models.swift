@@ -231,6 +231,11 @@ struct AiAssistantLastActionPreference: Codable, Equatable, Sendable {
     var tone: String?
 }
 
+struct AiAssistantLastActionStore: Codable, Equatable, Sendable {
+    var selected: AiAssistantLastActionPreference? = nil
+    var wholeNote: AiAssistantLastActionPreference? = nil
+}
+
 struct AiPromptTemplate: Codable, Equatable, Sendable, Identifiable {
     var id: String
     var origin: String

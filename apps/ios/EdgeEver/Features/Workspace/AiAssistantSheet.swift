@@ -529,18 +529,21 @@ struct AiAssistantSheet: View {
     }
 
     private func persistLastAction() {
-        env.preferences.aiAssistantLastAction = AiAssistantLastActionPreference(
-            action: action,
-            promptId: selectedPromptID,
-            seedKey: selectedPrompt?.seedKey,
-            targetLanguage: targetLanguage.rawValue,
-            tone: tone.rawValue
+        env.preferences.setLastAiAssistantAction(
+            AiAssistantLastActionPreference(
+                action: action,
+                promptId: selectedPromptID,
+                seedKey: selectedPrompt?.seedKey,
+                targetLanguage: targetLanguage.rawValue,
+                tone: tone.rawValue
+            ),
+            isSelection: isSelection
         )
     }
 
     private func applyStoredOrDefaultAction(from loaded: [AiPromptTemplate], allowPromptMatch: Bool) {
-        let stored = env.preferences.aiAssistantLastAction
-        let fallback: AiAction = isSelection ? .improveWriting : .summarize
+        let stored = env.preferences.lastAiAssistantAction(isSelection: isSelection)
+        let fallback: AiAction = isSelection ? .improveWriting : .custom
         if let stored {
             if allowPromptMatch, let promptId = stored.promptId, let match = loaded.first(where: { $0.id == promptId }) {
                 selectedPromptID = match.id
@@ -560,6 +563,12 @@ struct AiAssistantSheet: View {
                 applyStoredParameters(stored)
                 return
             }
+        }
+        if fallback == .custom {
+            selectedPromptID = nil
+            action = .custom
+            targetLanguage = env.preferences.isEnglish ? .simplifiedChinese : .english
+            return
         }
         if allowPromptMatch, let preferred = loaded.first(where: { $0.seedKey == fallback.rawValue }) ?? loaded.first {
             selectedPromptID = preferred.id

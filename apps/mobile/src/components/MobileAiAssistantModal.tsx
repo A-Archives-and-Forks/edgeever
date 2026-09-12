@@ -6,6 +6,7 @@ import {
   AI_TONES,
   AI_WHOLE_NOTE_ACTIONS,
   buildAiAssistantLastActionPreference,
+  getDefaultAiAction,
   getDefaultAiTargetLanguage,
   promptAllowsAppend,
   promptAllowsReplace,
@@ -136,7 +137,7 @@ export const MobileAiAssistantModal = ({
     setSessionReady(false);
     setInitializedForOpen(false);
     let cancelled = false;
-    void readMobileAiAssistantLastAction().then((preference) => {
+    void readMobileAiAssistantLastAction("wholeNote").then((preference) => {
       if (cancelled) return;
       storedPreferenceRef.current = preference;
       setSessionReady(true);
@@ -149,7 +150,7 @@ export const MobileAiAssistantModal = ({
   useEffect(() => {
     if (!visible || !sessionReady || initializedForOpen || promptsQuery.isLoading) return;
     const resolved = resolveAiAssistantLastAction({
-      fallbackAction: "summarize",
+      fallbackAction: getDefaultAiAction(false),
       preference: storedPreferenceRef.current,
       prompts,
     });
@@ -184,7 +185,7 @@ export const MobileAiAssistantModal = ({
     nextTone = tone,
   ) => {
     const prompt = nextPromptId ? prompts.find((item) => item.id === nextPromptId) : null;
-    void writeMobileAiAssistantLastAction(buildAiAssistantLastActionPreference({
+    void writeMobileAiAssistantLastAction("wholeNote", buildAiAssistantLastActionPreference({
       action: nextAction,
       promptId: nextPromptId,
       seedKey: prompt?.seedKey ?? null,

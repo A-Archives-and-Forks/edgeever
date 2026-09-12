@@ -25,7 +25,7 @@ final class PreferencesStore {
         didSet { defaults.set(listDensity.rawValue, forKey: Keys.density) }
     }
 
-    var aiAssistantLastAction: AiAssistantLastActionPreference? {
+    var aiAssistantLastActionStore: AiAssistantLastActionStore {
         didSet { persistAiAssistantLastAction() }
     }
 
@@ -41,7 +41,7 @@ final class PreferencesStore {
         } else {
             self.listDensity = ListDensity(rawValue: densityRaw) ?? .preview
         }
-        self.aiAssistantLastAction = Self.decodeAiAssistantLastAction(defaults.string(forKey: Keys.aiAssistantLastAction))
+        self.aiAssistantLastActionStore = Self.decodeAiAssistantLastActionStore(defaults.string(forKey: Keys.aiAssistantLastAction))
     }
 
     var resolvedLocale: Locale {
@@ -70,19 +70,34 @@ final class PreferencesStore {
         isEnglish ? en : zh
     }
 
-    private func persistAiAssistantLastAction() {
-        if let value = aiAssistantLastAction,
-           let data = try? JSONEncoder().encode(value),
-           let raw = String(data: data, encoding: .utf8) {
-            defaults.set(raw, forKey: Keys.aiAssistantLastAction)
+    func lastAiAssistantAction(isSelection: Bool) -> AiAssistantLastActionPreference? {
+        isSelection ? aiAssistantLastActionStore.selected : aiAssistantLastActionStore.wholeNote
+    }
+
+    func setLastAiAssistantAction(_ preference: AiAssistantLastActionPreference, isSelection: Bool) {
+        if isSelection {
+            aiAssistantLastActionStore.selected = preference
         } else {
-            defaults.removeObject(forKey: Keys.aiAssistantLastAction)
+            aiAssistantLastActionStore.wholeNote = preference
         }
     }
 
-    private static func decodeAiAssistantLastAction(_ raw: String?) -> AiAssistantLastActionPreference? {
-        guard let raw, let data = raw.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(AiAssistantLastActionPreference.self, from: data)
+    private func persistAiAssistantLastAction() {
+        if let data = try? JSONEncoder().encode(aiAssistantLastActionStore),
+           let raw = String(data: data, encoding: .utf8) {
+            defaults.set(raw, forKey: Keys.aiAssistantLastAction)
+        }
+    }
+
+    private static func decodeAiAssistantLastActionStore(_ raw: String?) -> AiAssistantLastActionStore {
+        guard let raw, let data = raw.data(using: .utf8) else { return AiAssistantLastActionStore() }
+        if let store = try? JSONDecoder().decode(AiAssistantLastActionStore.self, from: data) {
+            return store
+        }
+        if let legacy = try? JSONDecoder().decode(AiAssistantLastActionPreference.self, from: data) {
+            return AiAssistantLastActionStore(wholeNote: legacy)
+        }
+        return AiAssistantLastActionStore()
     }
 
     private enum Keys {

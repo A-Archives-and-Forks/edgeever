@@ -45,7 +45,7 @@ describe("native mobile AI note assistant", () => {
     expect(androidAssistantSource).toContain("readMobileAiAssistantLastAction");
     expect(androidEditorSource).toContain("readStoredAiAssistantLastActionPreference");
     expect(androidEditorSource).toContain("resolveAiAssistantLastAction");
-    expect(iosAssistantSource).toContain("aiAssistantLastAction");
+    expect(iosAssistantSource).toContain("lastAiAssistantAction");
     expect(iosAssistantSource).toContain("applyStoredOrDefaultAction");
     expect(readSource("../apps/ios/EdgeEver/Data/Preferences/PreferencesStore.swift")).toContain("edgeever.aiAssistant.lastAction");
 
