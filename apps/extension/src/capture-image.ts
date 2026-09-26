@@ -64,8 +64,8 @@
       "font:600 13px/1.45 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif",
       "box-shadow:0 8px 24px rgb(15 23 42 / 24%)",
     ].join(";");
-    shadow.append(toast);
-    (document.documentElement ?? document.body).append(host);
+    shadow.appendChild(toast);
+    (document.documentElement ?? document.body).appendChild(host);
     window.setTimeout(() => host.remove(), kind === "error" ? 8000 : 4000);
   };
 
