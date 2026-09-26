@@ -3397,12 +3397,16 @@ export const WorkspaceApp = ({
                         <InfographicEditorPane
                           key={selectedMemo.id}
                           memo={selectedMemo}
+                          notebooks={notebooks}
                           repository={repository}
                           readOnly={memoView === "trash" || selectedMemo.isDeleted}
+                          desktopFocusMode={desktopFocusModeActive}
                           onBackToList={() => {
                             clearPendingCreatedMemo();
                             setActivePane("memos");
                           }}
+                          onOpenExecutionCenter={handleOpenExecutionCenter}
+                          onToggleDesktopFocusMode={toggleDesktopFocusMode}
                           onSaved={async (memo) => {
                             await putLocalMemo(localDataScope, memo);
                             cacheMemoDetail(queryClient, memo, memoView);
