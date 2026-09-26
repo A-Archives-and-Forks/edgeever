@@ -19,6 +19,19 @@ describe("extension manifests", () => {
         "http://localhost/*",
         "http://127.0.0.1/*",
       ]);
+      expect(manifest.content_scripts).toEqual([
+        {
+          matches: [
+            "https://x.com/*",
+            "https://www.x.com/*",
+            "https://twitter.com/*",
+            "https://www.twitter.com/*",
+            "https://mobile.twitter.com/*",
+          ],
+          js: ["assets/tweet-target.js"],
+          run_at: "document_start",
+        },
+      ]);
     }
   });
 

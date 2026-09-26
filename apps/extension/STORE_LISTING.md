@@ -38,6 +38,7 @@ EdgeEver Web Clipper 可以把当前网页、你选中的内容，或右键选�
 - 自动提取文章正文，并转换为便于搜索和编辑的 Markdown。
 - 优先保存你在页面中选中的内容。
 - 在图片上右键，选择“保存图片到 EdgeEver”，把图片文件存成一条新笔记。
+- 在 X 上右键一条推文，选择“保存这条推文到 EdgeEver”，把已经显示的文字和图片存成同一条笔记。
 - 在笔记中保留原始标题、来源网址和剪藏时间。
 - 可选择默认笔记本，并自动添加 `web-clip` 标签。
 - 网页内容直接发送到你配置的 EdgeEver 实例，不经过开发者的中转服务器。
@@ -61,6 +62,7 @@ Key features:
 - Extract article content automatically and convert it to searchable, editable Markdown.
 - Prefer content selected on the page when a selection is available.
 - Right-click an image and choose “Save image to EdgeEver” to store the image file as a new note.
+- On X, right-click a post and choose “Save this post to EdgeEver” to store its visible text and photos in one note.
 - Preserve the original title, source URL, and clipping time in the note.
 - Select a default notebook and add the `web-clip` tag automatically.
 - Send webpage content directly to your configured EdgeEver instance without a developer-operated relay server.
@@ -81,7 +83,7 @@ Save the current webpage, user-selected content, or a user-chosen image to the s
 - `contextMenus`: Add a Save image to EdgeEver item when the user right-clicks an image. It runs only after the user selects that item.
 - `scripting`: Inject the packaged capture script into the active page after the user initiates a capture.
 - `storage`: Store the user's EdgeEver instance URL, API token, and default notebook ID locally.
-- Optional host permissions: Send API requests only to the EdgeEver instance origin the user approves. If a page cannot provide an image file, the extension can also ask for access to that image's site, or to all sites when the user explicitly chooses that option, and uses it only to download the image the user chose to save.
+- Optional host permissions: Send API requests only to the EdgeEver instance origin the user approves. If a page cannot provide an image file, the extension can also ask for access to that image's site, or to all sites when the user explicitly chooses that option, and uses it only to download the image the user chose to save. Saving a post from an X timeline asks for access to X so the extension can remember which post was under the pointer. The script on X only records that target and runs after the user allows it.
 
 ### Data disclosures
 

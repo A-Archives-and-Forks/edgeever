@@ -12,7 +12,7 @@
     "message": "网页剪藏"
   },
   "popupDescription": {
-    "message": "剪藏当前网页或选中内容。在图片上右键，可以把它存成一条笔记。"
+    "message": "剪藏当前网页或选中内容。在图片上右键可以保存图片；在 X 上右键可以保存这条推文。"
   },
   "saveCurrentPage": {
     "message": "剪藏当前网页"
@@ -254,5 +254,47 @@
   },
   "imageSaveExpired": {
     "message": "这次保存已经结束。请在图片上重新右键。"
+  },
+  "saveTweetToEdgeEver": {
+    "message": "保存这条推文到 EdgeEver"
+  },
+  "tweetSaveHint": {
+    "message": "在 X 上右键一条推文，选择“保存这条推文到 EdgeEver”。已经显示的文字和图片会放进同一条新笔记，笔记本与上面的默认笔记本相同。"
+  },
+  "savingTweet": {
+    "message": "正在保存这条推文……"
+  },
+  "tweetSaved": {
+    "message": "已把这条推文存成一条笔记。"
+  },
+  "tweetNotFound": {
+    "message": "没有定位到这条推文。请直接在推文上右键。"
+  },
+  "tweetPermissionIntro": {
+    "message": "时间线上有很多条推文。允许访问 X 之后，插件才能记住指针下的这一条。允许后，请再在同一条推文上右键一次。只会把你选中的这条存进剪藏插件的默认笔记本。"
+  },
+  "tweetPermissionToast": {
+    "message": "需要允许访问 X，才能在时间线上选中这条推文。允许后请再右键一次。"
+  },
+  "tweetRightClickAgain": {
+    "message": "已经可以识别时间线上的推文。请再在这条推文上右键一次。"
+  },
+  "allowTweetAccess": {
+    "message": "允许访问 X"
+  },
+  "tweetPermissionDenied": {
+    "message": "没有获得访问权限。请再在推文上右键一次来重新授权。"
+  },
+  "tweetPermissionReady": {
+    "message": "已允许。回到页面，再在这条推文上右键一次。"
+  },
+  "tweetNoteFallbackTitle": {
+    "message": "一条推文"
+  },
+  "tweetSaveWindowTitle": {
+    "message": "保存这条推文到 EdgeEver"
+  },
+  "tweetTimeLabel": {
+    "message": "时间"
   }
 }

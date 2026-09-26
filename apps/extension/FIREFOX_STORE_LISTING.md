@@ -15,12 +15,13 @@ EdgeEver Web Clipper saves the current webpage, selected text, or a right-clicke
 
 - Extract readable article content or preserve the current selection.
 - Right-click an image and save that image file as a new note.
+- On X, right-click a post and save its visible text and photos as one note.
 - Convert captured HTML to Markdown locally.
 - Choose a default EdgeEver notebook.
 - Send content directly to your instance without an EdgeEver-operated relay.
 - No advertising, analytics, tracking, or telemetry.
 
-Before using the extension, enter your EdgeEver instance URL and API token in the extension settings. The extension reads and sends page content only after you click **Clip current page**.
+Before using the extension, enter your EdgeEver instance URL and API token in the extension settings. The extension reads and sends page content only after you click **Clip current page**, **Save image to EdgeEver**, or **Save this post to EdgeEver**.
 
 ## Data collection and transmission
 
@@ -38,7 +39,8 @@ The project maintainers do not receive or retain this data. Instance settings ar
 4. Open a normal HTTP or HTTPS webpage.
 5. Open the extension, choose **Clip current page**, and verify that the success message appears.
 6. On a normal webpage, right-click an image, choose **Save image to EdgeEver**, and verify the new note contains the image.
-7. Verify the created notes in the review EdgeEver instance.
+7. Open one X post page, right-click the post, choose **Save this post to EdgeEver**, and verify the note contains the visible text and the post link.
+8. Verify the created notes in the review EdgeEver instance.
 
 Restricted browser pages, extension stores, built-in PDF viewers, and other privileged pages cannot be captured.
 
@@ -66,6 +68,7 @@ EdgeEver 网页裁剪插件可将当前网页、选中的文字，或右键选�
 
 - 提取适合阅读的文章正文，也可只保存当前选区。
 - 在图片上右键，把图片文件存成一条新笔记。
+- 在 X 上右键一条推文，把已经显示的文字和图片存成同一条笔记。
 - 在浏览器本地将 HTML 转换为 Markdown。
 - 可选择默认 EdgeEver 笔记本。
 - 数据直接发送到用户自己的实例，不经过 EdgeEver 中转服务。

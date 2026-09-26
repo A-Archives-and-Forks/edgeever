@@ -12,7 +12,7 @@
     "message": "Web Clipper"
   },
   "popupDescription": {
-    "message": "表示中のページや選択した内容を取り込みます。画像を右クリックしてノートとして保存することもできます。"
+    "message": "表示中のページや選択した内容を取り込みます。画像の右クリックで画像を、X 上の投稿の右クリックでその投稿を保存できます。"
   },
   "saveCurrentPage": {
     "message": "このページを取り込む"
@@ -254,5 +254,47 @@
   },
   "imageSaveExpired": {
     "message": "この保存は終了しています。画像を右クリックしてやり直してください。"
+  },
+  "saveTweetToEdgeEver": {
+    "message": "この投稿を EdgeEver に保存"
+  },
+  "tweetSaveHint": {
+    "message": "X で投稿を右クリックし、「この投稿を EdgeEver に保存」を選びます。表示中の本文と画像は、上で選んだ既定のノートブックに 1 件のノートとして保存されます。"
+  },
+  "savingTweet": {
+    "message": "この投稿を保存しています…"
+  },
+  "tweetSaved": {
+    "message": "この投稿をノートとして保存しました。"
+  },
+  "tweetNotFound": {
+    "message": "この投稿を特定できませんでした。投稿の上で直接右クリックしてください。"
+  },
+  "tweetPermissionIntro": {
+    "message": "タイムラインには複数の投稿があります。ポインタの下にある投稿を覚えるには、X へのアクセスを許可してください。許可したあと、同じ投稿をもう一度右クリックします。選んだ投稿だけを、クリップ拡張機能の既定ノートブックに保存します。"
+  },
+  "tweetPermissionToast": {
+    "message": "タイムラインで投稿を選ぶには、X へのアクセスを許可してください。そのあと、もう一度右クリックします。"
+  },
+  "tweetRightClickAgain": {
+    "message": "タイムラインの投稿を識別できるようになりました。その投稿をもう一度右クリックしてください。"
+  },
+  "allowTweetAccess": {
+    "message": "X へのアクセスを許可"
+  },
+  "tweetPermissionDenied": {
+    "message": "アクセスは許可されませんでした。投稿をもう一度右クリックしてやり直してください。"
+  },
+  "tweetPermissionReady": {
+    "message": "許可しました。ページに戻り、その投稿をもう一度右クリックしてください。"
+  },
+  "tweetNoteFallbackTitle": {
+    "message": "投稿"
+  },
+  "tweetSaveWindowTitle": {
+    "message": "この投稿を EdgeEver に保存"
+  },
+  "tweetTimeLabel": {
+    "message": "日時"
   }
 }

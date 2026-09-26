@@ -22,6 +22,13 @@ import {
   type StoredImage,
   type StoredImageFailure,
 } from "./image-clip";
+import {
+  canonicalStatusUrl,
+  isCapturedTweet,
+  saveCapturedTweetNote,
+  statusIdFromPageUrl,
+  tweetNoteTitle,
+} from "./tweet-clip";
 import { t } from "./i18n";
 
 type CapturedPage = {
@@ -42,8 +49,18 @@ type PendingImageSave = {
 };
 
 const IMAGE_MENU_ID = "save-image";
+const TWEET_MENU_ID = "save-tweet";
 const PENDING_IMAGE_SAVE_KEY = "pendingImageSave";
 const IMAGE_SAVE_WINDOW_KEY = "imageSaveWindowId";
+const PENDING_TWEET_KEY = "pendingTweetPermission";
+const TWEET_WINDOW_KEY = "tweetSaveWindowId";
+const TWEET_DOCUMENT_PATTERNS = [
+  "https://x.com/*",
+  "https://www.x.com/*",
+  "https://twitter.com/*",
+  "https://www.twitter.com/*",
+  "https://mobile.twitter.com/*",
+];
 
 const toMarkdown = (page: CapturedPage) => {
   const capturedAt = new Date().toISOString();
@@ -270,41 +287,52 @@ const readPendingImageSave = async () => {
   return isPendingImageSave(stored[PENDING_IMAGE_SAVE_KEY]) ? stored[PENDING_IMAGE_SAVE_KEY] : null;
 };
 
-const openImagePermissionWindow = async (pending: PendingImageSave) => {
-  await chrome.storage.session.set({ [PENDING_IMAGE_SAVE_KEY]: pending });
-  const stored = await chrome.storage.session.get(IMAGE_SAVE_WINDOW_KEY);
-  const existingId = stored[IMAGE_SAVE_WINDOW_KEY];
+const focusExtensionWindow = async (path: string, windowKey: string, height: number) => {
+  const stored = await chrome.storage.session.get(windowKey);
+  const existingId = stored[windowKey];
+  const url = chrome.runtime.getURL(path);
   if (typeof existingId === "number") {
     try {
       const existing = await chrome.windows.get(existingId, { populate: true });
-      const tabId = existing.tabs?.[0]?.id;
-      if (tabId) {
-        await chrome.tabs.update(tabId, { url: chrome.runtime.getURL("image-save.html") });
+      const existingTabId = existing.tabs?.[0]?.id;
+      if (existingTabId) {
+        await chrome.tabs.update(existingTabId, { url });
         await chrome.windows.update(existingId, { focused: true });
         return;
       }
     } catch {
-      // The previous permission window has already closed.
+      // The previous window has already closed.
     }
   }
   const created = await chrome.windows.create({
-    url: chrome.runtime.getURL("image-save.html"),
+    url,
     type: "popup",
     width: 440,
-    height: 640,
+    height,
     focused: true,
   });
-  if (created.id) await chrome.storage.session.set({ [IMAGE_SAVE_WINDOW_KEY]: created.id });
+  if (created.id) await chrome.storage.session.set({ [windowKey]: created.id });
+};
+
+const openImagePermissionWindow = async (pending: PendingImageSave) => {
+  await chrome.storage.session.set({ [PENDING_IMAGE_SAVE_KEY]: pending });
+  await focusExtensionWindow("image-save.html", IMAGE_SAVE_WINDOW_KEY, 640);
+};
+
+const openTweetPermissionWindow = async (tabId: number | null) => {
+  await chrome.storage.session.set({ [PENDING_TWEET_KEY]: { tabId } });
+  await focusExtensionWindow("tweet-save.html", TWEET_WINDOW_KEY, 560);
 };
 
 let pendingCapture: ((page: CapturedPage) => void) | null = null;
 const pendingImageReads = new Map<string, (result: unknown) => void>();
-let imageSaveQueue = Promise.resolve();
+const pendingTweetReads = new Map<string, (result: unknown) => void>();
+let clipQueue = Promise.resolve();
 let completingImageSave = false;
 
-const enqueueImageSave = (job: () => Promise<void>) => {
-  const run = imageSaveQueue.then(job, job);
-  imageSaveQueue = run.then(() => undefined, () => undefined);
+const enqueueClip = (job: () => Promise<void>) => {
+  const run = clipQueue.then(job, job);
+  clipQueue = run.then(() => undefined, () => undefined);
   return run;
 };
 
@@ -416,7 +444,142 @@ const saveImageFromMenu = async (
   }
 };
 
-const registerImageMenu = () => {
+const injectTweetReader = async (tabId: number, frameId: number | null, payload: unknown) => {
+  const target = scriptTarget(tabId, frameId);
+  await chrome.scripting.executeScript({
+    target,
+    func: (value: unknown) => {
+      (globalThis as { __edgeeverTweetClipPayload?: unknown }).__edgeeverTweetClipPayload = value;
+    },
+    args: [payload],
+  });
+  await chrome.scripting.executeScript({
+    target,
+    files: ["assets/capture-tweet.js"],
+  });
+};
+
+const injectTweetTarget = async (tabId: number) => {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["assets/tweet-target.js"],
+  });
+};
+
+const readTweetFromPage = async (tabId: number, frameId: number | null, statusId: string) => {
+  const requestId = crypto.randomUUID();
+  const result = await new Promise<unknown>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingTweetReads.delete(requestId);
+      reject(new Error("timeout"));
+    }, 10_000);
+    pendingTweetReads.set(requestId, (value) => {
+      clearTimeout(timeout);
+      resolve(value);
+    });
+    void injectTweetReader(tabId, frameId, { requestId, statusId }).catch((error: unknown) => {
+      clearTimeout(timeout);
+      pendingTweetReads.delete(requestId);
+      reject(error);
+    });
+  });
+  return isCapturedTweet(result) ? result : { ok: false as const, reason: "not-found" as const };
+};
+
+const hasTweetSitePermission = async (pageUrl: string) => {
+  const pattern = imageOriginPattern(pageUrl);
+  if (!pattern) return false;
+  return chrome.permissions.contains({ origins: [pattern] });
+};
+
+const readTweetImage = async (tabId: number, frameId: number | null, url: string, alt: string) => {
+  const urls = preferredImageUrls(url);
+  try {
+    const pageRead = await readImageFromPage(tabId, frameId, urls, url);
+    if (pageRead.ok) {
+      const image = imageFromBase64(pageRead.base64, pageRead.mimeType, pageRead.byteSize);
+      if (!("error" in image)) {
+        return { ...image, filename: filenameForImage(url, image.mimeType), alt: alt || pageRead.alt };
+      }
+    }
+  } catch {
+    // The page could not hand over this photo. Try a permitted download below.
+  }
+  if (await hasImagePermission(urls)) {
+    const downloaded = await downloadImage(urls);
+    if (!("error" in downloaded)) {
+      return { ...downloaded, filename: filenameForImage(url, downloaded.mimeType), alt };
+    }
+  }
+  return null;
+};
+
+const describeTweetError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : "";
+  if (message === t("tweetNotFound")) return message;
+  return describeImageError(error);
+};
+
+const saveTweetFromMenu = async (
+  info: { pageUrl?: string; frameId?: number },
+  tab?: { id?: number; url?: string },
+) => {
+  const tabId = typeof tab?.id === "number" ? tab.id : null;
+  const frameId = typeof info.frameId === "number" ? info.frameId : null;
+  const pageUrl = tab?.url || info.pageUrl || "";
+  try {
+    const settings = await ensureClipperReady();
+    if (!tabId) throw new Error(t("tweetNotFound"));
+    const statusId = statusIdFromPageUrl(pageUrl);
+    if (!statusId && !await hasTweetSitePermission(pageUrl)) {
+      await openTweetPermissionWindow(tabId);
+      await showFeedback(tabId, frameId, t("tweetPermissionToast"), "success");
+      return;
+    }
+
+    await showFeedback(tabId, frameId, t("savingTweet"), "success");
+    const tweet = await readTweetFromPage(tabId, frameId, statusId);
+    if (!tweet.ok && tweet.reason === "needs-listener") {
+      await injectTweetTarget(tabId);
+      await showFeedback(tabId, frameId, t("tweetRightClickAgain"), "success");
+      return;
+    }
+    if (!tweet.ok) throw new Error(t("tweetNotFound"));
+
+    const images = [];
+    for (const image of tweet.images) {
+      const stored = await readTweetImage(tabId, frameId, image.url, image.alt);
+      if (stored) images.push(stored);
+    }
+    await saveCapturedTweetNote(imageNoteClient(settings), {
+      notebookId: settings.notebookId,
+      title: tweetNoteTitle({ ...tweet, fallback: t("tweetNoteFallbackTitle") }),
+      displayName: tweet.displayName,
+      handle: tweet.handle,
+      text: tweet.text,
+      quotedDisplayName: tweet.quotedDisplayName,
+      quotedHandle: tweet.quotedHandle,
+      quotedText: tweet.quotedText,
+      datetime: tweet.datetime,
+      statusUrl: tweet.statusUrl || canonicalStatusUrl(pageUrl) || pageUrl,
+      images,
+      capturedAt: new Date().toISOString(),
+      sourceLabel: t("sourceLabel"),
+      capturedAtLabel: t("capturedAtLabel"),
+      timeLabel: t("tweetTimeLabel"),
+      altFallback: t("imageAltFallback"),
+    });
+    await showFeedback(tabId, frameId, t("tweetSaved"), "success");
+  } catch (error) {
+    const message = describeTweetError(error);
+    if (message === t("completePluginConfiguration") || message === t("instancePermissionRequired")) {
+      await chrome.runtime.openOptionsPage();
+    }
+    await showFeedback(tabId, frameId, message, "error");
+  }
+};
+
+const registerClipMenus = () => {
   chrome.contextMenus.create({
     id: IMAGE_MENU_ID,
     title: t("saveImageToEdgeEver"),
@@ -425,20 +588,36 @@ const registerImageMenu = () => {
   }, () => {
     void chrome.runtime.lastError;
   });
+  chrome.contextMenus.create({
+    id: TWEET_MENU_ID,
+    title: t("saveTweetToEdgeEver"),
+    contexts: ["page", "selection", "link", "image", "video"],
+    documentUrlPatterns: TWEET_DOCUMENT_PATTERNS,
+  }, () => {
+    void chrome.runtime.lastError;
+  });
 };
 
-chrome.runtime.onInstalled.addListener(registerImageMenu);
-registerImageMenu();
+chrome.runtime.onInstalled.addListener(registerClipMenus);
+registerClipMenus();
 
 chrome.contextMenus.onClicked.addListener((info: { menuItemId?: string | number; srcUrl?: string; pageUrl?: string; frameId?: number }, tab?: { id?: number; url?: string; title?: string }) => {
-  if (info.menuItemId !== IMAGE_MENU_ID) return;
-  void enqueueImageSave(() => saveImageFromMenu(info, tab));
+  if (info.menuItemId === IMAGE_MENU_ID) {
+    void enqueueClip(() => saveImageFromMenu(info, tab));
+    return;
+  }
+  if (info.menuItemId === TWEET_MENU_ID) {
+    void enqueueClip(() => saveTweetFromMenu(info, tab));
+  }
 });
 
 chrome.windows.onRemoved.addListener((windowId: number) => {
-  void chrome.storage.session.get(IMAGE_SAVE_WINDOW_KEY).then((stored: Record<string, unknown>) => {
+  void chrome.storage.session.get([IMAGE_SAVE_WINDOW_KEY, TWEET_WINDOW_KEY]).then((stored: Record<string, unknown>) => {
     if (stored[IMAGE_SAVE_WINDOW_KEY] === windowId) {
       void chrome.storage.session.remove(IMAGE_SAVE_WINDOW_KEY);
+    }
+    if (stored[TWEET_WINDOW_KEY] === windowId) {
+      void chrome.storage.session.remove(TWEET_WINDOW_KEY);
     }
   }).catch(() => undefined);
 });
@@ -454,6 +633,29 @@ chrome.runtime.onMessage.addListener((message: { type?: string; page?: CapturedP
     pendingImageReads.get(message.requestId)?.(message.result);
     pendingImageReads.delete(message.requestId);
     return false;
+  }
+
+  if (message.type === "pageTweetRead" && message.requestId) {
+    pendingTweetReads.get(message.requestId)?.(message.result);
+    pendingTweetReads.delete(message.requestId);
+    return false;
+  }
+
+  if (message.type === "activateTweetTarget") {
+    void (async () => {
+      const stored = await chrome.storage.session.get(PENDING_TWEET_KEY);
+      const pending = stored[PENDING_TWEET_KEY] as { tabId?: number | null } | undefined;
+      if (typeof pending?.tabId === "number") {
+        try {
+          await injectTweetTarget(pending.tabId);
+        } catch {
+          // The tab can be saved on the next right-click after it reloads.
+        }
+      }
+      await chrome.storage.session.remove(PENDING_TWEET_KEY);
+      sendResponse({ ok: true });
+    })().catch(() => sendResponse({ ok: false }));
+    return true;
   }
 
   if (message.type === "getPendingImageSave") {

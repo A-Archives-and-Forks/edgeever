@@ -12,7 +12,7 @@
     "message": "Web Clipper"
   },
   "popupDescription": {
-    "message": "Clip the current page or selection. Right-click an image to save it as a note."
+    "message": "Clip the current page or selection. Right-click an image to save it, or right-click a post on X to save that post."
   },
   "saveCurrentPage": {
     "message": "Clip current page"
@@ -254,5 +254,47 @@
   },
   "imageSaveExpired": {
     "message": "This save has expired. Right-click the image and try again."
+  },
+  "saveTweetToEdgeEver": {
+    "message": "Save this post to EdgeEver"
+  },
+  "tweetSaveHint": {
+    "message": "On X, right-click a post and choose “Save this post to EdgeEver”. The visible text and photos go into one new note in the same default notebook."
+  },
+  "savingTweet": {
+    "message": "Saving this post…"
+  },
+  "tweetSaved": {
+    "message": "Saved this post as a note."
+  },
+  "tweetNotFound": {
+    "message": "Could not find that post. Right-click directly on the post."
+  },
+  "tweetPermissionIntro": {
+    "message": "A timeline has many posts. Allow access to X so the clipper can remember the post under the pointer. After that, right-click the same post once more. Only the post you choose is saved to the clipper's default notebook."
+  },
+  "tweetPermissionToast": {
+    "message": "Allow access to X to choose a post on the timeline. Then right-click that post again."
+  },
+  "tweetRightClickAgain": {
+    "message": "Posts on the timeline can be recognized now. Right-click that post again."
+  },
+  "allowTweetAccess": {
+    "message": "Allow access to X"
+  },
+  "tweetPermissionDenied": {
+    "message": "Access was not allowed. Right-click the post again to retry."
+  },
+  "tweetPermissionReady": {
+    "message": "Access allowed. Go back and right-click that post again."
+  },
+  "tweetNoteFallbackTitle": {
+    "message": "Post"
+  },
+  "tweetSaveWindowTitle": {
+    "message": "Save this post to EdgeEver"
+  },
+  "tweetTimeLabel": {
+    "message": "Time"
   }
 }
