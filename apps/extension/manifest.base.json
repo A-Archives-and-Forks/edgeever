@@ -9,8 +9,8 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["activeTab", "scripting", "storage"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*", "http://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "action": {
     "default_title": "__MSG_actionTitle__",
     "default_icon": {
